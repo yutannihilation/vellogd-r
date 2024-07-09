@@ -1,3 +1,5 @@
+mod graphics;
+
 use savvy::savvy;
 
 #[savvy]
