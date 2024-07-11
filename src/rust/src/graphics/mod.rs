@@ -2,13 +2,11 @@
 
 mod ffi;
 
-pub mod color;
-pub mod device_descriptor;
-pub mod device_driver;
+mod color;
+mod device_descriptor;
+mod device_driver;
 
 use color::Color;
-pub use device_descriptor::*;
-pub use device_driver::*;
 use savvy::Sexp;
 
 use ffi::*;

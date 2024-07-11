@@ -1,8 +1,8 @@
 use savvy::ffi::SEXP;
 
 use super::ffi::*;
-use core::slice;
 use std::ffi::CString;
+use std::slice;
 
 use super::{device_descriptor::*, Device, Raster, TextMetric};
 
@@ -395,7 +395,7 @@ pub trait DeviceDriver: std::marker::Sized {
             // we just use `c.abs()`.
             //
             // [^1]: https://github.com/wch/r-source/blob/9bb47ca929c41a133786fa8fff7c70162bb75e50/src/include/R_ext/GraphicsDevice.h#L615-L617
-            if let Some(c) = std::char::from_u32(c.abs() as _) {
+            if let Some(c) = std::char::from_u32(c.unsigned_abs()) {
                 let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
                 let metric_info = data.char_metric(c, *gc, *dd);
                 *ascent = metric_info.ascent;
@@ -613,7 +613,6 @@ pub trait DeviceDriver: std::marker::Sized {
             data.eventHelper(*dd, code);
         }
 
-        #[cfg(use_r_ge_version_14)]
         unsafe extern "C" fn device_driver_setPattern<T: DeviceDriver>(
             pattern: SEXP,
             dd: pDevDesc,
@@ -624,7 +623,6 @@ pub trait DeviceDriver: std::marker::Sized {
             R_NilValue
         }
 
-        #[cfg(use_r_ge_version_14)]
         unsafe extern "C" fn device_driver_releasePattern<T: DeviceDriver>(
             ref_: SEXP,
             dd: pDevDesc,
@@ -634,7 +632,6 @@ pub trait DeviceDriver: std::marker::Sized {
             // data.reelasePattern(ref_, *dd);
         }
 
-        #[cfg(use_r_ge_version_14)]
         unsafe extern "C" fn device_driver_setClipPath<T: DeviceDriver>(
             path: SEXP,
             ref_: SEXP,
@@ -646,7 +643,6 @@ pub trait DeviceDriver: std::marker::Sized {
             R_NilValue
         }
 
-        #[cfg(use_r_ge_version_14)]
         unsafe extern "C" fn device_driver_releaseClipPath<T: DeviceDriver>(
             ref_: SEXP,
             dd: pDevDesc,
@@ -656,7 +652,6 @@ pub trait DeviceDriver: std::marker::Sized {
             // data.releaseClipPath(ref_, *dd);
         }
 
-        #[cfg(use_r_ge_version_14)]
         unsafe extern "C" fn device_driver_setMask<T: DeviceDriver>(
             path: SEXP,
             ref_: SEXP,
@@ -668,7 +663,6 @@ pub trait DeviceDriver: std::marker::Sized {
             R_NilValue
         }
 
-        #[cfg(use_r_ge_version_14)]
         unsafe extern "C" fn device_driver_releaseMask<T: DeviceDriver>(ref_: SEXP, dd: pDevDesc) {
             let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
             // TODO
@@ -843,7 +837,7 @@ pub trait DeviceDriver: std::marker::Sized {
             // most of the cases.
             (*p_dev_desc).useRotatedTextInContour = Rboolean_FALSE;
 
-            (*p_dev_desc).eventEnv = unsafe { R_EmptyEnv };
+            (*p_dev_desc).eventEnv = R_EmptyEnv;
             (*p_dev_desc).eventHelper = Some(device_driver_eventHelper::<T>);
 
             (*p_dev_desc).holdflush = Some(device_driver_holdflush::<T>);
@@ -873,41 +867,31 @@ pub trait DeviceDriver: std::marker::Sized {
                 DevCapLocator::No as _
             };
 
-            // NOTE: Unlike the features that will be added in  Graphics API
-            // version 15 (i.e. R 4.2), the features in API v13 & v14 (i.e. R
-            // 4.1) are not optional. We need to provide the placeholder
-            // functions for it.
-            #[cfg(use_r_ge_version_14)]
-            {
-                (*p_dev_desc).setPattern = Some(device_driver_setPattern::<T>);
-                (*p_dev_desc).releasePattern = Some(device_driver_releasePattern::<T>);
+            (*p_dev_desc).setPattern = Some(device_driver_setPattern::<T>);
+            (*p_dev_desc).releasePattern = Some(device_driver_releasePattern::<T>);
 
-                (*p_dev_desc).setClipPath = Some(device_driver_setClipPath::<T>);
-                (*p_dev_desc).releaseClipPath = Some(device_driver_releaseClipPath::<T>);
+            (*p_dev_desc).setClipPath = Some(device_driver_setClipPath::<T>);
+            (*p_dev_desc).releaseClipPath = Some(device_driver_releaseClipPath::<T>);
 
-                (*p_dev_desc).setMask = Some(device_driver_setMask::<T>);
-                (*p_dev_desc).releaseMask = Some(device_driver_releaseMask::<T>);
+            (*p_dev_desc).setMask = Some(device_driver_setMask::<T>);
+            (*p_dev_desc).releaseMask = Some(device_driver_releaseMask::<T>);
 
-                (*p_dev_desc).deviceVersion = R_GE_definitions as _;
+            (*p_dev_desc).deviceVersion = R_GE_definitions as _;
 
-                (*p_dev_desc).deviceClip = match <T>::CLIPPING_STRATEGY {
-                    ClippingStrategy::Device => Rboolean_TRUE,
-                    _ => Rboolean_FALSE,
-                };
-            }
+            (*p_dev_desc).deviceClip = match <T>::CLIPPING_STRATEGY {
+                ClippingStrategy::Device => Rboolean_TRUE,
+                _ => Rboolean_FALSE,
+            };
 
-            #[cfg(use_r_ge_version_15)]
-            {
-                (*p_dev_desc).defineGroup = None;
-                (*p_dev_desc).useGroup = None;
-                (*p_dev_desc).releaseGroup = None;
+            (*p_dev_desc).defineGroup = None;
+            (*p_dev_desc).useGroup = None;
+            (*p_dev_desc).releaseGroup = None;
 
-                (*p_dev_desc).stroke = None;
-                (*p_dev_desc).fill = None;
-                (*p_dev_desc).fillStroke = None;
+            (*p_dev_desc).stroke = None;
+            (*p_dev_desc).fill = None;
+            (*p_dev_desc).fillStroke = None;
 
-                (*p_dev_desc).capabilities = None;
-            }
+            (*p_dev_desc).capabilities = None;
         } // unsafe ends here
 
         let device_name = CString::new(device_name).unwrap();

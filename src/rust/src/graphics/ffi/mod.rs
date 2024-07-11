@@ -11,6 +11,8 @@ extern "C" {
 
 // TODO: do not include GE version
 pub const R_GE_version: u32 = 16;
+pub const R_GE_definitions: u32 = 13;
+
 extern "C" {
     pub fn R_GE_checkVersionOrDie(version: c_int);
     pub fn R_CheckDeviceAvailable();
