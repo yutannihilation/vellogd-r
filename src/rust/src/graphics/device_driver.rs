@@ -4,7 +4,7 @@ use super::ffi::*;
 use std::ffi::CString;
 use std::slice;
 
-use super::{device_descriptor::*, Device, Raster, TextMetric};
+use super::{device_descriptor::*, Raster, TextMetric};
 
 /// The underlying C structure `DevDesc` has two fields related to clipping:
 ///
@@ -278,7 +278,7 @@ pub trait DeviceDriver: std::marker::Sized {
         self,
         device_descriptor: DeviceDescriptor,
         device_name: &'static str,
-    ) -> Device {
+    ) -> pGEDevDesc {
         #![allow(non_snake_case)]
         #![allow(unused_variables)]
         use std::os::raw::{c_char, c_int, c_uint};
@@ -883,6 +883,6 @@ pub trait DeviceDriver: std::marker::Sized {
             GEinitDisplayList(device);
         }
 
-        Device { inner: device }
+        device
     }
 }
