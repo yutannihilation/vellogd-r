@@ -2,17 +2,17 @@
 
 mod ffi;
 
-mod color;
 mod device_descriptor;
 mod device_driver;
 
 pub use device_descriptor::DeviceDescriptor;
 
-use color::Color;
-pub use device_driver::DeviceDriver;
+pub use device_driver::{ClippingStrategy, DeviceDriver};
 use savvy::Sexp;
 
 use ffi::*;
+
+pub use ffi::{DevDesc, R_GE_gcontext, R_NilValue};
 
 pub struct Context {
     context: R_GE_gcontext,
@@ -73,31 +73,11 @@ pub enum LineJoin {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum LineType {
-    Blank,
-    Solid,
-    Dashed,
-    Dotted,
-    DotDash,
-    LongDash,
-    TwoDash,
-}
-
-#[derive(PartialEq, Debug, Clone)]
 pub enum Unit {
     Device,
     Normalized,
     Inches,
     CM,
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub enum FontFace {
-    Plain,
-    Bold,
-    Italic,
-    BoldItalic,
-    Symbol,
 }
 
 impl From<LineEnd> for R_GE_lineend {
@@ -120,248 +100,12 @@ impl From<LineJoin> for R_GE_linejoin {
     }
 }
 
-impl LineType {
-    fn to_i32(&self) -> i32 {
-        match self {
-            Self::Blank => LTY_BLANK as _,
-            Self::Solid => LTY_SOLID as _,
-            Self::Dashed => LTY_DASHED as _,
-            Self::Dotted => LTY_DOTTED as _,
-            Self::DotDash => LTY_DOTDASH as _,
-            Self::LongDash => LTY_LONGDASH as _,
-            Self::TwoDash => LTY_TWODASH as _,
-        }
-    }
-}
-
-impl FontFace {
-    fn to_i32(&self) -> i32 {
-        match self {
-            Self::Plain => 1,
-            Self::Bold => 2,
-            Self::Italic => 3,
-            Self::BoldItalic => 4,
-            Self::Symbol => 5,
-        }
-    }
-}
-
 fn unit_to_ge(unit: Unit) -> GEUnit {
     match unit {
         Unit::Device => GEUnit_GE_DEVICE,
         Unit::Normalized => GEUnit_GE_NDC,
         Unit::Inches => GEUnit_GE_INCHES,
         Unit::CM => GEUnit_GE_CM,
-    }
-}
-
-impl Context {
-    pub fn from_device(dev: &Device, unit: Unit) -> Self {
-        #[allow(unused_unsafe)]
-        unsafe {
-            let offset = dev.to_device_coords((0., 0.), unit.clone());
-            let mut xscale = dev.to_device_coords((1., 0.), unit.clone());
-            let mut yscale = dev.to_device_coords((0., 1.), unit);
-            xscale.0 -= offset.0;
-            xscale.1 -= offset.1;
-            yscale.0 -= offset.0;
-            yscale.1 -= offset.1;
-
-            // sqrt(abs(det(m)))
-            let scalar = (xscale.0 * yscale.1 - xscale.1 * yscale.0).abs().sqrt();
-
-            let mut context = R_GE_gcontext {
-                col: Color::rgb(0xff, 0xff, 0xff).to_i32(),
-                fill: Color::rgb(0xc0, 0xc0, 0xc0).to_i32(),
-                gamma: 1.0,
-                lwd: 1.0,
-                lty: 0,
-                lend: R_GE_lineend_GE_ROUND_CAP,
-                ljoin: R_GE_linejoin_GE_ROUND_JOIN,
-                lmitre: 10.0,
-                cex: 1.0,
-                ps: 14.0,
-                lineheight: 1.0,
-                fontface: 1,
-                fontfamily: [0; 201],
-                patternFill: R_NilValue,
-            };
-
-            context
-                .fontfamily
-                .iter_mut()
-                .zip(b"Helvetica".iter())
-                .for_each(|(d, s)| *d = *s as i8);
-
-            Self {
-                context,
-                xscale,
-                yscale,
-                offset,
-                scalar,
-            }
-        }
-    }
-
-    /// Set the line or text color of a primitive.
-    pub fn color(&mut self, col: Color) -> &mut Self {
-        self.context.col = col.to_i32();
-        self
-    }
-
-    /// Set the fill color of a primitive.
-    pub fn fill(&mut self, fill: Color) -> &mut Self {
-        self.context.fill = fill.to_i32();
-        self
-    }
-
-    /// Set the gamma of the device. `out_color = in_color ** gamma`
-    pub fn gamma(&mut self, gamma: f64) -> &mut Self {
-        self.context.gamma = gamma;
-        self
-    }
-
-    /// Set the width of the line in chosen units.
-    pub fn line_width(&mut self, lwd: f64) -> &mut Self {
-        self.context.lwd = (lwd * self.scalar).max(1.0);
-        self
-    }
-
-    /// Set the type of the line.
-    /// ```ignore
-    /// Blank    => <invisible>
-    /// Solid    => ------
-    /// Dashed   => - - - -
-    /// Dotted   => . . . .
-    /// DotDash  => . - . -
-    /// LongDash => --  --
-    /// TwoDash  => . . - -
-    /// ```
-    pub fn line_type(&mut self, lty: LineType) -> &mut Self {
-        self.context.lty = lty.to_i32();
-        self
-    }
-
-    /// Set the line end type.
-    /// ```ignore
-    ///   LineEnd::RoundCap
-    ///   LineEnd::ButtCap  
-    ///   LineEnd::SquareCap
-    /// ```
-    pub fn line_end(&mut self, lend: LineEnd) -> &mut Self {
-        self.context.lend = lend.into();
-        self
-    }
-
-    /// Set the line join type.
-    /// ```ignore
-    ///   LineJoin::RoundJoin
-    ///   LineJoin::MitreJoin
-    ///   LineJoin::BevelJoin
-    /// ```
-    pub fn line_join(&mut self, ljoin: LineJoin) -> &mut Self {
-        self.context.ljoin = ljoin.into();
-        self
-    }
-
-    pub fn point_size(&mut self, ps: f64) -> &mut Self {
-        self.context.ps = ps;
-        self
-    }
-
-    /// Set the line miter limit - the point where the line becomes a bevel join.
-    pub fn line_mitre(&mut self, lmitre: f64) -> &mut Self {
-        self.context.lmitre = lmitre * self.scalar;
-        self
-    }
-
-    /// Set the line height for text.
-    pub fn line_height(&mut self, lineheight: f64) -> &mut Self {
-        self.context.lineheight = lineheight;
-        self
-    }
-
-    // pub fn char_extra_size(&mut self, cex: f64) -> &mut Self {
-    //     self.context.cex = cex;
-    //     self
-    // }
-
-    /// Set the font face.
-    /// ```ignore
-    ///   FontFace::PlainFont
-    ///   FontFace::BoldFont
-    ///   FontFace::ItalicFont
-    ///   FontFace::BoldItalicFont
-    ///   FontFace::SymbolFont
-    /// ```
-    pub fn font_face(&mut self, fontface: FontFace) -> &mut Self {
-        self.context.fontface = fontface.to_i32();
-        self
-    }
-
-    //
-    pub fn font_family(&mut self, fontfamily: &str) -> &mut Self {
-        let maxlen = self.context.fontfamily.len() - 1;
-
-        for c in self.context.fontfamily.iter_mut() {
-            *c = 0;
-        }
-
-        for (i, b) in fontfamily.bytes().enumerate().take(maxlen) {
-            self.context.fontfamily[i] = b as std::os::raw::c_char;
-        }
-        self
-    }
-
-    /// Set the transform as a 3x2 matrix.
-    pub fn transform(
-        &mut self,
-        xscale: (f64, f64),
-        yscale: (f64, f64),
-        offset: (f64, f64),
-    ) -> &mut Self {
-        self.xscale = xscale;
-        self.yscale = yscale;
-        self.offset = offset;
-        self
-    }
-
-    pub(crate) fn context(&self) -> pGEcontext {
-        unsafe { std::mem::transmute(&self.context) }
-    }
-
-    // Affine transform.
-    pub(crate) fn t(&self, xy: (f64, f64)) -> (f64, f64) {
-        (
-            self.offset.0 + xy.0 * self.xscale.0 + xy.1 * self.yscale.0,
-            self.offset.1 + xy.0 * self.xscale.1 + xy.1 * self.yscale.1,
-        )
-    }
-
-    // Affine relative transform (width, height).
-    pub(crate) fn trel(&self, wh: (f64, f64)) -> (f64, f64) {
-        (
-            wh.0 * self.xscale.0 + wh.1 * self.yscale.0,
-            wh.0 * self.xscale.1 + wh.1 * self.yscale.1,
-        )
-    }
-
-    // Scalar transform (eg. radius etc).
-    pub(crate) fn ts(&self, value: f64) -> f64 {
-        value * self.scalar
-    }
-
-    // Inverse scalar transform (eg. text width etc).
-    pub(crate) fn its(&self, value: f64) -> f64 {
-        value / self.scalar
-    }
-
-    pub(crate) fn tmetric(&self, tm: TextMetric) -> TextMetric {
-        TextMetric {
-            ascent: tm.ascent / self.scalar,
-            descent: tm.descent / self.scalar,
-            width: tm.width / self.scalar,
-        }
     }
 }
 

@@ -748,10 +748,10 @@ pub trait DeviceDriver: std::marker::Sized {
             (*p_dev_desc).canHAdj = CanHAdjOption::VariableAdjustment as _;
 
             (*p_dev_desc).startps = device_descriptor.startps;
-            (*p_dev_desc).startcol = device_descriptor.startcol.to_i32();
-            (*p_dev_desc).startfill = device_descriptor.startfill.to_i32();
-            (*p_dev_desc).startlty = device_descriptor.startlty.to_i32();
-            (*p_dev_desc).startfont = device_descriptor.startfont.to_i32();
+            (*p_dev_desc).startcol = device_descriptor.startcol;
+            (*p_dev_desc).startfill = device_descriptor.startfill;
+            (*p_dev_desc).startlty = device_descriptor.startlty;
+            (*p_dev_desc).startfont = device_descriptor.startfont;
 
             (*p_dev_desc).startgamma = 1.0;
 

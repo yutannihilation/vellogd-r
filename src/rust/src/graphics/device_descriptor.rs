@@ -1,5 +1,3 @@
-use super::{color::Color, FontFace, LineType};
-
 // From R internals[^1]:
 //
 // > There should be a ‘pointsize’ argument which defaults to 12, and it should
@@ -122,10 +120,10 @@ pub struct DeviceDescriptor {
     pub(crate) cra: [f64; 2],
 
     pub(crate) startps: f64,
-    pub(crate) startcol: Color,
-    pub(crate) startfill: Color,
-    pub(crate) startlty: LineType,
-    pub(crate) startfont: FontFace,
+    pub(crate) startcol: i32,
+    pub(crate) startfill: i32,
+    pub(crate) startlty: i32,
+    pub(crate) startfont: i32,
 }
 
 #[allow(non_snake_case)]
@@ -146,10 +144,10 @@ impl DeviceDescriptor {
             cra: [0.9 * FONTSIZE, 1.2 * FONTSIZE],
 
             startps: POINTSIZE,
-            startcol: Color::hex(0x000000),
-            startfill: Color::hex(0xffffff),
-            startlty: LineType::Solid,
-            startfont: FontFace::Plain,
+            startcol: 0x000000,
+            startfill: 0xffffff,
+            startlty: 0,  // Solid
+            startfont: 1, // Plain
         }
     }
 
@@ -174,72 +172,6 @@ impl DeviceDescriptor {
         self.right = right;
         self.bottom = bottom;
         self.top = top;
-        self
-    }
-
-    /// Sets inches per raster unit (i.e. point). **Note that most of the cases,
-    /// there's no need to change this value.**
-    ///
-    /// A point is usually 1/72 (the default value), but another value can be
-    /// specified here to scale the device. The first element is width, the
-    /// second is height.
-    pub fn ipr(mut self, ipr: [f64; 2]) -> Self {
-        self.ipr = ipr;
-        self
-    }
-
-    /// Sets the font size (unit: point). **Note that most of the cases, there's
-    /// no need to change this value.**
-    ///
-    /// The first element is width, the second is height. If not specified,
-    /// `[0.9 * 12.0, 1.2 * 12.0]`, which is [suggested by the R Internals as "a
-    /// good choice"] will be used (12 point is the usual default for graphics
-    /// devices).
-    ///
-    /// [suggested by the R Internals as "a good choice"]:
-    ///     https://cran.r-project.org/doc/manuals/r-release/R-ints.html#Handling-text
-    pub fn cra(mut self, cra: [f64; 2]) -> Self {
-        self.cra = cra;
-        self
-    }
-
-    /// Sets the initial value of pointsize.
-    ///
-    /// If not specified, 12, which is the usual default for graphics devices,
-    /// will be used.
-    pub fn startps(mut self, startps: f64) -> Self {
-        self.startps = startps;
-        self
-    }
-
-    /// Sets the initial value of colour.
-    ///
-    /// If not specified, black (`0x000000`) will be used.
-    pub fn startcol(mut self, startcol: Color) -> Self {
-        self.startcol = startcol;
-        self
-    }
-    /// Sets the initial value of fill.
-    ///
-    /// If not specified, white (`0xffffff`) will be used.
-    pub fn startfill(mut self, startfill: Color) -> Self {
-        self.startfill = startfill;
-        self
-    }
-
-    /// Sets the initial value of line type.
-    ///
-    /// If not specified, [LineType::Solid] will be used.
-    pub fn startlty(mut self, startlty: LineType) -> Self {
-        self.startlty = startlty;
-        self
-    }
-
-    /// Sets the initial value of font face.
-    ///
-    /// If not specified, [FontFace::Plain] will be used.
-    pub fn startfont(mut self, startfont: FontFace) -> Self {
-        self.startfont = startfont;
         self
     }
 }
