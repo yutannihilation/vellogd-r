@@ -1,4 +1,6 @@
 mod graphics;
+use std::sync::LazyLock;
+
 use graphics::ClippingStrategy;
 use graphics::DevDesc;
 
@@ -7,6 +9,15 @@ use graphics::DeviceDriver;
 use graphics::R_GE_gcontext;
 use graphics::R_NilValue;
 use savvy::savvy;
+use tokio::sync::Mutex;
+use tonic::transport::Channel;
+use vellogd_protocol::graphics_device_client::GraphicsDeviceClient;
+use vellogd_protocol::DrawCircleRequest;
+use vellogd_protocol::Empty;
+use vellogd_protocol::StrokeParameters;
+
+#[cfg(debug_assertions)]
+mod debug_device;
 
 pub struct VelloGraphicsDevice {}
 
@@ -34,6 +45,15 @@ fn text_related_params(gc: R_GE_gcontext) -> String {
     format!("fill: {:08x}", gc.fill)
 }
 
+static RUNTIME: LazyLock<tokio::runtime::Runtime> =
+    LazyLock::new(|| tokio::runtime::Runtime::new().unwrap());
+static CLIENT: LazyLock<Mutex<GraphicsDeviceClient<Channel>>> = LazyLock::new(|| {
+    let client = RUNTIME
+        .block_on(async { GraphicsDeviceClient::connect("http://[::1]:50051").await })
+        .unwrap();
+    Mutex::new(client)
+});
+
 impl DeviceDriver for VelloGraphicsDevice {
     const USE_RASTER: bool = true;
 
@@ -47,57 +67,70 @@ impl DeviceDriver for VelloGraphicsDevice {
 
     const ACCEPT_UTF8_TEXT: bool = true;
 
-    fn activate(&mut self, _: DevDesc) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[activate]");
-        }
-    }
+    fn activate(&mut self, _: DevDesc) {}
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!(
-                "[circle] center: {center:?} r: {r}, fill params: {{ {} }}, line params: {{ {} }}",
-                fill_related_params(gc),
-                line_related_params(gc)
-            );
-        }
+        let fill_color = gc.fill as u32;
+        let fill_color = if fill_color != 0 {
+            Some(fill_color)
+        } else {
+            None
+        };
+
+        let stroke_color = gc.col as u32;
+        let stroke_params = if stroke_color != 0 {
+            Some(StrokeParameters {
+                color: stroke_color,
+                width: gc.lwd,
+                linetype: 1,
+                join: 1,
+                miter_limit: 1.0,
+                cap: 1,
+            })
+        } else {
+            None
+        };
+
+        let request = tonic::Request::new(DrawCircleRequest {
+            cx: center.0,
+            cy: center.1,
+            radius: r,
+            fill_color,
+            stroke_params,
+        });
+
+        let mut client = RUNTIME
+            .block_on(async { GraphicsDeviceClient::connect("http://[::1]:50051").await })
+            .unwrap();
+
+        let res = RUNTIME
+            .block_on(async {
+                // let mut client = CLIENT.lock().await;
+                client.draw_circle(request).await
+            })
+            .unwrap();
     }
 
-    fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[clip] from: {from:?}, to: {to:?}");
-        }
-    }
+    fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {}
 
     fn close(&mut self, _: DevDesc) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[close]");
-        }
+        let mut client = RUNTIME
+            .block_on(async { GraphicsDeviceClient::connect("http://[::1]:50051").await })
+            .unwrap();
+
+        let res = RUNTIME
+            .block_on(async {
+                // let mut client = CLIENT.lock().await;
+                client.close_window(Empty {}).await
+            })
+            .unwrap();
     }
 
-    fn deactivate(&mut self, _: DevDesc) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[deactivate]");
-        }
-    }
+    fn deactivate(&mut self, _: DevDesc) {}
 
-    fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!(
-                "[line] from: {from:?}, to: {to:?}, line params: {{ {} }}",
-                line_related_params(gc)
-            );
-        }
-    }
+    fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {}
 
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> graphics::TextMetric {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!(
-                "[char_metric] c: {c:?}, text params: {{ {} }}",
-                text_related_params(gc)
-            );
-        }
-
         graphics::TextMetric {
             ascent: 0.0,
             descent: 0.0,
@@ -105,35 +138,15 @@ impl DeviceDriver for VelloGraphicsDevice {
         }
     }
 
-    fn mode(&mut self, mode: i32, _: DevDesc) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[mode] mode: {mode}");
-        }
-    }
+    fn mode(&mut self, mode: i32, _: DevDesc) {}
 
-    fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[new_page]");
-        }
-    }
+    fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {}
 
-    fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[polygon]");
-        }
-    }
+    fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {}
 
-    fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[polyline]");
-        }
-    }
+    fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {}
 
-    fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[rect]");
-        }
-    }
+    fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {}
 
     fn path(
         &mut self,
@@ -144,9 +157,6 @@ impl DeviceDriver for VelloGraphicsDevice {
         gc: R_GE_gcontext,
         dd: DevDesc,
     ) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[path] nper: {nper:?}");
-        }
     }
 
     fn raster<T: AsRef<[u32]>>(
@@ -159,29 +169,17 @@ impl DeviceDriver for VelloGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[raster]");
-        }
     }
 
     fn capture(&mut self, _: DevDesc) -> savvy::ffi::SEXP {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[capture]");
-        }
         unsafe { R_NilValue }
     }
 
     fn size(&mut self, dd: DevDesc) -> (f64, f64, f64, f64) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[size]");
-        }
         (dd.left, dd.right, dd.bottom, dd.top)
     }
 
     fn text_width(&mut self, text: &str, gc: R_GE_gcontext, dd: DevDesc) -> f64 {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[text_width]");
-        }
         text.chars()
             .map(|c| self.char_metric(c, gc, dd).width)
             .sum()
@@ -196,50 +194,30 @@ impl DeviceDriver for VelloGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[text] text: {text}");
-        }
     }
 
-    fn on_exit(&mut self, _: DevDesc) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[on_exit]");
-        }
-    }
+    fn on_exit(&mut self, _: DevDesc) {}
 
     fn new_frame_confirm(&mut self, _: DevDesc) -> bool {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[new_frame_confirm]");
-        }
         true
     }
 
     fn holdflush(&mut self, _: DevDesc, level: i32) -> i32 {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[holdflush]");
-        }
         0
     }
 
     fn locator(&mut self, x: *mut f64, y: *mut f64, _: DevDesc) -> bool {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[locator]");
-        }
         true
     }
 
-    fn eventHelper(&mut self, _: DevDesc, code: i32) {
-        if cfg!(debug_assertions) {
-            savvy::r_eprintln!("[eventHelper] code {code}");
-        }
-    }
+    fn eventHelper(&mut self, _: DevDesc, code: i32) {}
 }
 
 #[savvy]
-fn vellogd(filename: &str, width: i32, height: i32) -> savvy::Result<()> {
+fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
     // Typically, 72 points per inch
-    let width_pt = width * 72;
-    let height_pt = height * 72;
+    let width_pt = width * 72.0;
+    let height_pt = height * 72.0;
 
     let device_driver = VelloGraphicsDevice::new(filename, width_pt as _, height_pt as _);
 

@@ -1,0 +1,16 @@
+[package]
+name = "vellogd-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+winit = "*"
+vello = { git = "https://github.com/linebender/vello" }
+
+pollster = "0.3"
+anyhow = "1.0"
+
+vellogd-protocol = { path = "../vellogd-protocol/" }
+tonic = "0.12"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+parley = { git = "https://github.com/linebender/parley" }

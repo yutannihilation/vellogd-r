@@ -146,8 +146,8 @@ impl DeviceDescriptor {
             startps: POINTSIZE,
             startcol: 0x000000,
             startfill: 0xffffff,
-            startlty: 0,  // Solid
-            startfont: 1, // Plain
+            startlty: super::LTY_SOLID, // Solid
+            startfont: 1,               // Plain
         }
     }
 

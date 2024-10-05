@@ -1,0 +1,68 @@
+syntax = "proto3";
+package graphics_device;
+
+service GraphicsDevice {
+    rpc CloseWindow (Empty) returns (Empty);
+    rpc NewPage(Empty) returns (Empty);
+
+    rpc DrawCircle(DrawCircleRequest) returns (Empty);
+    rpc DrawLine(DrawLineRequest) returns (Empty);
+    rpc DrawPolyline(DrawPolylineRequest) returns (Empty);
+    rpc DrawPolygon(DrawPolygonRequest) returns (Empty);
+    rpc DrawText(DrawTextRequest) returns (Empty);
+}
+
+message Empty {}
+
+message StrokeParameters {
+    uint32 color       = 1;
+    double width       = 2;
+    int32 linetype     = 3;
+    // linetype can be negative (LTY_BLANK)
+    uint32 join        = 4;
+    double miter_limit = 5;
+    // vello allows to use different cap types for start and end, but R use one type for both.
+    uint32 cap         = 6;
+}
+
+message DrawCircleRequest {
+    double cx = 1;
+    double cy = 2;
+    double radius = 3;
+    optional uint32 fill_color = 4;
+    optional StrokeParameters stroke_params = 5;
+}
+
+message DrawLineRequest {
+    double x0 = 1;
+    double y0 = 2;
+    double x1 = 3;
+    double y1 = 4;
+    StrokeParameters stroke_params = 5;
+}
+
+message DrawPolylineRequest {
+    repeated double x = 1;
+    repeated double y = 2;
+    StrokeParameters stroke_params = 3;
+}
+
+message DrawPolygonRequest {
+    repeated double x = 1;
+    repeated double y = 2;
+    optional uint32 fill_color = 4;
+    optional StrokeParameters stroke_params = 3;
+}
+
+message DrawTextRequest {
+    double x = 1;
+    double y = 2;
+    string text = 3;
+    uint32 color = 4;
+    float size = 5;
+    float lineheight = 6;
+    uint32 face = 7;
+    string family = 8;
+    float angle = 9;
+    float hadj = 10; // hadj = horizontal adjustment
+}

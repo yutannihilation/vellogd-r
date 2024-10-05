@@ -22,12 +22,12 @@ extern "C" {
 }
 
 pub const LTY_BLANK: i32 = -1;
-pub const LTY_SOLID: u32 = 0;
-pub const LTY_DASHED: u32 = 68;
-pub const LTY_DOTTED: u32 = 49;
-pub const LTY_DOTDASH: u32 = 13361;
-pub const LTY_LONGDASH: u32 = 55;
-pub const LTY_TWODASH: u32 = 9762;
+pub const LTY_SOLID: i32 = 0;
+pub const LTY_DASHED: i32 = 68;
+pub const LTY_DOTTED: i32 = 49;
+pub const LTY_DOTDASH: i32 = 13361;
+pub const LTY_LONGDASH: i32 = 55;
+pub const LTY_TWODASH: i32 = 9762;
 
 pub const Rboolean_FALSE: Rboolean = 0;
 pub const Rboolean_TRUE: Rboolean = 1;
