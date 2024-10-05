@@ -8,6 +8,7 @@ crate-type = ["staticlib", "lib"]
 
 [dependencies]
 libc = "0.2.155"
+pollster = "0.3.0"
 savvy = "*"
 vello = { git = "https://github.com/linebender/vello" }
 

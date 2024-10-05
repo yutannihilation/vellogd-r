@@ -34,14 +34,14 @@ SEXP handle_result(SEXP res_) {
     return (SEXP)res;
 }
 
-SEXP savvy_vellogd__impl(void) {
-    SEXP res = savvy_vellogd__ffi();
+SEXP savvy_vellogd__impl(SEXP c_arg__filename, SEXP c_arg__width, SEXP c_arg__height) {
+    SEXP res = savvy_vellogd__ffi(c_arg__filename, c_arg__width, c_arg__height);
     return handle_result(res);
 }
 
 
 static const R_CallMethodDef CallEntries[] = {
-    {"savvy_vellogd__impl", (DL_FUNC) &savvy_vellogd__impl, 0},
+    {"savvy_vellogd__impl", (DL_FUNC) &savvy_vellogd__impl, 3},
     {NULL, NULL, 0}
 };
 

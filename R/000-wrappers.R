@@ -24,8 +24,8 @@ NULL
 }
 
 
-`vellogd` <- function() {
-  invisible(.Call(savvy_vellogd__impl))
+`vellogd` <- function(`filename`, `width`, `height`) {
+  invisible(.Call(savvy_vellogd__impl, `filename`, `width`, `height`))
 }
 
 

@@ -6,7 +6,10 @@ mod color;
 mod device_descriptor;
 mod device_driver;
 
+pub use device_descriptor::DeviceDescriptor;
+
 use color::Color;
+pub use device_driver::DeviceDriver;
 use savvy::Sexp;
 
 use ffi::*;
