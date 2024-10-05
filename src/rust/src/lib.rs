@@ -117,34 +117,36 @@ impl DeviceDriver for VelloGraphicsDevice {
         }
     }
 
-    fn polygon<T: IntoIterator<Item = (f64, f64)>>(
-        &mut self,
-        coords: T,
-        gc: R_GE_gcontext,
-        _: DevDesc,
-    ) {
+    fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         if cfg!(debug_assertions) {
             savvy::r_eprintln!("[polygon]");
         }
     }
 
-    fn polyline<T: IntoIterator<Item = (f64, f64)>>(
-        &mut self,
-        coords: T,
-        gc: R_GE_gcontext,
-        _: DevDesc,
-    ) {
+    fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
+        if cfg!(debug_assertions) {
+            savvy::r_eprintln!("[polyline]");
+        }
     }
 
-    fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {}
+    fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
+        if cfg!(debug_assertions) {
+            savvy::r_eprintln!("[rect]");
+        }
+    }
 
-    fn path<T: IntoIterator<Item = impl IntoIterator<Item = (f64, f64)>>>(
+    fn path(
         &mut self,
-        coords: T,
+        x: &[f64],
+        y: &[f64],
+        nper: &[i32],
         winding: bool,
         gc: R_GE_gcontext,
-        _: DevDesc,
+        dd: DevDesc,
     ) {
+        if cfg!(debug_assertions) {
+            savvy::r_eprintln!("[path] nper: {nper:?}");
+        }
     }
 
     fn raster<T: AsRef<[u32]>>(
@@ -157,17 +159,29 @@ impl DeviceDriver for VelloGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
+        if cfg!(debug_assertions) {
+            savvy::r_eprintln!("[raster]");
+        }
     }
 
     fn capture(&mut self, _: DevDesc) -> savvy::ffi::SEXP {
+        if cfg!(debug_assertions) {
+            savvy::r_eprintln!("[capture]");
+        }
         unsafe { R_NilValue }
     }
 
     fn size(&mut self, dd: DevDesc) -> (f64, f64, f64, f64) {
+        if cfg!(debug_assertions) {
+            savvy::r_eprintln!("[size]");
+        }
         (dd.left, dd.right, dd.bottom, dd.top)
     }
 
     fn text_width(&mut self, text: &str, gc: R_GE_gcontext, dd: DevDesc) -> f64 {
+        if cfg!(debug_assertions) {
+            savvy::r_eprintln!("[text_width]");
+        }
         text.chars()
             .map(|c| self.char_metric(c, gc, dd).width)
             .sum()
@@ -182,23 +196,43 @@ impl DeviceDriver for VelloGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
+        if cfg!(debug_assertions) {
+            savvy::r_eprintln!("[text] text: {text}");
+        }
     }
 
-    fn on_exit(&mut self, _: DevDesc) {}
+    fn on_exit(&mut self, _: DevDesc) {
+        if cfg!(debug_assertions) {
+            savvy::r_eprintln!("[on_exit]");
+        }
+    }
 
     fn new_frame_confirm(&mut self, _: DevDesc) -> bool {
+        if cfg!(debug_assertions) {
+            savvy::r_eprintln!("[new_frame_confirm]");
+        }
         true
     }
 
     fn holdflush(&mut self, _: DevDesc, level: i32) -> i32 {
+        if cfg!(debug_assertions) {
+            savvy::r_eprintln!("[holdflush]");
+        }
         0
     }
 
     fn locator(&mut self, x: *mut f64, y: *mut f64, _: DevDesc) -> bool {
+        if cfg!(debug_assertions) {
+            savvy::r_eprintln!("[locator]");
+        }
         true
     }
 
-    fn eventHelper(&mut self, _: DevDesc, code: i32) {}
+    fn eventHelper(&mut self, _: DevDesc, code: i32) {
+        if cfg!(debug_assertions) {
+            savvy::r_eprintln!("[eventHelper] code {code}");
+        }
+    }
 }
 
 #[savvy]

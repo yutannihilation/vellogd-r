@@ -135,22 +135,10 @@ pub trait DeviceDriver: std::marker::Sized {
     fn new_page(&mut self, gc: R_GE_gcontext, dd: DevDesc) {}
 
     /// A callback function to draw a polygon.
-    fn polygon<T: IntoIterator<Item = (f64, f64)>>(
-        &mut self,
-        coords: T,
-        gc: R_GE_gcontext,
-        dd: DevDesc,
-    ) {
-    }
+    fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, dd: DevDesc) {}
 
     /// A callback function to draw a polyline.
-    fn polyline<T: IntoIterator<Item = (f64, f64)>>(
-        &mut self,
-        coords: T,
-        gc: R_GE_gcontext,
-        dd: DevDesc,
-    ) {
-    }
+    fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, dd: DevDesc) {}
 
     /// A callback function to draw a rect.
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, dd: DevDesc) {}
@@ -160,9 +148,11 @@ pub trait DeviceDriver: std::marker::Sized {
     /// `nper` contains number of points in each polygon. `winding` represents
     /// the filling rule; `true` means "nonzero", `false` means "evenodd" (c.f.
     /// <https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/fill-rule>).
-    fn path<T: IntoIterator<Item = impl IntoIterator<Item = (f64, f64)>>>(
+    fn path(
         &mut self,
-        coords: T,
+        x: &[f64],
+        y: &[f64],
+        nper: &[i32],
         winding: bool,
         gc: R_GE_gcontext,
         dd: DevDesc,
@@ -421,13 +411,11 @@ pub trait DeviceDriver: std::marker::Sized {
             gc: pGEcontext,
             dd: pDevDesc,
         ) {
-            let x = slice::from_raw_parts(x, n as _).iter();
-            let y = slice::from_raw_parts(y, n as _).iter();
-            // TODO: does this map has some overhead? If so, maybe we should change the interface?
-            let coords = x.zip(y).map(|(&x, &y)| (x, y));
+            let x = slice::from_raw_parts(x, n as _);
+            let y = slice::from_raw_parts(y, n as _);
 
             let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
-            data.polygon(coords, *gc, *dd);
+            data.polygon(x, y, *gc, *dd);
         }
 
         unsafe extern "C" fn device_driver_polyline<T: DeviceDriver>(
@@ -437,13 +425,11 @@ pub trait DeviceDriver: std::marker::Sized {
             gc: pGEcontext,
             dd: pDevDesc,
         ) {
-            let x = slice::from_raw_parts(x, n as _).iter();
-            let y = slice::from_raw_parts(y, n as _).iter();
-            // TODO: does this map has some overhead? If so, maybe we should change the interface?
-            let coords = x.zip(y).map(|(&x, &y)| (x, y));
+            let x = slice::from_raw_parts(x, n as _);
+            let y = slice::from_raw_parts(y, n as _);
 
             let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
-            data.polyline(coords, *gc, *dd);
+            data.polyline(x, y, *gc, *dd);
         }
 
         unsafe extern "C" fn device_driver_rect<T: DeviceDriver>(
@@ -470,18 +456,8 @@ pub trait DeviceDriver: std::marker::Sized {
             let nper = slice::from_raw_parts(nper, npoly as _);
             // TODO: This isn't very efficient as we need to iterate over nper at least twice.
             let n = nper.iter().sum::<i32>() as usize;
-            let x = slice::from_raw_parts(x, n as _).iter();
-            let y = slice::from_raw_parts(y, n as _).iter();
-            // TODO: does this map has some overhead? If so, maybe we should change the interface?
-            let mut coords_flat = x.zip(y).map(|(&x, &y)| (x, y));
-
-            let coords = nper.iter().map(|&np| {
-                coords_flat
-                    .by_ref()
-                    .take(np as _)
-                    // TODO: Probably this don't need to be collected.
-                    .collect::<Vec<(f64, f64)>>()
-            });
+            let x = slice::from_raw_parts(x, n as _);
+            let y = slice::from_raw_parts(y, n as _);
 
             let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
 
@@ -489,7 +465,7 @@ pub trait DeviceDriver: std::marker::Sized {
             // c.f. https://github.com/wch/r-source/blob/6b22b60126646714e0f25143ac679240be251dbe/src/library/grDevices/src/devPS.c#L4235
             let winding = winding != Rboolean_FALSE;
 
-            data.path(coords, winding, *gc, *dd);
+            data.path(x, y, nper, winding, *gc, *dd);
         }
 
         unsafe extern "C" fn device_driver_raster<T: DeviceDriver>(
