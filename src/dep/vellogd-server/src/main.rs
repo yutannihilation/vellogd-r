@@ -386,7 +386,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
             }
             UserEvent::NewPage => {
                 self.scene.reset();
-                render_state.window.request_redraw();
+                self.needs_redraw = true;
             }
             UserEvent::DrawCircle {
                 center,
@@ -433,8 +433,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                     &line,
                 );
 
-                // TODO: set a flag and redraw lazily
-                render_state.window.request_redraw();
+                self.needs_redraw = true;
             }
             UserEvent::DrawPolyline {
                 path,
@@ -448,8 +447,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                     &path,
                 );
 
-                // TODO: set a flag and redraw lazily
-                render_state.window.request_redraw();
+                self.needs_redraw = true;
             }
             UserEvent::DrawPolygon {
                 path,
@@ -476,8 +474,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                     );
                 }
 
-                // TODO: set a flag and redraw lazily
-                render_state.window.request_redraw();
+                self.needs_redraw = true;
             }
             UserEvent::DrawText {
                 pos,
@@ -571,8 +568,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                     }
                 }
 
-                // TODO: set a flag and redraw lazily
-                render_state.window.request_redraw();
+                self.needs_redraw = true;
             }
         };
     }
