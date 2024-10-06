@@ -572,7 +572,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                 let width = layout.width();
                 let transform = vello::kurbo::Affine::translate((-(width * hadj) as f64, 0.0))
                     .then_rotate(-angle as f64)
-                    .then_translate((pos.x, pos.y).into()); // Y-axis is flipped
+                    .then_translate((pos.x, self.height as f64 - pos.y).into()); // Y-axis is flipped
 
                 for line in layout.lines() {
                     let vadj = line.metrics().ascent * 0.5;
@@ -583,7 +583,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                         };
 
                         let mut x = glyph_run.offset();
-                        let y = glyph_run.baseline() - vadj; // Y-axis is flipped
+                        let y = glyph_run.baseline() - vadj;
                         let run = glyph_run.run();
 
                         let font = run.font();
@@ -623,12 +623,12 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                                 vello::peniko::Fill::NonZero,
                                 glyph_run.glyphs().map(|g| {
                                     let gx = x + g.x;
-                                    let gy = y - g.y; // Y-axis is flipped
+                                    let gy = y - g.y;
                                     x += g.advance;
                                     vello::Glyph {
                                         id: g.id as _,
                                         x: gx,
-                                        y: self.height - gy,
+                                        y: -gy, // Y-axis is flipped
                                     }
                                 }),
                             );
