@@ -102,9 +102,11 @@ impl DeviceDriver for VelloGraphicsDevice {
 
     fn close(&mut self, _: DevDesc) {
         let client = self.client();
-        let res = RUNTIME
-            .block_on(async { client.close_window(Empty {}).await })
-            .unwrap();
+        let res = RUNTIME.block_on(async { client.close_window(Empty {}).await });
+        match res {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("failed to close the device: {e:?}"),
+        }
     }
 
     fn deactivate(&mut self, _: DevDesc) {}
