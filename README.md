@@ -3,9 +3,9 @@ vellogd: A Vello Graphics Device for R
 
 This is a prototype for Rust-implemented R graphics device. This relies on these crates:
 
-* vello: for drawing shapes
-* winit: for managing a window
-* tonic: for communicationg the server and the client with gRPC
+* vello: 2D rendering engine with GPU
+* winit: window management
+* tonic: creating a server and a client with gRPC
 
 Why is tonic needed here? This is because
 
