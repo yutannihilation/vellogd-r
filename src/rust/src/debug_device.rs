@@ -4,11 +4,6 @@ use crate::graphics::DevDesc;
 use crate::graphics::DeviceDriver;
 use crate::graphics::R_GE_gcontext;
 use crate::graphics::R_NilValue;
-use crate::VelloGraphicsDevice;
-use vellogd_protocol::graphics_device_client::GraphicsDeviceClient;
-use vellogd_protocol::DrawCircleRequest;
-use vellogd_protocol::Empty;
-use vellogd_protocol::StrokeParameters;
 
 #[cfg(debug_assertions)]
 fn fill_related_params(gc: R_GE_gcontext) -> String {

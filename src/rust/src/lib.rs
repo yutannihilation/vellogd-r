@@ -47,12 +47,13 @@ fn text_related_params(gc: R_GE_gcontext) -> String {
 
 static RUNTIME: LazyLock<tokio::runtime::Runtime> =
     LazyLock::new(|| tokio::runtime::Runtime::new().unwrap());
-static CLIENT: LazyLock<Mutex<GraphicsDeviceClient<Channel>>> = LazyLock::new(|| {
-    let client = RUNTIME
-        .block_on(async { GraphicsDeviceClient::connect("http://[::1]:50051").await })
-        .unwrap();
-    Mutex::new(client)
-});
+
+// static CLIENT: LazyLock<Mutex<GraphicsDeviceClient<Channel>>> = LazyLock::new(|| {
+//     let client = RUNTIME
+//         .block_on(async { GraphicsDeviceClient::connect("http://[::1]:50051").await })
+//         .unwrap();
+//     Mutex::new(client)
+// });
 
 impl DeviceDriver for VelloGraphicsDevice {
     const USE_RASTER: bool = true;
@@ -104,10 +105,7 @@ impl DeviceDriver for VelloGraphicsDevice {
             .unwrap();
 
         let res = RUNTIME
-            .block_on(async {
-                // let mut client = CLIENT.lock().await;
-                client.draw_circle(request).await
-            })
+            .block_on(async { client.draw_circle(request).await })
             .unwrap();
     }
 
@@ -119,10 +117,7 @@ impl DeviceDriver for VelloGraphicsDevice {
             .unwrap();
 
         let res = RUNTIME
-            .block_on(async {
-                // let mut client = CLIENT.lock().await;
-                client.close_window(Empty {}).await
-            })
+            .block_on(async { client.close_window(Empty {}).await })
             .unwrap();
     }
 

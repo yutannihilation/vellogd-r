@@ -39,7 +39,7 @@ impl VelloGraphicsDevice {
 #[tonic::async_trait]
 impl GraphicsDevice for VelloGraphicsDevice {
     async fn close_window(&self, request: Request<Empty>) -> Result<Response<Empty>, Status> {
-        println!("{:?}", request);
+        log::debug!("Recieved request: {:?}", request);
 
         self.event_loop_proxy
             .send_event(UserEvent::CloseWindow)
@@ -51,7 +51,7 @@ impl GraphicsDevice for VelloGraphicsDevice {
     }
 
     async fn new_page(&self, request: Request<Empty>) -> Result<Response<Empty>, Status> {
-        println!("{:?}", request);
+        log::debug!("Recieved request: {:?}", request);
 
         self.event_loop_proxy
             .send_event(UserEvent::NewPage)
@@ -66,7 +66,11 @@ impl GraphicsDevice for VelloGraphicsDevice {
         &self,
         request: Request<DrawCircleRequest>,
     ) -> Result<Response<Empty>, Status> {
-        println!("{:?}", request);
+        log::debug!("Recieved request: {:?}", request);
+
+        tokio::time::interval(tokio::time::Duration::from_millis(50))
+            .tick()
+            .await;
 
         let DrawCircleRequest {
             cx,
@@ -95,7 +99,7 @@ impl GraphicsDevice for VelloGraphicsDevice {
         &self,
         request: Request<DrawLineRequest>,
     ) -> Result<Response<Empty>, Status> {
-        println!("{:?}", request);
+        log::debug!("Recieved request: {:?}", request);
 
         let DrawLineRequest {
             x0,
@@ -130,7 +134,7 @@ impl GraphicsDevice for VelloGraphicsDevice {
         &self,
         request: Request<DrawPolylineRequest>,
     ) -> Result<Response<Empty>, Status> {
-        println!("{:?}", request);
+        log::debug!("Recieved request: {:?}", request);
 
         let DrawPolylineRequest {
             x,
@@ -164,7 +168,7 @@ impl GraphicsDevice for VelloGraphicsDevice {
         &self,
         request: Request<DrawPolygonRequest>,
     ) -> Result<Response<Empty>, Status> {
-        println!("{:?}", request);
+        log::debug!("Recieved request: {:?}", request);
 
         let DrawPolygonRequest {
             x,
@@ -193,7 +197,7 @@ impl GraphicsDevice for VelloGraphicsDevice {
         &self,
         request: Request<DrawTextRequest>,
     ) -> Result<Response<Empty>, Status> {
-        println!("{:?}", request);
+        log::debug!("Recieved request: {:?}", request);
 
         let DrawTextRequest {
             x,
@@ -616,6 +620,8 @@ fn create_vello_renderer(render_cx: &RenderContext, surface: &RenderSurface) -> 
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    colog::init();
+
     let mut app = VelloApp {
         context: RenderContext::new(),
         renderers: vec![],
