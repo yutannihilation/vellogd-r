@@ -1,4 +1,5 @@
 mod graphics;
+use std::ffi::CStr;
 use std::sync::LazyLock;
 
 use graphics::ClippingStrategy;
@@ -12,6 +13,10 @@ use savvy::savvy;
 use tonic::transport::Channel;
 use vellogd_protocol::graphics_device_client::GraphicsDeviceClient;
 use vellogd_protocol::DrawCircleRequest;
+use vellogd_protocol::DrawLineRequest;
+use vellogd_protocol::DrawPolygonRequest;
+use vellogd_protocol::DrawPolylineRequest;
+use vellogd_protocol::DrawTextRequest;
 use vellogd_protocol::Empty;
 use vellogd_protocol::StrokeParameters;
 
@@ -75,10 +80,10 @@ impl DeviceDriver for VelloGraphicsDevice {
             Some(StrokeParameters {
                 color: stroke_color,
                 width: gc.lwd,
-                linetype: 1,
-                join: 1,
-                miter_limit: 1.0,
-                cap: 1,
+                linetype: gc.lty,
+                join: gc.ljoin as _,
+                miter_limit: gc.lmitre,
+                cap: gc.lend as _,
             })
         } else {
             None
@@ -93,9 +98,11 @@ impl DeviceDriver for VelloGraphicsDevice {
         });
 
         let client = self.client();
-        let res = RUNTIME
-            .block_on(async { client.draw_circle(request).await })
-            .unwrap();
+        let res = RUNTIME.block_on(async { client.draw_circle(request).await });
+        match res {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("failed to draw circle: {e:?}"),
+        }
     }
 
     fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {}
@@ -111,7 +118,35 @@ impl DeviceDriver for VelloGraphicsDevice {
 
     fn deactivate(&mut self, _: DevDesc) {}
 
-    fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {}
+    fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
+        let color = unsafe { std::mem::transmute::<i32, u32>(gc.col) };
+        let stroke_params = if color != 0 {
+            Some(StrokeParameters {
+                color,
+                width: gc.lwd,
+                linetype: gc.lty,
+                join: gc.ljoin as _,
+                miter_limit: gc.lmitre,
+                cap: gc.lend as _,
+            })
+        } else {
+            None
+        };
+
+        let request = tonic::Request::new(DrawLineRequest {
+            x0: from.0,
+            y0: from.1,
+            x1: from.0,
+            y1: from.1,
+            stroke_params,
+        });
+        let client = self.client();
+        let res = RUNTIME.block_on(async { client.draw_line(request).await });
+        match res {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("failed to draw line: {e:?}"),
+        }
+    }
 
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> graphics::TextMetric {
         graphics::TextMetric {
@@ -123,11 +158,80 @@ impl DeviceDriver for VelloGraphicsDevice {
 
     fn mode(&mut self, mode: i32, _: DevDesc) {}
 
-    fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {}
+    fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
+        let client = self.client();
+        let res = RUNTIME.block_on(async { client.new_page(Empty {}).await });
+        match res {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("failed to request new page: {e:?}"),
+        }
+    }
 
-    fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {}
+    fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
+        let fill_color = unsafe { std::mem::transmute::<i32, u32>(gc.fill) };
+        let fill_color = if fill_color != 0 {
+            Some(fill_color)
+        } else {
+            None
+        };
 
-    fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {}
+        let stroke_color = unsafe { std::mem::transmute::<i32, u32>(gc.col) };
+        let stroke_params = if stroke_color != 0 {
+            Some(StrokeParameters {
+                color: stroke_color,
+                width: gc.lwd,
+                linetype: gc.lty,
+                join: gc.ljoin as _,
+                miter_limit: gc.lmitre,
+                cap: gc.lend as _,
+            })
+        } else {
+            None
+        };
+
+        let request = tonic::Request::new(DrawPolygonRequest {
+            x: x.to_vec(), // TODO: avoid copy?
+            y: y.to_vec(), // TODO: avoid copy?
+            fill_color,
+            stroke_params,
+        });
+
+        let client = self.client();
+        let res = RUNTIME.block_on(async { client.draw_polygon(request).await });
+        match res {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("failed to draw polygon: {e:?}"),
+        }
+    }
+
+    fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
+        let color = unsafe { std::mem::transmute::<i32, u32>(gc.col) };
+        let stroke_params = if color != 0 {
+            Some(StrokeParameters {
+                color,
+                width: gc.lwd,
+                linetype: gc.lty,
+                join: gc.ljoin as _,
+                miter_limit: gc.lmitre,
+                cap: gc.lend as _,
+            })
+        } else {
+            None
+        };
+
+        let request = tonic::Request::new(DrawPolylineRequest {
+            x: x.to_vec(), // TODO: avoid copy?
+            y: y.to_vec(), // TODO: avoid copy?
+            stroke_params,
+        });
+
+        let client = self.client();
+        let res = RUNTIME.block_on(async { client.draw_polyline(request).await });
+        match res {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("failed to draw polyline: {e:?}"),
+        }
+    }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {}
 
@@ -177,6 +281,32 @@ impl DeviceDriver for VelloGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
+        let color = unsafe { std::mem::transmute::<i32, u32>(gc.col) };
+        let family = unsafe {
+            CStr::from_ptr(gc.fontfamily.as_ptr())
+                .to_str()
+                .unwrap_or("Arial")
+        }
+        .to_string();
+        let request = tonic::Request::new(DrawTextRequest {
+            x: pos.0,
+            y: pos.1,
+            text: text.to_string(),
+            color,
+            size: (gc.cex * gc.ps) as _,
+            lineheight: gc.lineheight as _,
+            face: gc.fontface as _,
+            family,
+            angle: angle as _,
+            hadj: hadj as _,
+        });
+
+        let client = self.client();
+        let res = RUNTIME.block_on(async { client.draw_text(request).await });
+        match res {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("failed to draw text: {e:?}"),
+        }
     }
 
     fn on_exit(&mut self, _: DevDesc) {}
