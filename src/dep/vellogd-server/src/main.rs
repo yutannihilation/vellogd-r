@@ -703,7 +703,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let width = sizes.next().unwrap_or(DEFAULT_DEVICE_SIZE);
     let height = sizes.next().unwrap_or(DEFAULT_DEVICE_SIZE);
 
-    colog::init();
+    if cfg!(debug_assertions) {
+        colog::init();
+    }
 
     let mut app = VelloApp {
         context: RenderContext::new(),
