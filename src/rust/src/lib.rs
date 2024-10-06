@@ -24,7 +24,7 @@ pub struct VelloGraphicsDevice {
 }
 
 impl VelloGraphicsDevice {
-    pub fn new(filename: &str, width: u32, height: u32) -> Self {
+    pub fn new(filename: &str) -> Self {
         Self {
             filename: filename.into(),
             client: None,
@@ -63,14 +63,14 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn activate(&mut self, _: DevDesc) {}
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
-        let fill_color = gc.fill as u32;
+        let fill_color = unsafe { std::mem::transmute::<i32, u32>(gc.fill) };
         let fill_color = if fill_color != 0 {
             Some(fill_color)
         } else {
             None
         };
 
-        let stroke_color = gc.col as u32;
+        let stroke_color = unsafe { std::mem::transmute::<i32, u32>(gc.col) };
         let stroke_params = if stroke_color != 0 {
             Some(StrokeParameters {
                 color: stroke_color,
@@ -196,14 +196,10 @@ impl DeviceDriver for VelloGraphicsDevice {
 
 #[savvy]
 fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
-    // Typically, 72 points per inch
-    let width_pt = width * 72.0;
-    let height_pt = height * 72.0;
+    let device_driver = VelloGraphicsDevice::new(filename);
 
-    let device_driver = VelloGraphicsDevice::new(filename, width_pt as _, height_pt as _);
-
-    let device_descriptor =
-        DeviceDescriptor::new().device_size(0.0, width_pt as _, 0.0, height_pt as _);
+    // TODO: the actual width and height is kept on the server's side.
+    let device_descriptor = DeviceDescriptor::new().device_size(0.0, width as _, 0.0, height as _);
 
     device_driver.create_device::<VelloGraphicsDevice>(device_descriptor, "vellogd");
 

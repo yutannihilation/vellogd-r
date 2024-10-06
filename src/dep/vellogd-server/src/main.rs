@@ -68,10 +68,6 @@ impl GraphicsDevice for VelloGraphicsDevice {
     ) -> Result<Response<Empty>, Status> {
         log::debug!("Recieved request: {:?}", request);
 
-        tokio::time::interval(tokio::time::Duration::from_millis(50))
-            .tick()
-            .await;
-
         let DrawCircleRequest {
             cx,
             cy,
@@ -248,6 +244,23 @@ struct VelloApp<'a> {
     scene: Scene,
     background_color: Color,
     font_ctx: parley::FontContext,
+
+    width: f32,
+    height: f32,
+    needs_redraw: bool,
+}
+
+fn create_vello_renderer(render_cx: &RenderContext, surface: &RenderSurface) -> Renderer {
+    Renderer::new(
+        &render_cx.devices[surface.dev_id].device,
+        RendererOptions {
+            surface_format: Some(surface.format),
+            use_cpu: false,
+            antialiasing_support: vello::AaSupport::all(),
+            num_init_threads: NonZeroUsize::new(1),
+        },
+    )
+    .expect("Couldn't create renderer")
 }
 
 impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
@@ -258,7 +271,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
         let window = cached_window.take().unwrap_or_else(|| {
             let attr = Window::default_attributes()
                 .with_title("test")
-                .with_inner_size(winit::dpi::LogicalSize::new(600.0, 600.0));
+                .with_inner_size(winit::dpi::LogicalSize::new(self.width, self.height));
             Arc::new(
                 event_loop
                     .create_window(attr)
@@ -309,6 +322,8 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
             }
 
             WindowEvent::Resized(size) => {
+                self.width = size.width as _;
+                self.height = size.height as _;
                 self.context
                     .resize_surface(&mut render_state.surface, size.width, size.height);
             }
@@ -342,6 +357,9 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                             },
                         )
                         .expect("failed to render");
+
+                    // surface is up-to-date
+                    self.needs_redraw = false;
                 }
 
                 surface_texture.present();
@@ -358,6 +376,11 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
         };
 
         match event {
+            UserEvent::RedrawWindow => {
+                if self.needs_redraw {
+                    render_state.window.request_redraw();
+                }
+            }
             UserEvent::CloseWindow => {
                 event_loop.exit();
             }
@@ -393,8 +416,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                     );
                 }
 
-                // TODO: set a flag and redraw lazily
-                render_state.window.request_redraw();
+                self.needs_redraw = true;
             }
             UserEvent::DrawLine {
                 p0,
@@ -569,6 +591,7 @@ struct StrokeParams {
 
 #[derive(Debug, Clone)]
 enum UserEvent {
+    RedrawWindow,
     CloseWindow,
     NewPage,
     DrawCircle {
@@ -605,21 +628,17 @@ enum UserEvent {
     },
 }
 
-fn create_vello_renderer(render_cx: &RenderContext, surface: &RenderSurface) -> Renderer {
-    Renderer::new(
-        &render_cx.devices[surface.dev_id].device,
-        RendererOptions {
-            surface_format: Some(surface.format),
-            use_cpu: false,
-            antialiasing_support: vello::AaSupport::all(),
-            num_init_threads: NonZeroUsize::new(1),
-        },
-    )
-    .expect("Couldn't create renderer")
-}
+const DEFAULT_DEVICE_SIZE: f32 = 480.0;
+const REFRESH_INTERVAL: tokio::time::Duration = tokio::time::Duration::from_millis(16); // = 60fps
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut sizes = std::env::args()
+        .skip(1)
+        .map(|x| x.parse::<f32>().unwrap_or(DEFAULT_DEVICE_SIZE));
+    let width = sizes.next().unwrap_or(DEFAULT_DEVICE_SIZE);
+    let height = sizes.next().unwrap_or(DEFAULT_DEVICE_SIZE);
+
     colog::init();
 
     let mut app = VelloApp {
@@ -629,6 +648,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         scene: Scene::new(),
         background_color: Color::WHITE_SMOKE,
         font_ctx: parley::FontContext::new(),
+        width,
+        height,
+        needs_redraw: true,
     };
 
     let event_loop = EventLoop::<UserEvent>::with_user_event().build()?;
@@ -643,6 +665,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .add_service(GraphicsDeviceServer::new(greeter))
             .serve(addr)
             .await;
+    });
+
+    let event_loop_proxy_for_refresh = event_loop.create_proxy();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(REFRESH_INTERVAL);
+        loop {
+            interval.tick().await;
+            event_loop_proxy_for_refresh
+                .send_event(UserEvent::RedrawWindow)
+                .unwrap(); // TODO: handle error?
+        }
     });
 
     event_loop.run_app(&mut app)?;
