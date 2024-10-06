@@ -247,7 +247,7 @@ impl GraphicsDevice for VelloGraphicsDevice {
                 size,
                 lineheight,
                 family,
-                angle,
+                angle: angle.to_radians(),
                 hadj,
             })
             .map_err(|e| Status::from_error(Box::new(e)))?;
@@ -275,6 +275,10 @@ struct VelloApp<'a> {
     scene: Scene,
     background_color: Color,
     font_ctx: parley::FontContext,
+
+    // Since R's graphics device is left-bottom origin, the Y value needs to be
+    // flipped
+    y_transform: vello::kurbo::Affine,
 
     width: f32,
     height: f32,
@@ -355,6 +359,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
             WindowEvent::Resized(size) => {
                 self.width = size.width as _;
                 self.height = size.height as _;
+                self.y_transform = calc_y_translate(self.width);
                 self.context
                     .resize_surface(&mut render_state.surface, size.width, size.height);
             }
@@ -430,7 +435,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                 if let Some(fill_params) = fill_params {
                     self.scene.fill(
                         vello::peniko::Fill::NonZero,
-                        vello::kurbo::Affine::IDENTITY,
+                        self.y_transform,
                         fill_params.color,
                         None,
                         &circle,
@@ -440,7 +445,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                 if let Some(stroke_params) = stroke_params {
                     self.scene.stroke(
                         &stroke_params.stroke,
-                        vello::kurbo::Affine::IDENTITY,
+                        self.y_transform,
                         stroke_params.color,
                         None,
                         &circle,
@@ -458,7 +463,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
 
                 self.scene.stroke(
                     &stroke_params.stroke,
-                    vello::kurbo::Affine::IDENTITY,
+                    self.y_transform,
                     stroke_params.color,
                     None,
                     &line,
@@ -472,7 +477,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
             } => {
                 self.scene.stroke(
                     &stroke_params.stroke,
-                    vello::kurbo::Affine::IDENTITY,
+                    self.y_transform,
                     stroke_params.color,
                     None,
                     &path,
@@ -488,7 +493,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                 if let Some(fill_params) = fill_params {
                     self.scene.fill(
                         vello::peniko::Fill::NonZero,
-                        vello::kurbo::Affine::IDENTITY,
+                        self.y_transform,
                         fill_params.color,
                         None,
                         &path,
@@ -498,7 +503,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                 if let Some(stroke_params) = stroke_params {
                     self.scene.stroke(
                         &stroke_params.stroke,
-                        vello::kurbo::Affine::IDENTITY,
+                        self.y_transform,
                         stroke_params.color,
                         None,
                         &path,
@@ -518,7 +523,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                 if let Some(fill_params) = fill_params {
                     self.scene.fill(
                         vello::peniko::Fill::NonZero,
-                        vello::kurbo::Affine::IDENTITY,
+                        self.y_transform,
                         fill_params.color,
                         None,
                         &rect,
@@ -528,7 +533,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                 if let Some(stroke_params) = stroke_params {
                     self.scene.stroke(
                         &stroke_params.stroke,
-                        vello::kurbo::Affine::IDENTITY,
+                        self.y_transform,
                         stroke_params.color,
                         None,
                         &rect,
@@ -567,7 +572,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                 let width = layout.width();
                 let transform = vello::kurbo::Affine::translate((-(width * hadj) as f64, 0.0))
                     .then_rotate(-angle as f64)
-                    .then_translate((pos.x, pos.y).into());
+                    .then_translate((pos.x, pos.y).into()); // Y-axis is flipped
 
                 for line in layout.lines() {
                     let vadj = line.metrics().ascent * 0.5;
@@ -578,7 +583,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                         };
 
                         let mut x = glyph_run.offset();
-                        let y = glyph_run.baseline() - vadj;
+                        let y = glyph_run.baseline() - vadj; // Y-axis is flipped
                         let run = glyph_run.run();
 
                         let font = run.font();
@@ -618,12 +623,12 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                                 vello::peniko::Fill::NonZero,
                                 glyph_run.glyphs().map(|g| {
                                     let gx = x + g.x;
-                                    let gy = y - g.y;
+                                    let gy = y - g.y; // Y-axis is flipped
                                     x += g.advance;
                                     vello::Glyph {
                                         id: g.id as _,
                                         x: gx,
-                                        y: gy,
+                                        y: self.height - gy,
                                     }
                                 }),
                             );
@@ -695,6 +700,10 @@ enum UserEvent {
 const DEFAULT_DEVICE_SIZE: f32 = 480.0;
 const REFRESH_INTERVAL: tokio::time::Duration = tokio::time::Duration::from_millis(16); // = 60fps
 
+fn calc_y_translate(h: f32) -> vello::kurbo::Affine {
+    vello::kurbo::Affine::FLIP_Y.then_translate(vello::kurbo::Vec2 { x: 0.0, y: h as _ })
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut sizes = std::env::args()
@@ -714,6 +723,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         scene: Scene::new(),
         background_color: Color::WHITE_SMOKE,
         font_ctx: parley::FontContext::new(),
+        y_transform: calc_y_translate(height),
         width,
         height,
         needs_redraw: true,
