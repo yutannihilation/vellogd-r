@@ -2,7 +2,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use std::os::raw::{c_char, c_int, c_void};
+use std::os::raw::{c_char, c_int, c_uint, c_void};
 
 use savvy::ffi::SEXP;
 extern "C" {
@@ -103,8 +103,8 @@ pub struct _DevDesc {
     pub canChangeGamma: Rboolean,
     pub canHAdj: c_int,
     pub startps: f64,
-    pub startcol: c_int,
-    pub startfill: c_int,
+    pub startcol: c_uint,  // uint (u32) is easiler to use on Rust's side
+    pub startfill: c_uint, // uint (u32) is easiler to use on Rust's side
     pub startlty: c_int,
     pub startfont: c_int,
     pub startgamma: f64,

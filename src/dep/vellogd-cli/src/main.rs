@@ -136,6 +136,34 @@ enum Commands {
         #[arg(long, default_value_t = 0.0)]
         hadj: f32,
     },
+
+    #[command()]
+    TextMetric {
+        #[arg(default_value = "🌶")] // to test emoji (cannot input from Powershell)
+        text: String,
+        #[arg(long, short, default_value_t = 50.0)]
+        size: f32,
+        #[arg(long, default_value_t = 1.0)]
+        lineheight: f32,
+        #[arg(long, default_value_t = 1)]
+        face: u32,
+        #[arg(long, default_value = "Arial")]
+        family: String,
+    },
+
+    #[command()]
+    TextWidth {
+        #[arg(default_value = "🌶")] // to test emoji (cannot input from Powershell)
+        text: String,
+        #[arg(long, short, default_value_t = 50.0)]
+        size: f32,
+        #[arg(long, default_value_t = 1.0)]
+        lineheight: f32,
+        #[arg(long, default_value_t = 1)]
+        face: u32,
+        #[arg(long, default_value = "Arial")]
+        family: String,
+    },
 }
 
 #[tokio::main]
@@ -370,6 +398,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 hadj,
             });
             client.draw_text(request).await
+        }
+
+        Commands::TextMetric {
+            text,
+            size,
+            lineheight,
+            face,
+            family,
+        } => {
+            let request = tonic::Request::new(GetTextMetricRequest {
+                text,
+                size,
+                lineheight,
+                face,
+                family,
+            });
+            let metric = client.get_text_metric(request).await?.into_inner();
+
+            println!(
+                "ascent: {}, descent: {}, width: {}",
+                metric.ascent, metric.descent, metric.width
+            );
+            return Ok(());
+        }
+
+        Commands::TextWidth {
+            text,
+            size,
+            lineheight,
+            face,
+            family,
+        } => {
+            let request = tonic::Request::new(GetTextMetricRequest {
+                text,
+                size,
+                lineheight,
+                face,
+                family,
+            });
+            let metric = client.get_text_width(request).await?.into_inner();
+
+            println!("width: {}", metric.width);
+            return Ok(());
         }
     }?;
 

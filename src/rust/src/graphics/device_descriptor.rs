@@ -120,8 +120,8 @@ pub struct DeviceDescriptor {
     pub(crate) cra: [f64; 2],
 
     pub(crate) startps: f64,
-    pub(crate) startcol: i32,
-    pub(crate) startfill: i32,
+    pub(crate) startcol: u32,
+    pub(crate) startfill: u32,
     pub(crate) startlty: i32,
     pub(crate) startfont: i32,
 }
@@ -144,8 +144,8 @@ impl DeviceDescriptor {
             cra: [0.9 * FONTSIZE, 1.2 * FONTSIZE],
 
             startps: POINTSIZE,
-            startcol: 0x000000,
-            startfill: 0xffffff,
+            startcol: 0xff000000,
+            startfill: 0xffffffff,
             startlty: super::LTY_SOLID, // Solid
             startfont: 1,               // Plain
         }

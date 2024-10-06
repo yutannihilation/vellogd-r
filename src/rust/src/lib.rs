@@ -19,6 +19,7 @@ use vellogd_protocol::DrawPolylineRequest;
 use vellogd_protocol::DrawRectRequest;
 use vellogd_protocol::DrawTextRequest;
 use vellogd_protocol::Empty;
+use vellogd_protocol::GetTextMetricRequest;
 use vellogd_protocol::StrokeParameters;
 
 #[cfg(debug_assertions)]
@@ -50,28 +51,27 @@ impl VelloGraphicsDevice {
     }
 }
 
-fn gc_to_stroke_params(gc: R_GE_gcontext) -> Option<StrokeParameters> {
+fn gc_to_stroke_params(gc: R_GE_gcontext, optional: bool) -> Option<StrokeParameters> {
     let stroke_color = unsafe { std::mem::transmute::<i32, u32>(gc.col) };
-    if stroke_color != 0 {
-        Some(StrokeParameters {
-            color: stroke_color,
-            width: gc.lwd,
-            linetype: gc.lty,
-            join: gc.ljoin as _,
-            miter_limit: gc.lmitre,
-            cap: gc.lend as _,
-        })
-    } else {
-        None
+    if optional && stroke_color == 0 {
+        return None;
     }
+    Some(StrokeParameters {
+        color: stroke_color,
+        width: gc.lwd,
+        linetype: gc.lty,
+        join: gc.ljoin as _,
+        miter_limit: gc.lmitre,
+        cap: gc.lend as _,
+    })
 }
 
-fn gc_to_fill_color(gc: R_GE_gcontext) -> Option<u32> {
+fn gc_to_fill_color(gc: R_GE_gcontext, optional: bool) -> Option<u32> {
     let fill_color = unsafe { std::mem::transmute::<i32, u32>(gc.fill) };
-    if fill_color != 0 {
-        Some(fill_color)
-    } else {
+    if optional && fill_color == 0 {
         None
+    } else {
+        Some(fill_color)
     }
 }
 
@@ -106,7 +106,7 @@ impl DeviceDriver for VelloGraphicsDevice {
             cy: center.1,
             radius: r,
             fill_color,
-            stroke_params: gc_to_stroke_params(gc),
+            stroke_params: gc_to_stroke_params(gc, true),
         });
 
         let client = self.client();
@@ -136,7 +136,7 @@ impl DeviceDriver for VelloGraphicsDevice {
             y0: from.1,
             x1: from.0,
             y1: from.1,
-            stroke_params: gc_to_stroke_params(gc),
+            stroke_params: gc_to_stroke_params(gc, false),
         });
         let client = self.client();
         let res = RUNTIME.block_on(async { client.draw_line(request).await });
@@ -147,10 +147,39 @@ impl DeviceDriver for VelloGraphicsDevice {
     }
 
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> graphics::TextMetric {
-        graphics::TextMetric {
-            ascent: 0.0,
-            descent: 0.0,
-            width: 0.0,
+        let family = unsafe {
+            CStr::from_ptr(gc.fontfamily.as_ptr())
+                .to_str()
+                .unwrap_or("Arial")
+        }
+        .to_string();
+        let request = tonic::Request::new(GetTextMetricRequest {
+            text: c.to_string(),
+            size: (gc.cex * gc.ps) as _,
+            lineheight: gc.lineheight as _,
+            face: gc.fontface as _,
+            family,
+        });
+
+        let client = self.client();
+        let res = RUNTIME.block_on(async { client.get_text_metric(request).await });
+        match res {
+            Ok(res) => {
+                let metric = res.into_inner();
+                graphics::TextMetric {
+                    ascent: metric.ascent,
+                    descent: metric.descent,
+                    width: metric.width,
+                }
+            }
+            Err(e) => {
+                savvy::r_eprintln!("failed to draw text: {e:?}");
+                graphics::TextMetric {
+                    ascent: 0.0,
+                    descent: 0.0,
+                    width: 0.0,
+                }
+            }
         }
     }
 
@@ -169,8 +198,8 @@ impl DeviceDriver for VelloGraphicsDevice {
         let request = tonic::Request::new(DrawPolygonRequest {
             x: x.to_vec(), // TODO: avoid copy?
             y: y.to_vec(), // TODO: avoid copy?
-            fill_color: gc_to_fill_color(gc),
-            stroke_params: gc_to_stroke_params(gc),
+            fill_color: gc_to_fill_color(gc, true),
+            stroke_params: gc_to_stroke_params(gc, true),
         });
 
         let client = self.client();
@@ -185,7 +214,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         let request = tonic::Request::new(DrawPolylineRequest {
             x: x.to_vec(), // TODO: avoid copy?
             y: y.to_vec(), // TODO: avoid copy?
-            stroke_params: gc_to_stroke_params(gc),
+            stroke_params: gc_to_stroke_params(gc, false),
         });
 
         let client = self.client();
@@ -202,8 +231,8 @@ impl DeviceDriver for VelloGraphicsDevice {
             y0: from.1,
             x1: to.0,
             y1: to.1,
-            fill_color: gc_to_fill_color(gc),
-            stroke_params: gc_to_stroke_params(gc),
+            fill_color: gc_to_fill_color(gc, true),
+            stroke_params: gc_to_stroke_params(gc, true),
         });
 
         let client = self.client();
@@ -246,9 +275,29 @@ impl DeviceDriver for VelloGraphicsDevice {
     }
 
     fn text_width(&mut self, text: &str, gc: R_GE_gcontext, dd: DevDesc) -> f64 {
-        text.chars()
-            .map(|c| self.char_metric(c, gc, dd).width)
-            .sum()
+        let family = unsafe {
+            CStr::from_ptr(gc.fontfamily.as_ptr())
+                .to_str()
+                .unwrap_or("Arial")
+        }
+        .to_string();
+        let request = tonic::Request::new(GetTextMetricRequest {
+            text: text.to_string(),
+            size: (gc.cex * gc.ps) as _,
+            lineheight: gc.lineheight as _,
+            face: gc.fontface as _,
+            family,
+        });
+
+        let client = self.client();
+        let res = RUNTIME.block_on(async { client.get_text_width(request).await });
+        match res {
+            Ok(res) => res.into_inner().width,
+            Err(e) => {
+                savvy::r_eprintln!("failed to draw text: {e:?}");
+                0.0
+            }
+        }
     }
 
     fn text(

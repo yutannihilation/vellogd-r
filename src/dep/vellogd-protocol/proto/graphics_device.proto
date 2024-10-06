@@ -11,6 +11,11 @@ service GraphicsDevice {
     rpc DrawPolygon(DrawPolygonRequest) returns (Empty);
     rpc DrawRect(DrawRectRequest) returns (Empty);
     rpc DrawText(DrawTextRequest) returns (Empty);
+
+    // share the reqest message format; GetTextMetric is used only for a char, 
+    // so it can use i32 instead of String if more efficiency is needed.
+    rpc GetTextWidth(GetTextMetricRequest) returns (GetTextWidthResponse);
+    rpc GetTextMetric(GetTextMetricRequest) returns (GetTextMetricResponse);
 }
 
 message Empty {}
@@ -75,4 +80,22 @@ message DrawTextRequest {
     string family = 8;
     float angle = 9;
     float hadj = 10; // hadj = horizontal adjustment
+}
+
+message GetTextMetricRequest {
+    string text = 1;
+    float size = 2;
+    float lineheight = 3;
+    uint32 face = 4;
+    string family = 5;
+}
+
+message GetTextWidthResponse {
+    double width = 1;
+}
+
+message GetTextMetricResponse {
+    double ascent = 1;
+    double descent = 2;
+    double width = 3;
 }

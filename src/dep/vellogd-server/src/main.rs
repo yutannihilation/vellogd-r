@@ -7,6 +7,8 @@ mod utils;
 
 use std::{num::NonZeroUsize, sync::Arc};
 
+use parley::FontContext;
+use pollster::FutureExt;
 use utils::u32_to_color;
 use vello::{
     peniko::Color,
@@ -25,14 +27,18 @@ use tonic::{transport::Server, Request, Response, Status};
 use vellogd_protocol::graphics_device_server::{GraphicsDevice, GraphicsDeviceServer};
 use vellogd_protocol::*;
 
-#[derive(Debug)]
 struct VelloGraphicsDevice {
     event_loop_proxy: EventLoopProxy<UserEvent>,
+    // TODO: how to share this with VelloApp?
+    font_ctx: tokio::sync::Mutex<FontContext>,
 }
 
 impl VelloGraphicsDevice {
     fn new(event_loop_proxy: EventLoopProxy<UserEvent>) -> Self {
-        Self { event_loop_proxy }
+        Self {
+            event_loop_proxy,
+            font_ctx: tokio::sync::Mutex::new(FontContext::new()),
+        }
     }
 }
 
@@ -253,6 +259,67 @@ impl GraphicsDevice for VelloGraphicsDevice {
             .map_err(|e| Status::from_error(Box::new(e)))?;
 
         let reply = Empty {};
+        Ok(Response::new(reply))
+    }
+
+    async fn get_text_width(
+        &self,
+        request: Request<GetTextMetricRequest>,
+    ) -> Result<Response<GetTextWidthResponse>, Status> {
+        log::debug!("Recieved request: {:?}", request);
+
+        let GetTextMetricRequest {
+            text,
+            size,
+            lineheight,
+            face,
+            family,
+        } = request.into_inner();
+
+        let mut font_ctx = self.font_ctx.lock().await;
+        let layout = build_layout(&mut font_ctx, text, size, lineheight);
+
+        let reply = GetTextWidthResponse {
+            width: layout.width() as _,
+        };
+        Ok(Response::new(reply))
+    }
+
+    async fn get_text_metric(
+        &self,
+        request: Request<GetTextMetricRequest>,
+    ) -> Result<Response<GetTextMetricResponse>, Status> {
+        log::debug!("Recieved request: {:?}", request);
+
+        let GetTextMetricRequest {
+            text,
+            size,
+            lineheight,
+            face,
+            family,
+        } = request.into_inner();
+
+        let mut font_ctx = self.font_ctx.lock().await;
+        let layout = build_layout(&mut font_ctx, text, size, lineheight);
+
+        let reply = match layout.lines().next() {
+            Some(line) => {
+                let metrics = line.metrics();
+                GetTextMetricResponse {
+                    ascent: metrics.ascent as _,
+                    descent: metrics.descent as _,
+                    width: layout.width() as _, // TOOD: should this be run.metrics().width of the first char?
+                }
+            }
+            None => {
+                log::warn!("Failed to get line metrics");
+                GetTextMetricResponse {
+                    ascent: 0.0,
+                    descent: 0.0,
+                    width: 0.0,
+                }
+            }
+        };
         Ok(Response::new(reply))
     }
 }
@@ -553,21 +620,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                 angle,
                 hadj,
             } => {
-                // Note: parley is probably a little bit overkill, but it seems
-                // this is the only interface.
-                let mut layout_ctx: parley::LayoutContext<vello::peniko::Brush> =
-                    parley::LayoutContext::new();
-                let mut layout_builder =
-                    layout_ctx.ranged_builder(&mut self.font_ctx, text.as_str(), 1.0); // TODO: should scale be configurable?
-                layout_builder.push_default(&parley::StyleProperty::FontSize(size));
-                layout_builder.push_default(&parley::StyleProperty::LineHeight(lineheight));
-                layout_builder.push_default(&parley::StyleProperty::FontStack(
-                    parley::FontStack::Source("system-iu"), // TODO: specify family
-                ));
-                // TODO: use build_into() to reuse a Layout?
-                let mut layout = layout_builder.build(text.as_str());
-                layout.break_all_lines(None); // It seems this is mandatory, otherwise no text is drawn. Why?
-                layout.align(None, parley::Alignment::Start);
+                let layout = build_layout(&mut self.font_ctx, text, size, lineheight);
 
                 let width = layout.width();
                 let transform = vello::kurbo::Affine::translate((-(width * hadj) as f64, 0.0))
@@ -639,6 +692,33 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
             }
         };
     }
+}
+
+fn build_layout(
+    font_ctx: &mut parley::FontContext,
+    text: String,
+    // TODO
+    // family: String,
+    // face: i32,
+    size: f32,
+    lineheight: f32,
+) -> parley::Layout<vello::peniko::Brush> {
+    // Note: parley is probably a little bit overkill, but it seems
+    // this is the only interface.
+    let mut layout_ctx: parley::LayoutContext<vello::peniko::Brush> = parley::LayoutContext::new();
+    let mut layout_builder = layout_ctx.ranged_builder(font_ctx, text.as_str(), 1.0);
+    // TODO: should scale be configurable?
+    layout_builder.push_default(&parley::StyleProperty::FontSize(size));
+    layout_builder.push_default(&parley::StyleProperty::LineHeight(lineheight));
+    layout_builder.push_default(&parley::StyleProperty::FontStack(
+        parley::FontStack::Source("system-iu"), // TODO: specify family
+    ));
+    // TODO: use build_into() to reuse a Layout?
+    let mut layout = layout_builder.build(text.as_str());
+    layout.break_all_lines(None);
+    // It seems this is mandatory, otherwise no text is drawn. Why?
+    layout.align(None, parley::Alignment::Start);
+    layout
 }
 
 #[derive(Debug, Clone)]
