@@ -400,9 +400,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.1.25"
+version = "1.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8d9e0b4957f635b8d3da819d0db5603620467ecf1f692d22a8c2717ce27e6d8"
+checksum = "2e80e3b6a3ab07840e1cae9b0666a63970dc28e8ed5ffbcdacbfc760c281bfc1"
 dependencies = [
  "jobserver",
  "libc",
@@ -784,15 +784,6 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "font-types"
-version = "0.5.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34fd7136aca682873d859ef34494ab1a7d3f57ecd485ed40eb6437ee8c85aa29"
-dependencies = [
- "bytemuck",
-]
-
-[[package]]
-name = "font-types"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f0189ccb084f77c5523e08288d418cbaa09c451a08515678a0aa265df9a8b60"
@@ -822,7 +813,7 @@ dependencies = [
 [[package]]
 name = "fontique"
 version = "0.1.0"
-source = "git+https://github.com/linebender/parley#be9e9ab3fc3fe92b3887048d5123c963cffac3d5"
+source = "git+https://github.com/linebender/parley#7b2902139d514ef303fe4730b546fb5e537c145c"
 dependencies = [
  "core-foundation",
  "core-text",
@@ -832,9 +823,9 @@ dependencies = [
  "memmap2",
  "objc2",
  "objc2-foundation",
- "peniko 0.1.1",
+ "peniko",
  "roxmltree",
- "skrifa 0.19.3",
+ "skrifa 0.22.3",
  "smallvec",
  "windows 0.58.0",
  "windows-core 0.58.0",
@@ -1802,12 +1793,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.20.1"
+version = "1.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82881c4be219ab5faaf2ad5e5e5ecdff8c66bd7402ca3160975c93b24961afd1"
-dependencies = [
- "portable-atomic",
-]
+checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
 
 [[package]]
 name = "orbclient"
@@ -1853,11 +1841,11 @@ dependencies = [
 [[package]]
 name = "parley"
 version = "0.1.0"
-source = "git+https://github.com/linebender/parley#be9e9ab3fc3fe92b3887048d5123c963cffac3d5"
+source = "git+https://github.com/linebender/parley#7b2902139d514ef303fe4730b546fb5e537c145c"
 dependencies = [
  "fontique",
- "peniko 0.1.1",
- "skrifa 0.19.3",
+ "peniko",
+ "skrifa 0.22.3",
  "swash",
 ]
 
@@ -1866,16 +1854,6 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
-
-[[package]]
-name = "peniko"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c28d7294093837856bb80ad191cc46a2fcec8a30b43b7a3b0285325f0a917a9"
-dependencies = [
- "kurbo",
- "smallvec",
-]
 
 [[package]]
 name = "peniko"
@@ -1974,12 +1952,6 @@ name = "pollster"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22686f4785f02a4fcc856d3b3bb19bf6c8160d103f7a99cc258bddd0251dc7f2"
-
-[[package]]
-name = "portable-atomic"
-version = "1.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc9c68a3f6da06753e9335d63e27f6b9754dd1920d941135b7ea8224f141adb2"
 
 [[package]]
 name = "ppv-lite86"
@@ -2142,16 +2114,6 @@ name = "raw-window-handle"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20675572f6f24e9e76ef639bc5552774ed45f1c30e2951e1e99c59888861c539"
-
-[[package]]
-name = "read-fonts"
-version = "0.19.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8b8af39d1f23869711ad4cea5e7835a20daa987f80232f7f2a2374d648ca64d"
-dependencies = [
- "bytemuck",
- "font-types 0.5.5",
-]
 
 [[package]]
 name = "read-fonts"
@@ -2328,16 +2290,6 @@ name = "simd-adler32"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
-
-[[package]]
-name = "skrifa"
-version = "0.19.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ab45fb68b53576a43d4fc0e9ec8ea64e29a4d2cc7f44506964cb75f288222e9"
-dependencies = [
- "bytemuck",
- "read-fonts 0.19.3",
-]
 
 [[package]]
 name = "skrifa"
@@ -2818,7 +2770,7 @@ dependencies = [
  "bytemuck",
  "futures-intrusive",
  "log",
- "peniko 0.2.0",
+ "peniko",
  "png",
  "raw-window-handle",
  "skrifa 0.22.3",
@@ -2836,7 +2788,7 @@ source = "git+https://github.com/linebender/vello#15082ba70a2f8504876dcca3c1c466
 dependencies = [
  "bytemuck",
  "guillotiere",
- "peniko 0.2.0",
+ "peniko",
  "skrifa 0.22.3",
  "smallvec",
 ]
