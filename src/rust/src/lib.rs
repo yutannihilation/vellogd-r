@@ -9,7 +9,6 @@ use graphics::DeviceDriver;
 use graphics::R_GE_gcontext;
 use graphics::R_NilValue;
 use savvy::savvy;
-use tokio::sync::Mutex;
 use tonic::transport::Channel;
 use vellogd_protocol::graphics_device_client::GraphicsDeviceClient;
 use vellogd_protocol::DrawCircleRequest;
@@ -19,41 +18,34 @@ use vellogd_protocol::StrokeParameters;
 #[cfg(debug_assertions)]
 mod debug_device;
 
-pub struct VelloGraphicsDevice {}
+pub struct VelloGraphicsDevice {
+    filename: String,
+    client: Option<GraphicsDeviceClient<Channel>>,
+}
 
 impl VelloGraphicsDevice {
     pub fn new(filename: &str, width: u32, height: u32) -> Self {
-        Self {}
+        Self {
+            filename: filename.into(),
+            client: None,
+        }
     }
-}
 
-#[cfg(debug_assertions)]
-fn fill_related_params(gc: R_GE_gcontext) -> String {
-    format!("fill: {:08x}", gc.fill)
-}
-
-#[cfg(debug_assertions)]
-fn line_related_params(gc: R_GE_gcontext) -> String {
-    format!(
-        "color: {:08x}, linewidth: {}, line type: {},  cap: {}, join: {}, mitre: {}",
-        gc.col, gc.lwd, gc.lty, gc.lend, gc.ljoin, gc.lmitre
-    )
-}
-
-#[cfg(debug_assertions)]
-fn text_related_params(gc: R_GE_gcontext) -> String {
-    format!("fill: {:08x}", gc.fill)
+    // TODO: if the connection is lost, how to detect it and reconnect?
+    pub fn client(&mut self) -> &mut GraphicsDeviceClient<Channel> {
+        if self.client.is_none() {
+            self.client = Some(
+                RUNTIME
+                    .block_on(async { GraphicsDeviceClient::connect("http://[::1]:50051").await })
+                    .unwrap(),
+            )
+        }
+        self.client.as_mut().unwrap()
+    }
 }
 
 static RUNTIME: LazyLock<tokio::runtime::Runtime> =
     LazyLock::new(|| tokio::runtime::Runtime::new().unwrap());
-
-// static CLIENT: LazyLock<Mutex<GraphicsDeviceClient<Channel>>> = LazyLock::new(|| {
-//     let client = RUNTIME
-//         .block_on(async { GraphicsDeviceClient::connect("http://[::1]:50051").await })
-//         .unwrap();
-//     Mutex::new(client)
-// });
 
 impl DeviceDriver for VelloGraphicsDevice {
     const USE_RASTER: bool = true;
@@ -100,10 +92,7 @@ impl DeviceDriver for VelloGraphicsDevice {
             stroke_params,
         });
 
-        let mut client = RUNTIME
-            .block_on(async { GraphicsDeviceClient::connect("http://[::1]:50051").await })
-            .unwrap();
-
+        let client = self.client();
         let res = RUNTIME
             .block_on(async { client.draw_circle(request).await })
             .unwrap();
@@ -112,10 +101,7 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {}
 
     fn close(&mut self, _: DevDesc) {
-        let mut client = RUNTIME
-            .block_on(async { GraphicsDeviceClient::connect("http://[::1]:50051").await })
-            .unwrap();
-
+        let client = self.client();
         let res = RUNTIME
             .block_on(async { client.close_window(Empty {}).await })
             .unwrap();
