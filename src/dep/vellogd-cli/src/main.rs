@@ -95,6 +95,24 @@ enum Commands {
     },
 
     #[command()]
+    Rect {
+        #[arg()]
+        x0: f64,
+        #[arg()]
+        y0: f64,
+        #[arg()]
+        x1: f64,
+        #[arg()]
+        y1: f64,
+        #[arg(long, short, default_value_t = 8.0)]
+        width: f64,
+        #[arg(long, short, default_value = "999")]
+        fill: String,
+        #[arg(long, short, default_value = "000")]
+        color: String,
+    },
+
+    #[command()]
     Text {
         #[arg()]
         x: f64,
@@ -283,6 +301,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 stroke_params,
             });
             client.draw_polygon(request).await
+        }
+
+        Commands::Rect {
+            x0,
+            y0,
+            x1,
+            y1,
+            width,
+            fill,
+            color,
+        } => {
+            let fill_color = hex_color_to_u32(fill);
+            let fill_color = if fill_color != 0 {
+                Some(fill_color)
+            } else {
+                None
+            };
+
+            let color = hex_color_to_u32(color);
+            let stroke_params = if color != 0 {
+                Some(StrokeParameters {
+                    color,
+                    width,
+                    linetype: 1,
+                    join: 1,
+                    miter_limit: 1.0,
+                    cap: 1,
+                })
+            } else {
+                None
+            };
+
+            let request = tonic::Request::new(DrawRectRequest {
+                x0,
+                y0,
+                x1,
+                y1,
+                fill_color,
+                stroke_params,
+            });
+            client.draw_rect(request).await
         }
 
         Commands::Text {

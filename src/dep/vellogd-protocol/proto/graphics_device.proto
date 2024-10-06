@@ -9,6 +9,7 @@ service GraphicsDevice {
     rpc DrawLine(DrawLineRequest) returns (Empty);
     rpc DrawPolyline(DrawPolylineRequest) returns (Empty);
     rpc DrawPolygon(DrawPolygonRequest) returns (Empty);
+    rpc DrawRect(DrawRectRequest) returns (Empty);
     rpc DrawText(DrawTextRequest) returns (Empty);
 }
 
@@ -52,6 +53,15 @@ message DrawPolygonRequest {
     repeated double y = 2;
     optional uint32 fill_color = 4;
     optional StrokeParameters stroke_params = 3;
+}
+
+message DrawRectRequest {
+    double x0 = 1;
+    double y0 = 2;
+    double x1 = 3;
+    double y1 = 4;
+    optional uint32 fill_color = 5;
+    StrokeParameters stroke_params = 6;
 }
 
 message DrawTextRequest {

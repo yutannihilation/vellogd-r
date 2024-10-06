@@ -189,6 +189,37 @@ impl GraphicsDevice for VelloGraphicsDevice {
         Ok(Response::new(reply))
     }
 
+    async fn draw_rect(
+        &self,
+        request: Request<DrawRectRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        log::debug!("Recieved request: {:?}", request);
+
+        let DrawRectRequest {
+            x0,
+            y0,
+            x1,
+            y1,
+            fill_color,
+            stroke_params,
+        } = request.into_inner();
+
+        let fill_params = fill_color.map(FillParams::from_request);
+        let stroke_params = stroke_params.map(StrokeParams::from_request);
+
+        self.event_loop_proxy
+            .send_event(UserEvent::DrawRect {
+                p0: vello::kurbo::Point::new(x0, y0),
+                p1: vello::kurbo::Point::new(x1, y1),
+                fill_params,
+                stroke_params,
+            })
+            .map_err(|e| Status::from_error(Box::new(e)))?;
+
+        let reply = Empty {};
+        Ok(Response::new(reply))
+    }
+
     async fn draw_text(
         &self,
         request: Request<DrawTextRequest>,
@@ -476,6 +507,37 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
 
                 self.needs_redraw = true;
             }
+
+            UserEvent::DrawRect {
+                p0,
+                p1,
+                fill_params,
+                stroke_params,
+            } => {
+                let rect = vello::kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y);
+                if let Some(fill_params) = fill_params {
+                    self.scene.fill(
+                        vello::peniko::Fill::NonZero,
+                        vello::kurbo::Affine::IDENTITY,
+                        fill_params.color,
+                        None,
+                        &rect,
+                    );
+                }
+
+                if let Some(stroke_params) = stroke_params {
+                    self.scene.stroke(
+                        &stroke_params.stroke,
+                        vello::kurbo::Affine::IDENTITY,
+                        stroke_params.color,
+                        None,
+                        &rect,
+                    );
+                }
+
+                self.needs_redraw = true;
+            }
+
             UserEvent::DrawText {
                 pos,
                 text,
@@ -607,6 +669,12 @@ enum UserEvent {
     },
     DrawPolygon {
         path: vello::kurbo::BezPath,
+        fill_params: Option<FillParams>,
+        stroke_params: Option<StrokeParams>,
+    },
+    DrawRect {
+        p0: vello::kurbo::Point,
+        p1: vello::kurbo::Point,
         fill_params: Option<FillParams>,
         stroke_params: Option<StrokeParams>,
     },

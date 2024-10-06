@@ -16,6 +16,7 @@ use vellogd_protocol::DrawCircleRequest;
 use vellogd_protocol::DrawLineRequest;
 use vellogd_protocol::DrawPolygonRequest;
 use vellogd_protocol::DrawPolylineRequest;
+use vellogd_protocol::DrawRectRequest;
 use vellogd_protocol::DrawTextRequest;
 use vellogd_protocol::Empty;
 use vellogd_protocol::StrokeParameters;
@@ -49,6 +50,31 @@ impl VelloGraphicsDevice {
     }
 }
 
+fn gc_to_stroke_params(gc: R_GE_gcontext) -> Option<StrokeParameters> {
+    let stroke_color = unsafe { std::mem::transmute::<i32, u32>(gc.col) };
+    if stroke_color != 0 {
+        Some(StrokeParameters {
+            color: stroke_color,
+            width: gc.lwd,
+            linetype: gc.lty,
+            join: gc.ljoin as _,
+            miter_limit: gc.lmitre,
+            cap: gc.lend as _,
+        })
+    } else {
+        None
+    }
+}
+
+fn gc_to_fill_color(gc: R_GE_gcontext) -> Option<u32> {
+    let fill_color = unsafe { std::mem::transmute::<i32, u32>(gc.fill) };
+    if fill_color != 0 {
+        Some(fill_color)
+    } else {
+        None
+    }
+}
+
 static RUNTIME: LazyLock<tokio::runtime::Runtime> =
     LazyLock::new(|| tokio::runtime::Runtime::new().unwrap());
 
@@ -75,26 +101,12 @@ impl DeviceDriver for VelloGraphicsDevice {
             None
         };
 
-        let stroke_color = unsafe { std::mem::transmute::<i32, u32>(gc.col) };
-        let stroke_params = if stroke_color != 0 {
-            Some(StrokeParameters {
-                color: stroke_color,
-                width: gc.lwd,
-                linetype: gc.lty,
-                join: gc.ljoin as _,
-                miter_limit: gc.lmitre,
-                cap: gc.lend as _,
-            })
-        } else {
-            None
-        };
-
         let request = tonic::Request::new(DrawCircleRequest {
             cx: center.0,
             cy: center.1,
             radius: r,
             fill_color,
-            stroke_params,
+            stroke_params: gc_to_stroke_params(gc),
         });
 
         let client = self.client();
@@ -119,26 +131,12 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn deactivate(&mut self, _: DevDesc) {}
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        let color = unsafe { std::mem::transmute::<i32, u32>(gc.col) };
-        let stroke_params = if color != 0 {
-            Some(StrokeParameters {
-                color,
-                width: gc.lwd,
-                linetype: gc.lty,
-                join: gc.ljoin as _,
-                miter_limit: gc.lmitre,
-                cap: gc.lend as _,
-            })
-        } else {
-            None
-        };
-
         let request = tonic::Request::new(DrawLineRequest {
             x0: from.0,
             y0: from.1,
             x1: from.0,
             y1: from.1,
-            stroke_params,
+            stroke_params: gc_to_stroke_params(gc),
         });
         let client = self.client();
         let res = RUNTIME.block_on(async { client.draw_line(request).await });
@@ -168,32 +166,11 @@ impl DeviceDriver for VelloGraphicsDevice {
     }
 
     fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        let fill_color = unsafe { std::mem::transmute::<i32, u32>(gc.fill) };
-        let fill_color = if fill_color != 0 {
-            Some(fill_color)
-        } else {
-            None
-        };
-
-        let stroke_color = unsafe { std::mem::transmute::<i32, u32>(gc.col) };
-        let stroke_params = if stroke_color != 0 {
-            Some(StrokeParameters {
-                color: stroke_color,
-                width: gc.lwd,
-                linetype: gc.lty,
-                join: gc.ljoin as _,
-                miter_limit: gc.lmitre,
-                cap: gc.lend as _,
-            })
-        } else {
-            None
-        };
-
         let request = tonic::Request::new(DrawPolygonRequest {
             x: x.to_vec(), // TODO: avoid copy?
             y: y.to_vec(), // TODO: avoid copy?
-            fill_color,
-            stroke_params,
+            fill_color: gc_to_fill_color(gc),
+            stroke_params: gc_to_stroke_params(gc),
         });
 
         let client = self.client();
@@ -205,24 +182,10 @@ impl DeviceDriver for VelloGraphicsDevice {
     }
 
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        let color = unsafe { std::mem::transmute::<i32, u32>(gc.col) };
-        let stroke_params = if color != 0 {
-            Some(StrokeParameters {
-                color,
-                width: gc.lwd,
-                linetype: gc.lty,
-                join: gc.ljoin as _,
-                miter_limit: gc.lmitre,
-                cap: gc.lend as _,
-            })
-        } else {
-            None
-        };
-
         let request = tonic::Request::new(DrawPolylineRequest {
             x: x.to_vec(), // TODO: avoid copy?
             y: y.to_vec(), // TODO: avoid copy?
-            stroke_params,
+            stroke_params: gc_to_stroke_params(gc),
         });
 
         let client = self.client();
@@ -233,7 +196,23 @@ impl DeviceDriver for VelloGraphicsDevice {
         }
     }
 
-    fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {}
+    fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
+        let request = tonic::Request::new(DrawRectRequest {
+            x0: from.0,
+            y0: from.1,
+            x1: to.0,
+            y1: to.1,
+            fill_color: gc_to_fill_color(gc),
+            stroke_params: gc_to_stroke_params(gc),
+        });
+
+        let client = self.client();
+        let res = RUNTIME.block_on(async { client.draw_rect(request).await });
+        match res {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("failed to draw rect: {e:?}"),
+        }
+    }
 
     fn path(
         &mut self,
