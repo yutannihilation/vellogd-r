@@ -56,14 +56,15 @@ fn gc_to_stroke_params(gc: R_GE_gcontext, optional: bool) -> Option<StrokeParame
     if optional && stroke_color == 0 {
         return None;
     }
-    Some(StrokeParameters {
+    let params = StrokeParameters {
         color: stroke_color,
         width: gc.lwd,
         linetype: gc.lty,
         join: gc.ljoin as _,
         miter_limit: gc.lmitre,
         cap: gc.lend as _,
-    })
+    };
+    Some(params)
 }
 
 fn gc_to_fill_color(gc: R_GE_gcontext, optional: bool) -> Option<u32> {
@@ -87,7 +88,7 @@ impl DeviceDriver for VelloGraphicsDevice {
 
     const USE_PLOT_HISTORY: bool = false;
 
-    const CLIPPING_STRATEGY: ClippingStrategy = ClippingStrategy::DeviceAndEngine;
+    const CLIPPING_STRATEGY: ClippingStrategy = ClippingStrategy::Device;
 
     const ACCEPT_UTF8_TEXT: bool = true;
 
@@ -134,8 +135,8 @@ impl DeviceDriver for VelloGraphicsDevice {
         let request = tonic::Request::new(DrawLineRequest {
             x0: from.0,
             y0: from.1,
-            x1: from.0,
-            y1: from.1,
+            x1: to.0,
+            y1: to.1,
             stroke_params: gc_to_stroke_params(gc, false),
         });
         let client = self.client();

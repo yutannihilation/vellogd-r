@@ -1,5 +1,5 @@
 impl crate::StrokeParams {
-    pub fn from_request(value: crate::StrokeParameters) -> Self {
+    pub fn from_request(value: vellogd_protocol::StrokeParameters) -> Self {
         // cf. https://github.com/r-devel/r-svn/blob/6ad1e0f2702fd0308e4f3caac2e22541d014ab6a/src/include/R_ext/GraphicsEngine.h#L183-L187
         let join = match value.join {
             1 => vello::kurbo::Join::Round,
@@ -22,10 +22,13 @@ impl crate::StrokeParams {
         // https://github.com/r-devel/r-svn/blob/6ad1e0f2702fd0308e4f3caac2e22541d014ab6a/src/modules/X11/devX11.c#L1224
         // https://github.com/r-lib/ragg/blob/6e8bfd1264dfaa36aa6f92592e13a1169986e7b9/src/AggDevice.h#L195C8-L205
         let dash_pattern = match value.linetype {
-            -1 => Default::default(), // TODO
-            0 => Default::default(),
-            49 => vello::kurbo::Dashes::from_const([1.0, 1.0, 1.0, 1.0]), // LTY_DOTTED	1 + (3<<4)
-            68 => vello::kurbo::Dashes::from_const([1.0, 1.0, 1.0, 1.0]), // LTY_DASHED	4 + (4<<4)
+            -1 => Default::default(),    // LTY_BLANK;
+            0 => Default::default(),     // LTY_SOLID;
+            68 => Default::default(),    // LTY_DASHED;
+            49 => Default::default(),    // LTY_DOTTED;
+            13361 => Default::default(), // LTY_DOTDASH;
+            55 => Default::default(),    // LTY_LONGDASH;
+            9762 => Default::default(),  // LTY_TWODASH;
             _ => Default::default(),
         };
         Self {

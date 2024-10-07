@@ -197,7 +197,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(StrokeParameters {
                     color: stroke_color,
                     width,
-                    linetype: 1,
+                    linetype: 0,
                     join: 1,
                     miter_limit: 1.0,
                     cap: 1,
@@ -229,10 +229,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(StrokeParameters {
                     color,
                     width,
-                    linetype: 1,
+                    linetype: 0,
                     join: 1,
-                    miter_limit: 1.0,
-                    cap: 1,
+                    miter_limit: 10.0,
+                    cap: 2,
                 })
             } else {
                 None
@@ -266,7 +266,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(StrokeParameters {
                     color,
                     width,
-                    linetype: 1,
+                    linetype: 0,
                     join: 1,
                     miter_limit: 1.0,
                     cap: 1,
@@ -313,7 +313,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(StrokeParameters {
                     color,
                     width,
-                    linetype: 1,
+                    linetype: 0,
                     join: 1,
                     miter_limit: 1.0,
                     cap: 1,
@@ -352,7 +352,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(StrokeParameters {
                     color,
                     width,
-                    linetype: 1,
+                    linetype: 0,
                     join: 1,
                     miter_limit: 1.0,
                     cap: 1,
