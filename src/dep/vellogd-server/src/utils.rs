@@ -10,26 +10,36 @@ impl crate::StrokeParams {
         // cf. https://github.com/r-devel/r-svn/blob/6ad1e0f2702fd0308e4f3caac2e22541d014ab6a/src/include/R_ext/GraphicsEngine.h#L183-L187
         let cap = match value.cap {
             1 => vello::kurbo::Cap::Round,
-            2 => vello::kurbo::Cap::Round,
-            3 => vello::kurbo::Cap::Round,
+            2 => vello::kurbo::Cap::Butt,
+            3 => vello::kurbo::Cap::Square,
             v => panic!("invalid cap value: {v}"),
         };
 
         // cf. https://github.com/r-devel/r-svn/blob/6ad1e0f2702fd0308e4f3caac2e22541d014ab6a/src/include/R_ext/GraphicsEngine.h#L413C1-L419C50
         //
-        // TODO: I need to figure out the conversion logic. What is this `& 15`...?
+        // Based on these implementations
         //
         // https://github.com/r-devel/r-svn/blob/6ad1e0f2702fd0308e4f3caac2e22541d014ab6a/src/modules/X11/devX11.c#L1224
         // https://github.com/r-lib/ragg/blob/6e8bfd1264dfaa36aa6f92592e13a1169986e7b9/src/AggDevice.h#L195C8-L205
-        let dash_pattern = match value.linetype {
-            -1 => Default::default(),    // LTY_BLANK;
-            0 => Default::default(),     // LTY_SOLID;
-            68 => Default::default(),    // LTY_DASHED;
-            49 => Default::default(),    // LTY_DOTTED;
-            13361 => Default::default(), // LTY_DOTDASH;
-            55 => Default::default(),    // LTY_LONGDASH;
-            9762 => Default::default(),  // LTY_TWODASH;
-            _ => Default::default(),
+        let dash_pattern: Vec<f64> = match value.linetype {
+            -1 => vec![], // LTY_BLANK;
+            0 => vec![],  // LTY_SOLID;
+            lty => {
+                let ptn_bytes = lty.to_ne_bytes();
+                let mut ptn = Vec::new();
+                for b in ptn_bytes {
+                    let dash = b & 0b00001111;
+                    let gap = (b & 0b11110000) >> 4;
+
+                    if dash == 0 {
+                        break;
+                    }
+
+                    ptn.push(dash as f64 * value.width);
+                    ptn.push(gap as f64 * value.width);
+                }
+                ptn
+            }
         };
         Self {
             color: u32_to_color(value.color),
@@ -39,7 +49,7 @@ impl crate::StrokeParams {
                 miter_limit: value.miter_limit,
                 start_cap: cap,
                 end_cap: cap,
-                dash_pattern,
+                dash_pattern: dash_pattern.into(),
                 dash_offset: 0.0,
             },
         }
