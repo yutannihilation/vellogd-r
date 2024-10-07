@@ -29,3 +29,8 @@ NULL
 }
 
 
+`debugdg` <- function() {
+  invisible(.Call(savvy_debugdg__impl))
+}
+
+

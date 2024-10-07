@@ -126,16 +126,16 @@ pub struct DeviceDescriptor {
     pub(crate) startfont: i32,
 }
 
-#[allow(non_snake_case)]
 impl DeviceDescriptor {
-    pub fn new() -> Self {
+    /// Create a new DeviceDescriptor with the specified sizes (unit: point).
+    pub fn new(width: f64, height: f64) -> Self {
         Self {
             // The From R internals [1] " The default size of a device should be 7
             // inches square."
             left: 0.0,
-            right: WIDTH_INCH * PT_PER_INCH,
+            right: width,
             bottom: 0.0,
-            top: HEIGH_INCH * PT_PER_INCH,
+            top: height,
 
             ipr: [PT, PT],
 
@@ -149,35 +149,5 @@ impl DeviceDescriptor {
             startlty: super::LTY_SOLID, // Solid
             startfont: 1,               // Plain
         }
-    }
-
-    /// Sets the device sizes (unit: point).
-    ///
-    /// If not specified, the following numbers (7 inches square, following [the
-    /// R Internals' convetion]) will be used.
-    ///
-    /// * `left`: 0
-    /// * `right`: 7 inches * points per inch = `7 * 72`
-    /// * `bottom`: 0
-    /// * `top`: 7 inches * points per inch = `7 * 72`
-    ///
-    ///  Please note that, depending on the the coordinate system of the device,
-    ///  `left` might be larger than `right`, or `bottom` larger than `top` (for
-    ///  example, in SVG, the origin is at the top left corner).
-    ///
-    /// [the R Internals' convetion]:
-    ///     https://cran.r-project.org/doc/manuals/r-release/R-ints.html#Conventions
-    pub fn device_size(mut self, left: f64, right: f64, bottom: f64, top: f64) -> Self {
-        self.left = left;
-        self.right = right;
-        self.bottom = bottom;
-        self.top = top;
-        self
-    }
-}
-
-impl Default for DeviceDescriptor {
-    fn default() -> Self {
-        Self::new()
     }
 }
