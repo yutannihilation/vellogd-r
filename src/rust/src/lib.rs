@@ -369,12 +369,15 @@ fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
 
 #[savvy]
 fn debugdg() -> savvy::Result<()> {
-    let device_driver = debug_device::DebugDevice {};
-
-    // TODO: the actual width and height is kept on the server's side.
-    let device_descriptor = DeviceDescriptor::new(480.0, 480.0);
-
-    device_driver.create_device::<debug_device::DebugDevice>(device_descriptor, "debug");
+    #[debug_assertions]
+    {
+        let device_driver = debug_device::DebugDevice {};
+    
+        // TODO: the actual width and height is kept on the server's side.
+        let device_descriptor = DeviceDescriptor::new(480.0, 480.0);
+    
+        device_driver.create_device::<debug_device::DebugDevice>(device_descriptor, "debug");
+    }
 
     Ok(())
 }
