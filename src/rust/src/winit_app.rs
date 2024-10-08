@@ -3,7 +3,10 @@
 // - the example code on linbender/vello (examples/simple/main.rs).
 // - the example code on linbender/parley (examples/vello_editor/src/main.rs).
 
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{
+    num::NonZeroUsize,
+    sync::{Arc, LazyLock, Mutex},
+};
 
 use vello::{
     peniko::Color,
@@ -35,7 +38,6 @@ pub struct VelloApp<'a> {
     state: RenderState<'a>,
     scene: Scene,
     background_color: Color,
-    font_ctx: parley::FontContext,
 
     // Since R's graphics device is left-bottom origin, the Y value needs to be
     // flipped
@@ -55,7 +57,6 @@ impl<'a> VelloApp<'a> {
             state: RenderState::Suspended(None),
             scene: Scene::new(),
             background_color: Color::WHITE_SMOKE,
-            font_ctx: parley::FontContext::new(),
             y_transform: calc_y_translate(height),
             window_title: "vellogd".to_string(),
             width,
@@ -354,7 +355,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                 angle,
                 hadj,
             } => {
-                let layout = build_layout(&mut self.font_ctx, text, size, lineheight);
+                let layout = build_layout(text, size, lineheight);
 
                 let width = layout.width();
                 let transform = vello::kurbo::Affine::translate((-(width * hadj) as f64, 0.0))
@@ -428,19 +429,23 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
     }
 }
 
+static FONT_CTX: LazyLock<Mutex<parley::FontContext>> =
+    LazyLock::new(|| Mutex::new(parley::FontContext::new()));
+
 pub fn build_layout(
-    font_ctx: &mut parley::FontContext,
-    text: String,
+    text: impl AsRef<str>,
     // TODO
     // family: String,
     // face: i32,
     size: f32,
     lineheight: f32,
 ) -> parley::Layout<vello::peniko::Brush> {
+    let text = text.as_ref();
+    let mut font_ctx = FONT_CTX.lock().unwrap();
     // Note: parley is probably a little bit overkill, but it seems
     // this is the only interface.
     let mut layout_ctx: parley::LayoutContext<vello::peniko::Brush> = parley::LayoutContext::new();
-    let mut layout_builder = layout_ctx.ranged_builder(font_ctx, text.as_str(), 1.0);
+    let mut layout_builder = layout_ctx.ranged_builder(&mut font_ctx, text, 1.0);
     // TODO: should scale be configurable?
     layout_builder.push_default(&parley::StyleProperty::FontSize(size));
     layout_builder.push_default(&parley::StyleProperty::LineHeight(lineheight));
@@ -448,7 +453,7 @@ pub fn build_layout(
         parley::FontStack::Source("system-iu"), // TODO: specify family
     ));
     // TODO: use build_into() to reuse a Layout?
-    let mut layout = layout_builder.build(text.as_str());
+    let mut layout = layout_builder.build(text);
     layout.break_all_lines(None);
     // It seems this is mandatory, otherwise no text is drawn. Why?
     layout.align(None, parley::Alignment::Start);

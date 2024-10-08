@@ -232,55 +232,41 @@ impl DeviceDriver for VelloGraphicsDevice {
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         if let Some(stroke_params) = StrokeParams::from_gc(gc) {
-            self.event_loop.send_event(UserEvent::DrawLine {
-                p0: from.into(),
-                p1: to.into(),
-                stroke_params,
-            });
+            self.event_loop
+                .send_event(UserEvent::DrawLine {
+                    p0: from.into(),
+                    p1: to.into(),
+                    stroke_params,
+                })
+                .unwrap();
         }
     }
 
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> graphics::TextMetric {
         // TODO
-        let family = unsafe {
+        let _family = unsafe {
             CStr::from_ptr(gc.fontfamily.as_ptr())
                 .to_str()
                 .unwrap_or("Arial")
         }
         .to_string();
-        // let request = tonic::Request::new(GetTextMetricRequest {
-        //     text: c.to_string(),
-        //     size: (gc.cex * gc.ps) as _,
-        //     lineheight: gc.lineheight as _,
-        //     face: gc.fontface as _,
-        //     family,
-        // });
-
-        // let client = self.client();
-        // let res = RUNTIME.block_on(async { client.get_text_metric(request).await });
-        // match res {
-        //     Ok(res) => {
-        //         let metric = res.into_inner();
-        //         graphics::TextMetric {
-        //             ascent: metric.ascent,
-        //             descent: metric.descent,
-        //             width: metric.width,
-        //         }
-        //     }
-        //     Err(e) => {
-        //         savvy::r_eprintln!("failed to draw text: {e:?}");
-        //         graphics::TextMetric {
-        //             ascent: 0.0,
-        //             descent: 0.0,
-        //             width: 0.0,
-        //         }
-        //     }
-        // }
-
-        graphics::TextMetric {
-            ascent: 0.0,
-            descent: 0.0,
-            width: 0.0,
+        let size = gc.cex * gc.ps;
+        let layout = winit_app::build_layout(c.to_string(), size as _, gc.lineheight as _);
+        let line = layout.lines().next();
+        match line {
+            Some(line) => {
+                let metrics = line.metrics();
+                graphics::TextMetric {
+                    ascent: metrics.ascent as _,
+                    descent: metrics.descent as _,
+                    width: layout.width() as _, // TOOD: should this be run.metrics().width of the first char?
+                }
+            }
+            None => graphics::TextMetric {
+                ascent: 0.0,
+                descent: 0.0,
+                width: 0.0,
+            },
         }
     }
 
@@ -370,24 +356,16 @@ impl DeviceDriver for VelloGraphicsDevice {
                 .unwrap_or("Arial")
         }
         .to_string();
-        // let request = tonic::Request::new(GetTextMetricRequest {
-        //     text: text.to_string(),
-        //     size: (gc.cex * gc.ps) as _,
-        //     lineheight: gc.lineheight as _,
-        //     face: gc.fontface as _,
-        //     family,
-        // });
-
-        // let client = self.client();
-        // let res = RUNTIME.block_on(async { client.get_text_width(request).await });
-        // match res {
-        //     Ok(res) => res.into_inner().width,
-        //     Err(e) => {
-        //         savvy::r_eprintln!("failed to draw text: {e:?}");
-        //         0.0
-        //     }
-        // }
-        0.0
+        // TODO
+        let _family = unsafe {
+            CStr::from_ptr(gc.fontfamily.as_ptr())
+                .to_str()
+                .unwrap_or("Arial")
+        }
+        .to_string();
+        let size = gc.cex * gc.ps;
+        let layout = winit_app::build_layout(text, size as _, gc.lineheight as _);
+        layout.width() as _
     }
 
     fn text(
@@ -419,7 +397,7 @@ impl DeviceDriver for VelloGraphicsDevice {
                     lineheight: gc.lineheight as _,
                     // face: gc.fontface as _,
                     family,
-                    angle: angle as _,
+                    angle: angle.to_radians() as _,
                     hadj: hadj as _,
                 })
                 .unwrap();
