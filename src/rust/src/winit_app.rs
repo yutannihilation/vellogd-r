@@ -38,6 +38,7 @@ pub struct VelloApp<'a> {
     state: RenderState<'a>,
     scene: Scene,
     background_color: Color,
+    layout: parley::Layout<vello::peniko::Brush>,
 
     // Since R's graphics device is left-bottom origin, the Y value needs to be
     // flipped
@@ -57,6 +58,7 @@ impl<'a> VelloApp<'a> {
             state: RenderState::Suspended(None),
             scene: Scene::new(),
             background_color: Color::WHITE_SMOKE,
+            layout: parley::Layout::new(),
             y_transform: calc_y_translate(height),
             window_title: "vellogd".to_string(),
             width,
@@ -355,14 +357,14 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                 angle,
                 hadj,
             } => {
-                let layout = build_layout(text, size, lineheight);
+                build_layout_into(&mut self.layout, text, size, lineheight);
 
-                let width = layout.width();
+                let width = self.layout.width();
                 let transform = vello::kurbo::Affine::translate((-(width * hadj) as f64, 0.0))
                     .then_rotate(-angle as f64)
                     .then_translate((pos.x, self.height as f64 - pos.y).into()); // Y-axis is flipped
 
-                for line in layout.lines() {
+                for line in self.layout.lines() {
                     let vadj = line.metrics().ascent * 0.5;
                     for item in line.items() {
                         // ignore inline box
@@ -394,15 +396,8 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                             })
                             .collect::<Vec<_>>();
 
-                        // TODO: vello and parley uses different versions of font
-                        let font = {
-                            let raw = font.clone().data.into_raw_parts();
-                            let data = vello::peniko::Blob::from_raw_parts(raw.0, raw.1);
-                            vello::peniko::Font::new(data, font.index)
-                        };
-
                         self.scene
-                            .draw_glyphs(&font)
+                            .draw_glyphs(font)
                             .brush(color)
                             .transform(transform)
                             .font_size(font_size)
@@ -432,14 +427,15 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
 static FONT_CTX: LazyLock<Mutex<parley::FontContext>> =
     LazyLock::new(|| Mutex::new(parley::FontContext::new()));
 
-pub fn build_layout(
+pub fn build_layout_into(
+    layout: &mut parley::Layout<vello::peniko::Brush>,
     text: impl AsRef<str>,
     // TODO
     // family: String,
     // face: i32,
     size: f32,
     lineheight: f32,
-) -> parley::Layout<vello::peniko::Brush> {
+) {
     let text = text.as_ref();
     let mut font_ctx = FONT_CTX.lock().unwrap();
     // Note: parley is probably a little bit overkill, but it seems
@@ -452,12 +448,14 @@ pub fn build_layout(
     layout_builder.push_default(&parley::StyleProperty::FontStack(
         parley::FontStack::Source("system-iu"), // TODO: specify family
     ));
+
     // TODO: use build_into() to reuse a Layout?
-    let mut layout = layout_builder.build(text);
-    layout.break_all_lines(None);
+    layout_builder.build_into(layout, text);
+
     // It seems this is mandatory, otherwise no text is drawn. Why?
+    layout.break_all_lines(None);
+
     layout.align(None, parley::Alignment::Start);
-    layout
 }
 
 pub fn calc_y_translate(h: f32) -> vello::kurbo::Affine {

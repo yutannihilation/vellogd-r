@@ -20,6 +20,7 @@ mod debug_device;
 pub struct VelloGraphicsDevice {
     filename: String,
     event_loop: winit::event_loop::EventLoopProxy<UserEvent>,
+    layout: parley::Layout<vello::peniko::Brush>,
 }
 
 impl VelloGraphicsDevice {
@@ -30,6 +31,7 @@ impl VelloGraphicsDevice {
         Self {
             filename: filename.into(),
             event_loop,
+            layout: parley::Layout::new(),
         }
     }
 }
@@ -251,15 +253,20 @@ impl DeviceDriver for VelloGraphicsDevice {
         }
         .to_string();
         let size = gc.cex * gc.ps;
-        let layout = winit_app::build_layout(c.to_string(), size as _, gc.lineheight as _);
-        let line = layout.lines().next();
+        winit_app::build_layout_into(
+            &mut self.layout,
+            c.to_string(),
+            size as _,
+            gc.lineheight as _,
+        );
+        let line = self.layout.lines().next();
         match line {
             Some(line) => {
                 let metrics = line.metrics();
                 graphics::TextMetric {
                     ascent: metrics.ascent as _,
                     descent: metrics.descent as _,
-                    width: layout.width() as _, // TOOD: should this be run.metrics().width of the first char?
+                    width: self.layout.width() as _, // TOOD: should this be run.metrics().width of the first char?
                 }
             }
             None => graphics::TextMetric {
@@ -364,8 +371,8 @@ impl DeviceDriver for VelloGraphicsDevice {
         }
         .to_string();
         let size = gc.cex * gc.ps;
-        let layout = winit_app::build_layout(text, size as _, gc.lineheight as _);
-        layout.width() as _
+        winit_app::build_layout_into(&mut self.layout, text, size as _, gc.lineheight as _);
+        self.layout.width() as _
     }
 
     fn text(
