@@ -10,10 +10,13 @@ crate-type = ["staticlib", "lib"]
 libc = "0.2.155"
 savvy = "*"
 
-tonic = "0.12"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+winit = "*"
+vello = { git = "https://github.com/linebender/vello" }
+parley = { git = "https://github.com/linebender/parley" }
 
-vellogd-protocol = { path = "../dep/vellogd-protocol" }
+pollster = "0.3"
+anyhow = "1.0"
+
 
 [profile.release]
 # By default, on release build, savvy terminates the R session when a panic

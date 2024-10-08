@@ -1,6 +1,7 @@
 mod graphics;
+mod winit_app;
+
 use std::ffi::CStr;
-use std::sync::LazyLock;
 
 use graphics::ClippingStrategy;
 use graphics::DevDesc;
@@ -10,74 +11,186 @@ use graphics::DeviceDriver;
 use graphics::R_GE_gcontext;
 use graphics::R_NilValue;
 use savvy::savvy;
-use tonic::transport::Channel;
-use vellogd_protocol::graphics_device_client::GraphicsDeviceClient;
-use vellogd_protocol::DrawCircleRequest;
-use vellogd_protocol::DrawLineRequest;
-use vellogd_protocol::DrawPolygonRequest;
-use vellogd_protocol::DrawPolylineRequest;
-use vellogd_protocol::DrawRectRequest;
-use vellogd_protocol::DrawTextRequest;
-use vellogd_protocol::Empty;
-use vellogd_protocol::GetTextMetricRequest;
-use vellogd_protocol::StrokeParameters;
+use winit::platform::windows::EventLoopBuilderExtWindows;
+use winit_app::VelloApp;
 
 #[cfg(debug_assertions)]
 mod debug_device;
 
 pub struct VelloGraphicsDevice {
     filename: String,
-    client: Option<GraphicsDeviceClient<Channel>>,
+    event_loop: winit::event_loop::EventLoopProxy<UserEvent>,
 }
 
 impl VelloGraphicsDevice {
-    pub fn new(filename: &str) -> Self {
+    pub(crate) fn new(
+        filename: &str,
+        event_loop: winit::event_loop::EventLoopProxy<UserEvent>,
+    ) -> Self {
         Self {
             filename: filename.into(),
-            client: None,
+            event_loop,
         }
-    }
-
-    // TODO: if the connection is lost, how to detect it and reconnect?
-    pub fn client(&mut self) -> &mut GraphicsDeviceClient<Channel> {
-        if self.client.is_none() {
-            self.client = Some(
-                RUNTIME
-                    .block_on(async { GraphicsDeviceClient::connect("http://[::1]:50051").await })
-                    .unwrap(),
-            )
-        }
-        self.client.as_mut().unwrap()
     }
 }
 
-fn gc_to_stroke_params(gc: R_GE_gcontext, optional: bool) -> Option<StrokeParameters> {
-    let stroke_color = unsafe { std::mem::transmute::<i32, u32>(gc.col) };
-    if optional && stroke_color == 0 {
-        return None;
-    }
-    let params = StrokeParameters {
-        color: stroke_color,
-        width: gc.lwd,
-        linetype: gc.lty,
-        join: gc.ljoin as _,
-        miter_limit: gc.lmitre,
-        cap: gc.lend as _,
-    };
-    Some(params)
+#[derive(Debug, Clone)]
+struct FillParams {
+    color: vello::peniko::Color,
 }
 
-fn gc_to_fill_color(gc: R_GE_gcontext, optional: bool) -> Option<u32> {
-    let fill_color = unsafe { std::mem::transmute::<i32, u32>(gc.fill) };
-    if optional && fill_color == 0 {
-        None
+#[derive(Debug, Clone)]
+struct StrokeParams {
+    color: vello::peniko::Color,
+    stroke: vello::kurbo::Stroke,
+}
+
+#[derive(Debug, Clone)]
+enum UserEvent {
+    RedrawWindow,
+    CloseWindow,
+    NewPage,
+    DrawCircle {
+        center: vello::kurbo::Point,
+        radius: f64,
+        fill_params: Option<FillParams>,
+        stroke_params: Option<StrokeParams>,
+    },
+    DrawLine {
+        p0: vello::kurbo::Point,
+        p1: vello::kurbo::Point,
+        stroke_params: StrokeParams,
+    },
+    DrawPolyline {
+        path: vello::kurbo::BezPath,
+        stroke_params: StrokeParams,
+    },
+    DrawPolygon {
+        path: vello::kurbo::BezPath,
+        fill_params: Option<FillParams>,
+        stroke_params: Option<StrokeParams>,
+    },
+    DrawRect {
+        p0: vello::kurbo::Point,
+        p1: vello::kurbo::Point,
+        fill_params: Option<FillParams>,
+        stroke_params: Option<StrokeParams>,
+    },
+    DrawText {
+        pos: vello::kurbo::Point,
+        text: String,
+        color: vello::peniko::Color,
+        size: f32,
+        lineheight: f32,
+        // TODO
+        // face
+        family: String,
+        angle: f32,
+        hadj: f32,
+    },
+}
+
+impl StrokeParams {
+    pub fn from_gc(gc: R_GE_gcontext) -> Option<Self> {
+        if gc.col == 0 || gc.lty == -1 {
+            return None;
+        }
+
+        let [r, g, b, a] = gc.col.to_ne_bytes();
+        let color = vello::peniko::Color::rgba8(r, g, b, a);
+
+        let width = gc.lwd;
+
+        // cf. https://github.com/r-devel/r-svn/blob/6ad1e0f2702fd0308e4f3caac2e22541d014ab6a/src/include/R_ext/GraphicsEngine.h#L183-L187
+        let join = match gc.ljoin {
+            1 => vello::kurbo::Join::Round,
+            2 => vello::kurbo::Join::Miter,
+            3 => vello::kurbo::Join::Bevel,
+            v => panic!("invalid join value: {v}"),
+        };
+        // cf. https://github.com/r-devel/r-svn/blob/6ad1e0f2702fd0308e4f3caac2e22541d014ab6a/src/include/R_ext/GraphicsEngine.h#L183-L187
+        let cap = match gc.lend {
+            1 => vello::kurbo::Cap::Round,
+            2 => vello::kurbo::Cap::Butt,
+            3 => vello::kurbo::Cap::Square,
+            v => panic!("invalid cap value: {v}"),
+        };
+
+        // cf. https://github.com/r-devel/r-svn/blob/6ad1e0f2702fd0308e4f3caac2e22541d014ab6a/src/include/R_ext/GraphicsEngine.h#L413C1-L419C50
+        //
+        // Based on these implementations
+        //
+        // https://github.com/r-devel/r-svn/blob/6ad1e0f2702fd0308e4f3caac2e22541d014ab6a/src/modules/X11/devX11.c#L1224
+        // https://github.com/r-lib/ragg/blob/6e8bfd1264dfaa36aa6f92592e13a1169986e7b9/src/AggDevice.h#L195C8-L205
+        let dash_pattern: Vec<f64> = match gc.lty {
+            -1 => vec![], // LTY_BLANK;
+            0 => vec![],  // LTY_SOLID;
+            lty => {
+                let ptn_bytes = lty.to_ne_bytes();
+                let mut ptn = Vec::new();
+                for b in ptn_bytes {
+                    let dash = b & 0b00001111;
+                    let gap = (b & 0b11110000) >> 4;
+
+                    if dash == 0 {
+                        break;
+                    }
+
+                    ptn.push(dash as f64 * width);
+                    ptn.push(gap as f64 * width);
+                }
+                ptn
+            }
+        };
+
+        Some(Self {
+            color,
+            stroke: vello::kurbo::Stroke {
+                width,
+                join,
+                miter_limit: gc.lmitre,
+                start_cap: cap,
+                end_cap: cap,
+                dash_pattern: dash_pattern.into(),
+                dash_offset: 0.0,
+            },
+        })
+    }
+}
+
+impl FillParams {
+    pub fn from_gc(gc: R_GE_gcontext) -> Option<Self> {
+        if gc.fill == 0 {
+            return None;
+        }
+        let [r, g, b, a] = gc.fill.to_ne_bytes();
+        let color = vello::peniko::Color::rgba8(r, g, b, a);
+        Some(Self { color })
+    }
+}
+
+fn xy_to_path(x: &[f64], y: &[f64], close: bool) -> vello::kurbo::BezPath {
+    let mut path = vello::kurbo::BezPath::new();
+
+    let x_iter = x.iter();
+    let y_iter = y.iter();
+    let mut points = x_iter.zip(y_iter);
+    if let Some(first) = points.next() {
+        path.move_to(vello::kurbo::Point::new(*first.0, *first.1));
     } else {
-        Some(fill_color)
+        return path;
     }
-}
 
-static RUNTIME: LazyLock<tokio::runtime::Runtime> =
-    LazyLock::new(|| tokio::runtime::Runtime::new().unwrap());
+    for (x, y) in points {
+        path.line_to(vello::kurbo::Point::new(*x, *y));
+    }
+
+    if close {
+        path.close_path();
+    }
+
+    path
+}
 
 impl DeviceDriver for VelloGraphicsDevice {
     const USE_RASTER: bool = true;
@@ -95,152 +208,126 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn activate(&mut self, _: DevDesc) {}
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
-        let fill_color = unsafe { std::mem::transmute::<i32, u32>(gc.fill) };
-        let fill_color = if fill_color != 0 {
-            Some(fill_color)
-        } else {
-            None
-        };
-
-        let request = tonic::Request::new(DrawCircleRequest {
-            cx: center.0,
-            cy: center.1,
-            radius: r,
-            fill_color,
-            stroke_params: gc_to_stroke_params(gc, true),
-        });
-
-        let client = self.client();
-        let res = RUNTIME.block_on(async { client.draw_circle(request).await });
-        match res {
-            Ok(_) => {}
-            Err(e) => savvy::r_eprintln!("failed to draw circle: {e:?}"),
+        let fill_params = FillParams::from_gc(gc);
+        let stroke_params = StrokeParams::from_gc(gc);
+        if fill_params.is_some() || stroke_params.is_some() {
+            self.event_loop
+                .send_event(UserEvent::DrawCircle {
+                    center: center.into(),
+                    radius: r,
+                    fill_params,
+                    stroke_params,
+                })
+                .unwrap();
         }
     }
 
     fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {}
 
     fn close(&mut self, _: DevDesc) {
-        let client = self.client();
-        let res = RUNTIME.block_on(async { client.close_window(Empty {}).await });
-        match res {
-            Ok(_) => {}
-            Err(e) => savvy::r_eprintln!("failed to close the device: {e:?}"),
-        }
+        self.event_loop.send_event(UserEvent::CloseWindow).unwrap();
     }
 
     fn deactivate(&mut self, _: DevDesc) {}
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        let request = tonic::Request::new(DrawLineRequest {
-            x0: from.0,
-            y0: from.1,
-            x1: to.0,
-            y1: to.1,
-            stroke_params: gc_to_stroke_params(gc, false),
-        });
-        let client = self.client();
-        let res = RUNTIME.block_on(async { client.draw_line(request).await });
-        match res {
-            Ok(_) => {}
-            Err(e) => savvy::r_eprintln!("failed to draw line: {e:?}"),
+        if let Some(stroke_params) = StrokeParams::from_gc(gc) {
+            self.event_loop.send_event(UserEvent::DrawLine {
+                p0: from.into(),
+                p1: to.into(),
+                stroke_params,
+            });
         }
     }
 
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> graphics::TextMetric {
+        // TODO
         let family = unsafe {
             CStr::from_ptr(gc.fontfamily.as_ptr())
                 .to_str()
                 .unwrap_or("Arial")
         }
         .to_string();
-        let request = tonic::Request::new(GetTextMetricRequest {
-            text: c.to_string(),
-            size: (gc.cex * gc.ps) as _,
-            lineheight: gc.lineheight as _,
-            face: gc.fontface as _,
-            family,
-        });
+        // let request = tonic::Request::new(GetTextMetricRequest {
+        //     text: c.to_string(),
+        //     size: (gc.cex * gc.ps) as _,
+        //     lineheight: gc.lineheight as _,
+        //     face: gc.fontface as _,
+        //     family,
+        // });
 
-        let client = self.client();
-        let res = RUNTIME.block_on(async { client.get_text_metric(request).await });
-        match res {
-            Ok(res) => {
-                let metric = res.into_inner();
-                graphics::TextMetric {
-                    ascent: metric.ascent,
-                    descent: metric.descent,
-                    width: metric.width,
-                }
-            }
-            Err(e) => {
-                savvy::r_eprintln!("failed to draw text: {e:?}");
-                graphics::TextMetric {
-                    ascent: 0.0,
-                    descent: 0.0,
-                    width: 0.0,
-                }
-            }
+        // let client = self.client();
+        // let res = RUNTIME.block_on(async { client.get_text_metric(request).await });
+        // match res {
+        //     Ok(res) => {
+        //         let metric = res.into_inner();
+        //         graphics::TextMetric {
+        //             ascent: metric.ascent,
+        //             descent: metric.descent,
+        //             width: metric.width,
+        //         }
+        //     }
+        //     Err(e) => {
+        //         savvy::r_eprintln!("failed to draw text: {e:?}");
+        //         graphics::TextMetric {
+        //             ascent: 0.0,
+        //             descent: 0.0,
+        //             width: 0.0,
+        //         }
+        //     }
+        // }
+
+        graphics::TextMetric {
+            ascent: 0.0,
+            descent: 0.0,
+            width: 0.0,
         }
     }
 
     fn mode(&mut self, mode: i32, _: DevDesc) {}
 
     fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
-        let client = self.client();
-        let res = RUNTIME.block_on(async { client.new_page(Empty {}).await });
-        match res {
-            Ok(_) => {}
-            Err(e) => savvy::r_eprintln!("failed to request new page: {e:?}"),
-        }
+        self.event_loop.send_event(UserEvent::NewPage).unwrap();
     }
 
     fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        let request = tonic::Request::new(DrawPolygonRequest {
-            x: x.to_vec(), // TODO: avoid copy?
-            y: y.to_vec(), // TODO: avoid copy?
-            fill_color: gc_to_fill_color(gc, true),
-            stroke_params: gc_to_stroke_params(gc, true),
-        });
-
-        let client = self.client();
-        let res = RUNTIME.block_on(async { client.draw_polygon(request).await });
-        match res {
-            Ok(_) => {}
-            Err(e) => savvy::r_eprintln!("failed to draw polygon: {e:?}"),
+        let fill_params = FillParams::from_gc(gc);
+        let stroke_params = StrokeParams::from_gc(gc);
+        if fill_params.is_some() || stroke_params.is_some() {
+            self.event_loop
+                .send_event(UserEvent::DrawPolygon {
+                    path: xy_to_path(x, y, true),
+                    fill_params,
+                    stroke_params,
+                })
+                .unwrap();
         }
     }
 
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        let request = tonic::Request::new(DrawPolylineRequest {
-            x: x.to_vec(), // TODO: avoid copy?
-            y: y.to_vec(), // TODO: avoid copy?
-            stroke_params: gc_to_stroke_params(gc, false),
-        });
-
-        let client = self.client();
-        let res = RUNTIME.block_on(async { client.draw_polyline(request).await });
-        match res {
-            Ok(_) => {}
-            Err(e) => savvy::r_eprintln!("failed to draw polyline: {e:?}"),
+        let stroke_params = StrokeParams::from_gc(gc);
+        if let Some(stroke_params) = stroke_params {
+            self.event_loop
+                .send_event(UserEvent::DrawPolyline {
+                    path: xy_to_path(x, y, true),
+                    stroke_params,
+                })
+                .unwrap();
         }
     }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        let request = tonic::Request::new(DrawRectRequest {
-            x0: from.0,
-            y0: from.1,
-            x1: to.0,
-            y1: to.1,
-            fill_color: gc_to_fill_color(gc, true),
-            stroke_params: gc_to_stroke_params(gc, true),
-        });
-
-        let client = self.client();
-        let res = RUNTIME.block_on(async { client.draw_rect(request).await });
-        match res {
-            Ok(_) => {}
-            Err(e) => savvy::r_eprintln!("failed to draw rect: {e:?}"),
+        let fill_params = FillParams::from_gc(gc);
+        let stroke_params = StrokeParams::from_gc(gc);
+        if fill_params.is_some() || stroke_params.is_some() {
+            self.event_loop
+                .send_event(UserEvent::DrawRect {
+                    p0: from.into(),
+                    p1: to.into(),
+                    fill_params,
+                    stroke_params,
+                })
+                .unwrap();
         }
     }
 
@@ -276,29 +363,31 @@ impl DeviceDriver for VelloGraphicsDevice {
     }
 
     fn text_width(&mut self, text: &str, gc: R_GE_gcontext, dd: DevDesc) -> f64 {
+        // TODO
         let family = unsafe {
             CStr::from_ptr(gc.fontfamily.as_ptr())
                 .to_str()
                 .unwrap_or("Arial")
         }
         .to_string();
-        let request = tonic::Request::new(GetTextMetricRequest {
-            text: text.to_string(),
-            size: (gc.cex * gc.ps) as _,
-            lineheight: gc.lineheight as _,
-            face: gc.fontface as _,
-            family,
-        });
+        // let request = tonic::Request::new(GetTextMetricRequest {
+        //     text: text.to_string(),
+        //     size: (gc.cex * gc.ps) as _,
+        //     lineheight: gc.lineheight as _,
+        //     face: gc.fontface as _,
+        //     family,
+        // });
 
-        let client = self.client();
-        let res = RUNTIME.block_on(async { client.get_text_width(request).await });
-        match res {
-            Ok(res) => res.into_inner().width,
-            Err(e) => {
-                savvy::r_eprintln!("failed to draw text: {e:?}");
-                0.0
-            }
-        }
+        // let client = self.client();
+        // let res = RUNTIME.block_on(async { client.get_text_width(request).await });
+        // match res {
+        //     Ok(res) => res.into_inner().width,
+        //     Err(e) => {
+        //         savvy::r_eprintln!("failed to draw text: {e:?}");
+        //         0.0
+        //     }
+        // }
+        0.0
     }
 
     fn text(
@@ -310,31 +399,30 @@ impl DeviceDriver for VelloGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
-        let color = unsafe { std::mem::transmute::<i32, u32>(gc.col) };
+        let [r, g, b, a] = gc.col.to_ne_bytes();
+        let color = vello::peniko::Color::rgba8(r, g, b, a);
         let family = unsafe {
             CStr::from_ptr(gc.fontfamily.as_ptr())
                 .to_str()
                 .unwrap_or("Arial")
         }
         .to_string();
-        let request = tonic::Request::new(DrawTextRequest {
-            x: pos.0,
-            y: pos.1,
-            text: text.to_string(),
-            color,
-            size: (gc.cex * gc.ps) as _,
-            lineheight: gc.lineheight as _,
-            face: gc.fontface as _,
-            family,
-            angle: angle as _,
-            hadj: hadj as _,
-        });
-
-        let client = self.client();
-        let res = RUNTIME.block_on(async { client.draw_text(request).await });
-        match res {
-            Ok(_) => {}
-            Err(e) => savvy::r_eprintln!("failed to draw text: {e:?}"),
+        let fill_params = FillParams::from_gc(gc);
+        let stroke_params = StrokeParams::from_gc(gc);
+        if fill_params.is_some() || stroke_params.is_some() {
+            self.event_loop
+                .send_event(UserEvent::DrawText {
+                    pos: pos.into(),
+                    text: text.into(),
+                    color,
+                    size: (gc.cex * gc.ps) as _,
+                    lineheight: gc.lineheight as _,
+                    // face: gc.fontface as _,
+                    family,
+                    angle: angle as _,
+                    hadj: hadj as _,
+                })
+                .unwrap();
         }
     }
 
@@ -355,9 +443,36 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn eventHelper(&mut self, _: DevDesc, code: i32) {}
 }
 
+const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16); // = 60fps
+
 #[savvy]
 fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
-    let device_driver = VelloGraphicsDevice::new(filename);
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let h = std::thread::spawn(move || {
+        let event_loop = winit::event_loop::EventLoop::<UserEvent>::with_user_event()
+            .with_any_thread(true)
+            .build()
+            .unwrap();
+        let proxy = event_loop.create_proxy();
+        sender.send(proxy).unwrap();
+
+        let mut app = VelloApp::new(width as _, height as _);
+
+        // this blocks until event_loop exits
+        event_loop.run_app(&mut app).unwrap();
+    });
+
+    let event_loop = receiver.recv().unwrap();
+    let event_loop_for_refresh = event_loop.clone();
+
+    std::thread::spawn(move || loop {
+        event_loop_for_refresh
+            .send_event(UserEvent::RedrawWindow)
+            .unwrap();
+        std::thread::sleep(REFRESH_INTERVAL);
+    });
+
+    let device_driver = VelloGraphicsDevice::new(filename, event_loop);
 
     // TODO: the actual width and height is kept on the server's side.
     let device_descriptor = DeviceDescriptor::new(width, height);
