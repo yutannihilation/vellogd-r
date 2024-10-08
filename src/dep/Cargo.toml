@@ -1,3 +1,0 @@
-[workspace]
-members = ["vellogd-protocol", "vellogd-server", "vellogd-cli"]
-resolver = "2"
