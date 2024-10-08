@@ -27,6 +27,13 @@ pub struct ActiveRenderState<'a> {
     window: Arc<Window>,
 }
 
+#[cfg(debug_assertions)]
+impl<'a> Drop for ActiveRenderState<'a> {
+    fn drop(&mut self) {
+        savvy::r_eprintln!("render state dropped!");
+    }
+}
+
 pub enum RenderState<'a> {
     Active(ActiveRenderState<'a>),
     Suspended(Option<Arc<Window>>),
@@ -66,6 +73,19 @@ impl<'a> VelloApp<'a> {
             needs_redraw: true,
         }
     }
+
+    pub fn create_window(&self, event_loop: &winit::event_loop::ActiveEventLoop) -> Arc<Window> {
+        let attrs_basic = Window::default_attributes()
+            .with_title(&self.window_title)
+            .with_inner_size(winit::dpi::LogicalSize::new(self.width, self.height));
+        let attrs = add_platform_specific_window_attributes(attrs_basic);
+
+        Arc::new(
+            event_loop
+                .create_window(attrs)
+                .expect("failed to create window"),
+        )
+    }
 }
 
 fn create_vello_renderer(render_cx: &RenderContext, surface: &RenderSurface) -> Renderer {
@@ -87,7 +107,9 @@ fn add_platform_specific_window_attributes(attrs: WindowAttributes) -> WindowAtt
     use winit::platform::windows::WindowAttributesExtWindows;
 
     // square corner
-    attrs.with_corner_preference(CornerPreference::DoNotRound)
+    attrs
+        .with_corner_preference(CornerPreference::DoNotRound)
+        .with_active(true)
 }
 
 #[cfg(target_os = "macos")]
@@ -105,18 +127,9 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
         let RenderState::Suspended(cached_window) = &mut self.state else {
             return;
         };
-        let window = cached_window.take().unwrap_or_else(|| {
-            let attrs_basic = Window::default_attributes()
-                .with_title(&self.window_title)
-                .with_inner_size(winit::dpi::LogicalSize::new(self.width, self.height));
-            let attrs = add_platform_specific_window_attributes(attrs_basic);
-
-            Arc::new(
-                event_loop
-                    .create_window(attrs)
-                    .expect("failed to create window"),
-            )
-        });
+        let window = cached_window
+            .take()
+            .unwrap_or_else(|| self.create_window(event_loop));
 
         let size = window.inner_size();
         let surface = pollster::block_on(self.context.create_surface(
@@ -156,8 +169,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
 
         match event {
             WindowEvent::CloseRequested => {
-                // TODO: can this always be executed immediately?
-                event_loop.exit();
+                self.state = RenderState::Suspended(None);
             }
 
             WindowEvent::Resized(size) => {
@@ -169,8 +181,6 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
             }
 
             WindowEvent::RedrawRequested => {
-                // self.scene.reset();
-
                 let surface = &render_state.surface;
                 let width = surface.config.width;
                 let height = surface.config.height;
@@ -203,26 +213,35 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
                 }
 
                 surface_texture.present();
-                device_handle.device.poll(vello::wgpu::Maintain::Poll);
+                device_handle.device.poll(vello::wgpu::Maintain::Poll); // TODO: wait?
             }
             _ => (),
         }
     }
 
     fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: UserEvent) {
+        if matches!(event, UserEvent::NewWindow) {
+            // TODO
+        }
+
         let render_state = match &mut self.state {
             RenderState::Active(state) => state,
-            _ => return,
+            _ => {
+                return;
+            }
         };
 
         match event {
+            UserEvent::NewWindow => {
+                // TODO
+            }
             UserEvent::RedrawWindow => {
                 if self.needs_redraw {
                     render_state.window.request_redraw();
                 }
             }
             UserEvent::CloseWindow => {
-                event_loop.exit();
+                self.state = RenderState::Suspended(None);
             }
             UserEvent::NewPage => {
                 self.scene.reset();
@@ -446,7 +465,7 @@ pub fn build_layout_into(
     layout_builder.push_default(&parley::StyleProperty::FontSize(size));
     layout_builder.push_default(&parley::StyleProperty::LineHeight(lineheight));
     layout_builder.push_default(&parley::StyleProperty::FontStack(
-        parley::FontStack::Source("system-iu"), // TODO: specify family
+        parley::FontStack::Source("san-serif"), // TODO: specify family
     ));
 
     // TODO: use build_into() to reuse a Layout?

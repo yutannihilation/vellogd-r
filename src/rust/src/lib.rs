@@ -2,6 +2,7 @@ mod graphics;
 mod winit_app;
 
 use std::ffi::CStr;
+use std::sync::LazyLock;
 
 use graphics::ClippingStrategy;
 use graphics::DevDesc;
@@ -24,13 +25,10 @@ pub struct VelloGraphicsDevice {
 }
 
 impl VelloGraphicsDevice {
-    pub(crate) fn new(
-        filename: &str,
-        event_loop: winit::event_loop::EventLoopProxy<UserEvent>,
-    ) -> Self {
+    pub(crate) fn new(filename: &str) -> Self {
         Self {
             filename: filename.into(),
-            event_loop,
+            event_loop: EVENT_LOOP.clone(),
             layout: parley::Layout::new(),
         }
     }
@@ -49,6 +47,7 @@ struct StrokeParams {
 
 #[derive(Debug, Clone)]
 enum UserEvent {
+    NewWindow,
     RedrawWindow,
     CloseWindow,
     NewPage,
@@ -429,11 +428,9 @@ impl DeviceDriver for VelloGraphicsDevice {
 }
 
 const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16); // = 60fps
-
-#[savvy]
-fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
+static EVENT_LOOP: LazyLock<winit::event_loop::EventLoopProxy<UserEvent>> = LazyLock::new(|| {
     let (sender, receiver) = std::sync::mpsc::channel();
-    let h = std::thread::spawn(move || {
+    let _ = std::thread::spawn(move || {
         let event_loop = winit::event_loop::EventLoop::<UserEvent>::with_user_event()
             .with_any_thread(true)
             .build()
@@ -441,7 +438,8 @@ fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
         let proxy = event_loop.create_proxy();
         sender.send(proxy).unwrap();
 
-        let mut app = VelloApp::new(width as _, height as _);
+        // TODO: supply width and height
+        let mut app = VelloApp::new(480.0 as _, 480.0 as _);
 
         // this blocks until event_loop exits
         event_loop.run_app(&mut app).unwrap();
@@ -450,6 +448,7 @@ fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
     let event_loop = receiver.recv().unwrap();
     let event_loop_for_refresh = event_loop.clone();
 
+    // TODO: stop refreshing when no window
     std::thread::spawn(move || loop {
         event_loop_for_refresh
             .send_event(UserEvent::RedrawWindow)
@@ -457,7 +456,12 @@ fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
         std::thread::sleep(REFRESH_INTERVAL);
     });
 
-    let device_driver = VelloGraphicsDevice::new(filename, event_loop);
+    event_loop
+});
+
+#[savvy]
+fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
+    let device_driver = VelloGraphicsDevice::new(filename);
 
     // TODO: the actual width and height is kept on the server's side.
     let device_descriptor = DeviceDescriptor::new(width, height);
