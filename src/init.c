@@ -39,15 +39,15 @@ SEXP savvy_vellogd_impl__impl(SEXP c_arg__filename, SEXP c_arg__width, SEXP c_ar
     return handle_result(res);
 }
 
-SEXP savvy_debugdg__impl(void) {
-    SEXP res = savvy_debugdg__ffi();
+SEXP savvy_debuggd__impl(void) {
+    SEXP res = savvy_debuggd__ffi();
     return handle_result(res);
 }
 
 
 static const R_CallMethodDef CallEntries[] = {
     {"savvy_vellogd_impl__impl", (DL_FUNC) &savvy_vellogd_impl__impl, 3},
-    {"savvy_debugdg__impl", (DL_FUNC) &savvy_debugdg__impl, 0},
+    {"savvy_debuggd__impl", (DL_FUNC) &savvy_debuggd__impl, 0},
     {NULL, NULL, 0}
 };
 
