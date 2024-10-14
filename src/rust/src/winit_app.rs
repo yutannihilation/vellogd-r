@@ -74,17 +74,45 @@ impl<'a> VelloApp<'a> {
         }
     }
 
-    pub fn create_window(&self, event_loop: &winit::event_loop::ActiveEventLoop) -> Arc<Window> {
-        let attrs_basic = Window::default_attributes()
-            .with_title(&self.window_title)
-            .with_inner_size(winit::dpi::LogicalSize::new(self.width, self.height));
-        let attrs = add_platform_specific_window_attributes(attrs_basic);
+    pub fn create_new_window(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        self.scene.reset();
 
-        Arc::new(
-            event_loop
-                .create_window(attrs)
-                .expect("failed to create window"),
-        )
+        // TODO: handle Active render state as well?
+        let RenderState::Suspended(cached_window) = &mut self.state else {
+            return;
+        };
+
+        let window = cached_window.take().unwrap_or_else(|| {
+            let this = &self;
+            let attrs_basic = Window::default_attributes()
+                .with_title(&this.window_title)
+                .with_inner_size(winit::dpi::LogicalSize::new(this.width, this.height));
+            let attrs = add_platform_specific_window_attributes(attrs_basic);
+
+            Arc::new(
+                event_loop
+                    .create_window(attrs)
+                    .expect("failed to create window"),
+            )
+        });
+
+        let size = window.inner_size();
+        let surface = pollster::block_on(self.context.create_surface(
+            window.clone(),
+            size.width,
+            size.height,
+            vello::wgpu::PresentMode::AutoVsync,
+        ))
+        .expect("failed to create surface");
+
+        // Create a vello Renderer for the surface (using its device id)
+        self.renderers
+            .resize_with(self.context.devices.len(), || None);
+        self.renderers[surface.dev_id]
+            .get_or_insert_with(|| create_vello_renderer(&self.context, &surface));
+
+        // Save the Window and Surface to a state variable
+        self.state = RenderState::Active(ActiveRenderState { window, surface });
     }
 }
 
@@ -124,30 +152,7 @@ fn add_platform_specific_window_attributes(attrs: WindowAttributes) -> WindowAtt
 
 impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        let RenderState::Suspended(cached_window) = &mut self.state else {
-            return;
-        };
-        let window = cached_window
-            .take()
-            .unwrap_or_else(|| self.create_window(event_loop));
-
-        let size = window.inner_size();
-        let surface = pollster::block_on(self.context.create_surface(
-            window.clone(),
-            size.width,
-            size.height,
-            vello::wgpu::PresentMode::AutoVsync,
-        ))
-        .expect("failed to create surface");
-
-        // Create a vello Renderer for the surface (using its device id)
-        self.renderers
-            .resize_with(self.context.devices.len(), || None);
-        self.renderers[surface.dev_id]
-            .get_or_insert_with(|| create_vello_renderer(&self.context, &surface));
-
-        // Save the Window and Surface to a state variable
-        self.state = RenderState::Active(ActiveRenderState { window, surface });
+        self.create_new_window(event_loop);
     }
 
     fn suspended(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {
@@ -221,14 +226,13 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
 
     fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: UserEvent) {
         if matches!(event, UserEvent::NewWindow) {
-            // TODO
+            self.create_new_window(event_loop);
+            return;
         }
 
         let render_state = match &mut self.state {
             RenderState::Active(state) => state,
-            _ => {
-                return;
-            }
+            _ => return,
         };
 
         match event {

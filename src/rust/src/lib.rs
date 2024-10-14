@@ -468,6 +468,9 @@ fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
 
     device_driver.create_device::<VelloGraphicsDevice>(device_descriptor, "vellogd");
 
+    // TODO: do not work now
+    EVENT_LOOP.send_event(UserEvent::NewWindow).unwrap();
+
     Ok(())
 }
 
