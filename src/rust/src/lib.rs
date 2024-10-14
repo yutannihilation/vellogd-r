@@ -3,7 +3,6 @@ mod shared;
 mod winit_app;
 
 use std::ffi::CStr;
-use std::sync::LazyLock;
 
 use graphics::ClippingStrategy;
 use graphics::DevDesc;
@@ -17,10 +16,7 @@ use shared::FillParams;
 use shared::StrokeParams;
 use shared::UserEvent;
 use shared::UserResponse;
-use winit::event_loop::EventLoop;
-use winit::event_loop::EventLoopProxy;
-use winit::platform::windows::EventLoopBuilderExtWindows;
-use winit_app::VelloApp;
+use winit_app::EVENT_LOOP;
 
 #[cfg(debug_assertions)]
 mod debug_device;
@@ -307,50 +303,6 @@ impl DeviceDriver for VelloGraphicsDevice {
 
     fn eventHelper(&mut self, _: DevDesc, code: i32) {}
 }
-
-const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16); // = 60fps
-
-#[derive(Debug)]
-struct EventLoopWithRx {
-    event_loop: EventLoopProxy<UserEvent>,
-    rx: std::sync::Mutex<std::sync::mpsc::Receiver<UserResponse>>,
-}
-
-static EVENT_LOOP: LazyLock<EventLoopWithRx> = LazyLock::new(|| {
-    let (sender, receiver) = std::sync::mpsc::channel();
-    let _ = std::thread::spawn(move || {
-        let event_loop = EventLoop::<UserEvent>::with_user_event()
-            .with_any_thread(true)
-            .build()
-            .unwrap();
-        event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
-        let (tx, rx) = std::sync::mpsc::channel::<UserResponse>();
-        let proxy = EventLoopWithRx {
-            event_loop: event_loop.create_proxy(),
-            rx: std::sync::Mutex::new(rx),
-        };
-        sender.send(proxy).unwrap();
-
-        // TODO: supply width and height
-        let mut app = VelloApp::new(480.0 as _, 480.0 as _);
-
-        // this blocks until event_loop exits
-        event_loop.run_app(&mut app).unwrap();
-    });
-
-    let event_loop = receiver.recv().unwrap();
-    let event_loop_for_refresh = event_loop.event_loop.clone();
-
-    // TODO: stop refreshing when no window
-    std::thread::spawn(move || loop {
-        event_loop_for_refresh
-            .send_event(UserEvent::RedrawWindow)
-            .unwrap();
-        std::thread::sleep(REFRESH_INTERVAL);
-    });
-
-    event_loop
-});
 
 #[savvy]
 fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {

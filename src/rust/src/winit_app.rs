@@ -16,10 +16,11 @@ use vello::{
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
+    event_loop::{EventLoop, EventLoopProxy},
     window::{Window, WindowAttributes},
 };
 
-use crate::UserEvent;
+use crate::{shared::UserResponse, UserEvent};
 
 pub struct ActiveRenderState<'a> {
     // The fields MUST be in this order, so that the surface is dropped before the window
@@ -46,6 +47,7 @@ pub struct VelloApp<'a> {
     scene: Scene,
     background_color: Color,
     layout: parley::Layout<vello::peniko::Brush>,
+    tx: std::sync::mpsc::Sender<UserResponse>,
 
     // Since R's graphics device is left-bottom origin, the Y value needs to be
     // flipped
@@ -58,7 +60,7 @@ pub struct VelloApp<'a> {
 }
 
 impl<'a> VelloApp<'a> {
-    pub fn new(width: f32, height: f32) -> Self {
+    pub fn new(width: f32, height: f32, tx: std::sync::mpsc::Sender<UserResponse>) -> Self {
         Self {
             context: RenderContext::new(),
             renderers: vec![],
@@ -66,6 +68,7 @@ impl<'a> VelloApp<'a> {
             scene: Scene::new(),
             background_color: Color::WHITE_SMOKE,
             layout: parley::Layout::new(),
+            tx,
             y_transform: calc_y_translate(height),
             window_title: "vellogd".to_string(),
             width,
@@ -87,13 +90,13 @@ impl<'a> VelloApp<'a> {
             let attrs_basic = Window::default_attributes()
                 .with_title(&this.window_title)
                 .with_inner_size(winit::dpi::LogicalSize::new(this.width, this.height));
-            let attrs = add_platform_specific_window_attributes(attrs_basic);
+            let attrs = add_platform_specific_attributes(attrs_basic);
 
-            Arc::new(
-                event_loop
-                    .create_window(attrs)
-                    .expect("failed to create window"),
-            )
+            let window = event_loop
+                .create_window(attrs)
+                .expect("failed to create window");
+            window.focus_window();
+            Arc::new(window)
         });
 
         let size = window.inner_size();
@@ -129,25 +132,53 @@ fn create_vello_renderer(render_cx: &RenderContext, surface: &RenderSurface) -> 
     .expect("Couldn't create renderer")
 }
 
-#[cfg(target_os = "windows")]
-fn add_platform_specific_window_attributes(attrs: WindowAttributes) -> WindowAttributes {
-    use winit::platform::windows::CornerPreference;
-    use winit::platform::windows::WindowAttributesExtWindows;
-
-    // square corner
-    attrs
-        .with_corner_preference(CornerPreference::DoNotRound)
-        .with_active(true)
+fn create_window_attributes(title: String) -> WindowAttributes {
+    let attrs = WindowAttributes::default().with_title(title);
+    add_platform_specific_attributes(attrs)
 }
 
-#[cfg(target_os = "macos")]
-fn add_platform_specific_window_attributes(attrs: WindowAttributes) -> WindowAttributes {
-    attrs
+#[cfg(target_os = "windows")]
+fn add_platform_specific_attributes(attrs: WindowAttributes) -> WindowAttributes {
+    use winit::platform::windows::WindowAttributesExtWindows;
+    attrs.with_corner_preference(winit::platform::windows::CornerPreference::DoNotRound)
 }
 
 #[cfg(target_os = "linux")]
-fn add_platform_specific_window_attributes(attrs: WindowAttributes) -> WindowAttributes {
+fn add_platform_specific_attributes(attrs: WindowAttributes) -> WindowAttributes {
     attrs
+}
+
+#[cfg(target_os = "macos")]
+fn add_platform_specific_attributes(attrs: WindowAttributes) -> WindowAttributes {
+    attrs
+}
+
+#[cfg(target_os = "windows")]
+pub fn create_event_loop(any_thread: bool) -> EventLoop<UserEvent> {
+    use winit::platform::windows::EventLoopBuilderExtWindows;
+
+    winit::event_loop::EventLoop::<UserEvent>::with_user_event()
+        .with_any_thread(any_thread)
+        .build()
+        .unwrap()
+}
+
+#[cfg(target_os = "linux")]
+pub fn create_event_loop(any_thread: bool) -> EventLoop<DummyEvent> {
+    use winit::platform::wayland::EventLoopBuilderExtWayland;
+
+    EventLoop::<DummyEvent>::with_user_event()
+        .with_any_thread(any_thread)
+        .build()
+        .unwrap()
+}
+
+#[cfg(target_os = "macos")]
+pub fn create_event_loop(any_thread: bool) -> EventLoop<DummyEvent> {
+    if any_thread {
+        panic!("Not supported!");
+    }
+    EventLoop::<DummyEvent>::with_user_event().build().unwrap()
 }
 
 impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
@@ -482,3 +513,44 @@ pub fn build_layout_into(
 pub fn calc_y_translate(h: f32) -> vello::kurbo::Affine {
     vello::kurbo::Affine::FLIP_Y.then_translate(vello::kurbo::Vec2 { x: 0.0, y: h as _ })
 }
+
+const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16); // = 60fps
+
+#[derive(Debug)]
+pub struct EventLoopWithRx {
+    pub event_loop: EventLoopProxy<UserEvent>,
+    pub rx: std::sync::Mutex<std::sync::mpsc::Receiver<UserResponse>>,
+}
+
+pub static EVENT_LOOP: LazyLock<EventLoopWithRx> = LazyLock::new(|| {
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let _ = std::thread::spawn(move || {
+        let event_loop = create_event_loop(true);
+        event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+        let (tx, rx) = std::sync::mpsc::channel::<UserResponse>();
+        let proxy = EventLoopWithRx {
+            event_loop: event_loop.create_proxy(),
+            rx: std::sync::Mutex::new(rx),
+        };
+        sender.send(proxy).unwrap();
+
+        // TODO: supply width and height
+        let mut app = VelloApp::new(480.0 as _, 480.0 as _, tx);
+
+        // this blocks until event_loop exits
+        event_loop.run_app(&mut app).unwrap();
+    });
+
+    let event_loop = receiver.recv().unwrap();
+    let event_loop_for_refresh = event_loop.event_loop.clone();
+
+    // TODO: stop refreshing when no window
+    std::thread::spawn(move || loop {
+        event_loop_for_refresh
+            .send_event(UserEvent::RedrawWindow)
+            .unwrap();
+        std::thread::sleep(REFRESH_INTERVAL);
+    });
+
+    event_loop
+});
