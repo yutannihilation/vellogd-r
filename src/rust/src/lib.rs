@@ -1,4 +1,5 @@
 mod graphics;
+mod shared;
 mod winit_app;
 
 use std::ffi::CStr;
@@ -12,6 +13,12 @@ use graphics::DeviceDriver;
 use graphics::R_GE_gcontext;
 use graphics::R_NilValue;
 use savvy::savvy;
+use shared::FillParams;
+use shared::StrokeParams;
+use shared::UserEvent;
+use shared::UserResponse;
+use winit::event_loop::EventLoop;
+use winit::event_loop::EventLoopProxy;
 use winit::platform::windows::EventLoopBuilderExtWindows;
 use winit_app::VelloApp;
 
@@ -20,7 +27,6 @@ mod debug_device;
 
 pub struct VelloGraphicsDevice {
     filename: String,
-    event_loop: winit::event_loop::EventLoopProxy<UserEvent>,
     layout: parley::Layout<vello::peniko::Brush>,
 }
 
@@ -28,145 +34,26 @@ impl VelloGraphicsDevice {
     pub(crate) fn new(filename: &str) -> Self {
         Self {
             filename: filename.into(),
-            event_loop: EVENT_LOOP.clone(),
             layout: parley::Layout::new(),
         }
     }
 }
 
-#[derive(Debug, Clone)]
-struct FillParams {
-    color: vello::peniko::Color,
+pub trait WindowController {
+    fn send_event(&self, event: UserEvent) -> savvy::Result<()>;
+    fn recv_response(&self) -> savvy::Result<UserResponse>;
 }
 
-#[derive(Debug, Clone)]
-struct StrokeParams {
-    color: vello::peniko::Color,
-    stroke: vello::kurbo::Stroke,
-}
-
-#[derive(Debug, Clone)]
-enum UserEvent {
-    NewWindow,
-    RedrawWindow,
-    CloseWindow,
-    NewPage,
-    DrawCircle {
-        center: vello::kurbo::Point,
-        radius: f64,
-        fill_params: Option<FillParams>,
-        stroke_params: Option<StrokeParams>,
-    },
-    DrawLine {
-        p0: vello::kurbo::Point,
-        p1: vello::kurbo::Point,
-        stroke_params: StrokeParams,
-    },
-    DrawPolyline {
-        path: vello::kurbo::BezPath,
-        stroke_params: StrokeParams,
-    },
-    DrawPolygon {
-        path: vello::kurbo::BezPath,
-        fill_params: Option<FillParams>,
-        stroke_params: Option<StrokeParams>,
-    },
-    DrawRect {
-        p0: vello::kurbo::Point,
-        p1: vello::kurbo::Point,
-        fill_params: Option<FillParams>,
-        stroke_params: Option<StrokeParams>,
-    },
-    DrawText {
-        pos: vello::kurbo::Point,
-        text: String,
-        color: vello::peniko::Color,
-        size: f32,
-        lineheight: f32,
-        // TODO
-        // face
-        family: String,
-        angle: f32,
-        hadj: f32,
-    },
-}
-
-impl StrokeParams {
-    pub fn from_gc(gc: R_GE_gcontext) -> Option<Self> {
-        if gc.col == 0 || gc.lty == -1 {
-            return None;
-        }
-
-        let [r, g, b, a] = gc.col.to_ne_bytes();
-        let color = vello::peniko::Color::rgba8(r, g, b, a);
-
-        let width = gc.lwd;
-
-        // cf. https://github.com/r-devel/r-svn/blob/6ad1e0f2702fd0308e4f3caac2e22541d014ab6a/src/include/R_ext/GraphicsEngine.h#L183-L187
-        let join = match gc.ljoin {
-            1 => vello::kurbo::Join::Round,
-            2 => vello::kurbo::Join::Miter,
-            3 => vello::kurbo::Join::Bevel,
-            v => panic!("invalid join value: {v}"),
-        };
-        // cf. https://github.com/r-devel/r-svn/blob/6ad1e0f2702fd0308e4f3caac2e22541d014ab6a/src/include/R_ext/GraphicsEngine.h#L183-L187
-        let cap = match gc.lend {
-            1 => vello::kurbo::Cap::Round,
-            2 => vello::kurbo::Cap::Butt,
-            3 => vello::kurbo::Cap::Square,
-            v => panic!("invalid cap value: {v}"),
-        };
-
-        // cf. https://github.com/r-devel/r-svn/blob/6ad1e0f2702fd0308e4f3caac2e22541d014ab6a/src/include/R_ext/GraphicsEngine.h#L413C1-L419C50
-        //
-        // Based on these implementations
-        //
-        // https://github.com/r-devel/r-svn/blob/6ad1e0f2702fd0308e4f3caac2e22541d014ab6a/src/modules/X11/devX11.c#L1224
-        // https://github.com/r-lib/ragg/blob/6e8bfd1264dfaa36aa6f92592e13a1169986e7b9/src/AggDevice.h#L195C8-L205
-        let dash_pattern: Vec<f64> = match gc.lty {
-            -1 => vec![], // LTY_BLANK;
-            0 => vec![],  // LTY_SOLID;
-            lty => {
-                let ptn_bytes = lty.to_ne_bytes();
-                let mut ptn = Vec::new();
-                for b in ptn_bytes {
-                    let dash = b & 0b00001111;
-                    let gap = (b & 0b11110000) >> 4;
-
-                    if dash == 0 {
-                        break;
-                    }
-
-                    ptn.push(dash as f64 * width);
-                    ptn.push(gap as f64 * width);
-                }
-                ptn
-            }
-        };
-
-        Some(Self {
-            color,
-            stroke: vello::kurbo::Stroke {
-                width,
-                join,
-                miter_limit: gc.lmitre,
-                start_cap: cap,
-                end_cap: cap,
-                dash_pattern: dash_pattern.into(),
-                dash_offset: 0.0,
-            },
-        })
+impl WindowController for VelloGraphicsDevice {
+    fn send_event(&self, event: UserEvent) -> savvy::Result<()> {
+        EVENT_LOOP
+            .event_loop
+            .send_event(event)
+            .map_err(|e| format!("Failed to send event {e:?}").into())
     }
-}
 
-impl FillParams {
-    pub fn from_gc(gc: R_GE_gcontext) -> Option<Self> {
-        if gc.fill == 0 {
-            return None;
-        }
-        let [r, g, b, a] = gc.fill.to_ne_bytes();
-        let color = vello::peniko::Color::rgba8(r, g, b, a);
-        Some(Self { color })
+    fn recv_response(&self) -> savvy::Result<UserResponse> {
+        todo!()
     }
 }
 
@@ -212,34 +99,32 @@ impl DeviceDriver for VelloGraphicsDevice {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            self.event_loop
-                .send_event(UserEvent::DrawCircle {
-                    center: center.into(),
-                    radius: r,
-                    fill_params,
-                    stroke_params,
-                })
-                .unwrap();
+            self.send_event(UserEvent::DrawCircle {
+                center: center.into(),
+                radius: r,
+                fill_params,
+                stroke_params,
+            })
+            .unwrap();
         }
     }
 
     fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {}
 
     fn close(&mut self, _: DevDesc) {
-        self.event_loop.send_event(UserEvent::CloseWindow).unwrap();
+        self.send_event(UserEvent::CloseWindow).unwrap();
     }
 
     fn deactivate(&mut self, _: DevDesc) {}
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         if let Some(stroke_params) = StrokeParams::from_gc(gc) {
-            self.event_loop
-                .send_event(UserEvent::DrawLine {
-                    p0: from.into(),
-                    p1: to.into(),
-                    stroke_params,
-                })
-                .unwrap();
+            self.send_event(UserEvent::DrawLine {
+                p0: from.into(),
+                p1: to.into(),
+                stroke_params,
+            })
+            .unwrap();
         }
     }
 
@@ -279,32 +164,30 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn mode(&mut self, mode: i32, _: DevDesc) {}
 
     fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
-        self.event_loop.send_event(UserEvent::NewPage).unwrap();
+        self.send_event(UserEvent::NewPage).unwrap();
     }
 
     fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            self.event_loop
-                .send_event(UserEvent::DrawPolygon {
-                    path: xy_to_path(x, y, true),
-                    fill_params,
-                    stroke_params,
-                })
-                .unwrap();
+            self.send_event(UserEvent::DrawPolygon {
+                path: xy_to_path(x, y, true),
+                fill_params,
+                stroke_params,
+            })
+            .unwrap();
         }
     }
 
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         let stroke_params = StrokeParams::from_gc(gc);
         if let Some(stroke_params) = stroke_params {
-            self.event_loop
-                .send_event(UserEvent::DrawPolyline {
-                    path: xy_to_path(x, y, true),
-                    stroke_params,
-                })
-                .unwrap();
+            self.send_event(UserEvent::DrawPolyline {
+                path: xy_to_path(x, y, true),
+                stroke_params,
+            })
+            .unwrap();
         }
     }
 
@@ -312,14 +195,13 @@ impl DeviceDriver for VelloGraphicsDevice {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            self.event_loop
-                .send_event(UserEvent::DrawRect {
-                    p0: from.into(),
-                    p1: to.into(),
-                    fill_params,
-                    stroke_params,
-                })
-                .unwrap();
+            self.send_event(UserEvent::DrawRect {
+                p0: from.into(),
+                p1: to.into(),
+                fill_params,
+                stroke_params,
+            })
+            .unwrap();
         }
     }
 
@@ -394,19 +276,18 @@ impl DeviceDriver for VelloGraphicsDevice {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            self.event_loop
-                .send_event(UserEvent::DrawText {
-                    pos: pos.into(),
-                    text: text.into(),
-                    color,
-                    size: (gc.cex * gc.ps) as _,
-                    lineheight: gc.lineheight as _,
-                    // face: gc.fontface as _,
-                    family,
-                    angle: angle.to_radians() as _,
-                    hadj: hadj as _,
-                })
-                .unwrap();
+            self.send_event(UserEvent::DrawText {
+                pos: pos.into(),
+                text: text.into(),
+                color,
+                size: (gc.cex * gc.ps) as _,
+                lineheight: gc.lineheight as _,
+                // face: gc.fontface as _,
+                family,
+                angle: angle.to_radians() as _,
+                hadj: hadj as _,
+            })
+            .unwrap();
         }
     }
 
@@ -428,14 +309,26 @@ impl DeviceDriver for VelloGraphicsDevice {
 }
 
 const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16); // = 60fps
-static EVENT_LOOP: LazyLock<winit::event_loop::EventLoopProxy<UserEvent>> = LazyLock::new(|| {
+
+#[derive(Debug)]
+struct EventLoopWithRx {
+    event_loop: EventLoopProxy<UserEvent>,
+    rx: std::sync::Mutex<std::sync::mpsc::Receiver<UserResponse>>,
+}
+
+static EVENT_LOOP: LazyLock<EventLoopWithRx> = LazyLock::new(|| {
     let (sender, receiver) = std::sync::mpsc::channel();
     let _ = std::thread::spawn(move || {
-        let event_loop = winit::event_loop::EventLoop::<UserEvent>::with_user_event()
+        let event_loop = EventLoop::<UserEvent>::with_user_event()
             .with_any_thread(true)
             .build()
             .unwrap();
-        let proxy = event_loop.create_proxy();
+        event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+        let (tx, rx) = std::sync::mpsc::channel::<UserResponse>();
+        let proxy = EventLoopWithRx {
+            event_loop: event_loop.create_proxy(),
+            rx: std::sync::Mutex::new(rx),
+        };
         sender.send(proxy).unwrap();
 
         // TODO: supply width and height
@@ -446,7 +339,7 @@ static EVENT_LOOP: LazyLock<winit::event_loop::EventLoopProxy<UserEvent>> = Lazy
     });
 
     let event_loop = receiver.recv().unwrap();
-    let event_loop_for_refresh = event_loop.clone();
+    let event_loop_for_refresh = event_loop.event_loop.clone();
 
     // TODO: stop refreshing when no window
     std::thread::spawn(move || loop {
@@ -469,7 +362,10 @@ fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
     device_driver.create_device::<VelloGraphicsDevice>(device_descriptor, "vellogd");
 
     // TODO: do not work now
-    EVENT_LOOP.send_event(UserEvent::NewWindow).unwrap();
+    EVENT_LOOP
+        .event_loop
+        .send_event(UserEvent::NewWindow)
+        .unwrap();
 
     Ok(())
 }
