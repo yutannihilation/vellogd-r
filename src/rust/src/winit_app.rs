@@ -15,6 +15,7 @@ use vello::{
 };
 use winit::{
     application::ApplicationHandler,
+    dpi::PhysicalSize,
     event::WindowEvent,
     event_loop::{EventLoop, EventLoopProxy},
     window::{Window, WindowAttributes},
@@ -263,6 +264,8 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
 
         let render_state = match &mut self.state {
             RenderState::Active(state) => state,
+            // TODO: this must NOT return if the event has return value.
+            // incoming event must be consumed otherwise the UI freezes
             _ => return,
         };
 
@@ -281,6 +284,12 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
             UserEvent::NewPage => {
                 self.scene.reset();
                 self.needs_redraw = true;
+            }
+            UserEvent::GetWindowSizes => {
+                let PhysicalSize { width, height } = render_state.window.inner_size();
+                self.tx
+                    .send(UserResponse::WindowSizes { width, height })
+                    .unwrap();
             }
             UserEvent::DrawCircle {
                 center,

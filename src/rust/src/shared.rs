@@ -17,6 +17,7 @@ pub enum UserEvent {
     RedrawWindow,
     CloseWindow,
     NewPage,
+    GetWindowSizes,
     DrawCircle {
         center: vello::kurbo::Point,
         radius: f64,
@@ -59,7 +60,7 @@ pub enum UserEvent {
 
 #[derive(Debug, Clone)]
 pub enum UserResponse {
-    WindowSizes,
+    WindowSizes { width: u32, height: u32 },
 }
 
 impl StrokeParams {

@@ -38,6 +38,13 @@ impl VelloGraphicsDevice {
 pub trait WindowController {
     fn send_event(&self, event: UserEvent) -> savvy::Result<()>;
     fn recv_response(&self) -> savvy::Result<UserResponse>;
+    fn get_window_sizes(&self) -> savvy::Result<(u32, u32)> {
+        self.send_event(UserEvent::GetWindowSizes)?;
+        match self.recv_response()? {
+            UserResponse::WindowSizes { width, height } => Ok((width, height)),
+            _ => Err("Unexpected result".into()),
+        }
+    }
 }
 
 impl WindowController for VelloGraphicsDevice {
@@ -49,7 +56,12 @@ impl WindowController for VelloGraphicsDevice {
     }
 
     fn recv_response(&self) -> savvy::Result<UserResponse> {
-        todo!()
+        EVENT_LOOP
+            .rx
+            .lock()
+            .unwrap()
+            .recv()
+            .map_err(|e| e.to_string().into())
     }
 }
 
@@ -229,7 +241,8 @@ impl DeviceDriver for VelloGraphicsDevice {
     }
 
     fn size(&mut self, dd: DevDesc) -> (f64, f64, f64, f64) {
-        (dd.left, dd.right, dd.bottom, dd.top)
+        let sizes = self.get_window_sizes().unwrap_or((0, 0));
+        (0.0, sizes.0 as _, 0.0, sizes.1 as _)
     }
 
     fn text_width(&mut self, text: &str, gc: R_GE_gcontext, dd: DevDesc) -> f64 {
