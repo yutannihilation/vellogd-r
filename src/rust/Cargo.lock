@@ -515,8 +515,9 @@ dependencies = [
 
 [[package]]
 name = "fontique"
-version = "0.1.0"
-source = "git+https://github.com/linebender/parley#e5370ce97a9afbb41b48f2e65d937108428a22ff"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b008f3607a8e8935b2607eef514164b8223020614c8ad684434a0cd668d280c"
 dependencies = [
  "core-foundation",
  "core-text",
@@ -1289,8 +1290,9 @@ dependencies = [
 
 [[package]]
 name = "parley"
-version = "0.1.0"
-source = "git+https://github.com/linebender/parley#e5370ce97a9afbb41b48f2e65d937108428a22ff"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a67bad26b7aca3f1046305d0d7edba9a77b14e74a9ff9136968178c8e6c8e61"
 dependencies = [
  "fontique",
  "peniko",
@@ -1880,7 +1882,8 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 [[package]]
 name = "vello"
 version = "0.3.0"
-source = "git+https://github.com/linebender/vello#15082ba70a2f8504876dcca3c1c4667e0dc51fa5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc44dd4eb9af6a41551b9a82c93d068bd832693d6f78ab118ad19780d8e1202e"
 dependencies = [
  "bytemuck",
  "futures-intrusive",
@@ -1899,7 +1902,8 @@ dependencies = [
 [[package]]
 name = "vello_encoding"
 version = "0.3.0"
-source = "git+https://github.com/linebender/vello#15082ba70a2f8504876dcca3c1c4667e0dc51fa5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8110c14702a4e17f9200f6e3c4fe05dda5a22bf031ae4feafed4a61429f66fb2"
 dependencies = [
  "bytemuck",
  "guillotiere",
@@ -1911,7 +1915,8 @@ dependencies = [
 [[package]]
 name = "vello_shaders"
 version = "0.3.0"
-source = "git+https://github.com/linebender/vello#15082ba70a2f8504876dcca3c1c4667e0dc51fa5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07cad02d6f29f2212a6ee382a8fec6f9977d0cceefacf07f8e361607ffe3988d"
 dependencies = [
  "bytemuck",
  "naga",

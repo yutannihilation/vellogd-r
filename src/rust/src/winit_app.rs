@@ -462,11 +462,9 @@ pub fn build_layout_into(
     let mut layout_ctx: parley::LayoutContext<vello::peniko::Brush> = parley::LayoutContext::new();
     let mut layout_builder = layout_ctx.ranged_builder(&mut font_ctx, text, 1.0);
     // TODO: should scale be configurable?
-    layout_builder.push_default(&parley::StyleProperty::FontSize(size));
-    layout_builder.push_default(&parley::StyleProperty::LineHeight(lineheight));
-    layout_builder.push_default(&parley::StyleProperty::FontStack(
-        parley::FontStack::Source("san-serif"), // TODO: specify family
-    ));
+    layout_builder.push_default(parley::StyleProperty::FontSize(size));
+    layout_builder.push_default(parley::StyleProperty::LineHeight(lineheight));
+    layout_builder.push_default(parley::GenericFamily::SansSerif); // TODO: specify family
 
     // TODO: use build_into() to reuse a Layout?
     layout_builder.build_into(layout, text);

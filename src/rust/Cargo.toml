@@ -11,8 +11,8 @@ libc = "0.2.155"
 savvy = "*"
 
 winit = "*"
-vello = { git = "https://github.com/linebender/vello" }
-parley = { git = "https://github.com/linebender/parley" }
+vello = "0.3"
+parley = "0.2"
 
 pollster = "0.3"
 anyhow = "1.0"
