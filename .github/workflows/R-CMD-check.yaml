@@ -10,6 +10,10 @@ name: R-CMD-check.yaml
 
 permissions: read-all
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
@@ -48,6 +52,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src/rust
+
+      - name: debug
+        run: |
+          Rscript -e 'pkgbuild::compile_dll()'
 
       - uses: r-lib/actions/check-r-package@v2
         with:
