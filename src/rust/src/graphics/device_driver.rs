@@ -1,8 +1,11 @@
 use savvy::ffi::SEXP;
-
-use super::ffi::*;
 use std::ffi::CString;
 use std::slice;
+use vellogd_shared::ffi::{
+    pDevDesc, pGEcontext, DevDesc, GEaddDevice2, GEcreateDevDesc, GEinitDisplayList,
+    R_CheckDeviceAvailable, R_EmptyEnv, R_GE_checkVersionOrDie, R_GE_definitions, R_GE_gcontext,
+    R_GE_version, R_NilValue, Rboolean, Rboolean_FALSE, Rboolean_TRUE,
+};
 
 use super::{device_descriptor::*, Raster, TextMetric};
 

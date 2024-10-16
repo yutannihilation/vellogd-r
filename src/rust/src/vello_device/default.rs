@@ -1,17 +1,17 @@
 use std::ffi::CStr;
 
-use crate::graphics::DevDesc;
 use crate::graphics::DeviceDriver;
-use crate::graphics::R_GE_gcontext;
-use crate::graphics::R_NilValue;
 use crate::graphics::TextMetric;
-use crate::shared::FillParams;
-use crate::shared::StrokeParams;
-use crate::shared::UserEvent;
-use crate::shared::UserResponse;
 use crate::winit_app::build_layout_into;
 use crate::winit_app::EVENT_LOOP;
 use crate::WindowController;
+use vellogd_shared::ffi::DevDesc;
+use vellogd_shared::ffi::R_GE_gcontext;
+use vellogd_shared::ffi::R_NilValue;
+use vellogd_shared::protocol::FillParams;
+use vellogd_shared::protocol::StrokeParams;
+use vellogd_shared::protocol::UserEvent;
+use vellogd_shared::protocol::UserResponse;
 
 pub struct VelloGraphicsDevice {
     filename: String,

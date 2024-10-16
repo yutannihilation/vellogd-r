@@ -4,7 +4,7 @@
 
 use std::os::raw::{c_char, c_int, c_uint, c_void};
 
-use savvy::ffi::SEXP;
+pub type SEXP = *mut c_void;
 extern "C" {
     pub static mut R_NilValue: SEXP;
 }

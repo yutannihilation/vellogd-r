@@ -1,5 +1,4 @@
 mod graphics;
-mod shared;
 mod vello_device;
 
 #[cfg(not(target_os = "macos"))]
@@ -8,8 +7,8 @@ mod winit_app;
 use graphics::DeviceDescriptor;
 use graphics::DeviceDriver;
 use savvy::savvy;
-use shared::UserEvent;
-use shared::UserResponse;
+use vellogd_shared::protocol::UserEvent;
+use vellogd_shared::protocol::UserResponse;
 
 use vello_device::VelloGraphicsDevice;
 

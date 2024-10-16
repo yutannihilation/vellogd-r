@@ -1,8 +1,8 @@
-use crate::graphics::DevDesc;
-
 use crate::graphics::DeviceDriver;
-use crate::graphics::R_GE_gcontext;
-use crate::graphics::R_NilValue;
+
+use vellogd_shared::ffi::DevDesc;
+use vellogd_shared::ffi::R_GE_gcontext;
+use vellogd_shared::ffi::R_NilValue;
 
 #[cfg(debug_assertions)]
 fn fill_related_params(gc: R_GE_gcontext) -> String {

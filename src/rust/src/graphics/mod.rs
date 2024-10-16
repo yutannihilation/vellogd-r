@@ -1,17 +1,11 @@
 // Copied from https://github.com/extendr/extendr/blob/master/extendr-api/src/graphics/
 
-mod ffi;
-
 mod device_descriptor;
 mod device_driver;
 
 pub use device_descriptor::DeviceDescriptor;
 
-pub use device_driver::{ClippingStrategy, DeviceDriver};
-
-use ffi::*;
-
-pub use ffi::{DevDesc, R_GE_gcontext, R_NilValue};
+pub use device_driver::DeviceDriver;
 
 pub struct TextMetric {
     pub ascent: f64,

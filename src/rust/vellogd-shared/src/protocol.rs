@@ -1,4 +1,4 @@
-use crate::graphics::R_GE_gcontext;
+use crate::ffi::R_GE_gcontext;
 
 #[derive(Debug, Clone)]
 pub struct FillParams {

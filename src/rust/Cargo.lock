@@ -1927,7 +1927,15 @@ dependencies = [
  "pollster",
  "savvy",
  "vello",
+ "vellogd-shared",
  "winit",
+]
+
+[[package]]
+name = "vellogd-shared"
+version = "0.1.0"
+dependencies = [
+ "vello",
 ]
 
 [[package]]

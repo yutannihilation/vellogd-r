@@ -146,8 +146,8 @@ impl DeviceDescriptor {
             startps: POINTSIZE,
             startcol: 0xff000000,
             startfill: 0xffffffff,
-            startlty: super::LTY_SOLID, // Solid
-            startfont: 1,               // Plain
+            startlty: vellogd_shared::ffi::LTY_SOLID, // Solid
+            startfont: 1,                             // Plain
         }
     }
 }

@@ -21,7 +21,7 @@ use winit::{
     window::{Window, WindowAttributes},
 };
 
-use crate::{shared::UserResponse, UserEvent};
+use crate::{UserEvent, UserResponse};
 
 pub struct ActiveRenderState<'a> {
     // The fields MUST be in this order, so that the surface is dropped before the window
