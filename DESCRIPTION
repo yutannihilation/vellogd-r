@@ -1,10 +1,16 @@
 Package: vellogd
-Title: What the Package Does (One Line, Title Case)
+Title: 'Vello' Graphics Device For R
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+    c(person(given = "Hiroaki",
+             family = "Yutani",
+             role = c("aut", "cre"),
+             email = "yutani.ini@gmail.com",
+             comment = c(ORCID = "0000-0002-3385-7233")),
+      person(given = "The authors of the dependency Rust crates",
+             role = c("ctb"),
+             comment = "see inst/AUTHORS file for details"))
+Description: A blazingly fast graphics device powered by 'vello', a GPU compute-centric 2D renderer.
 License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
     license
 Encoding: UTF-8
