@@ -32,4 +32,8 @@ if [ "$(uname)" = "Emscripten" ]; then
   TARGET="wasm32-unknown-emscripten"
 fi
 
+if [ "$(uname)" = "Darwin" ]; then
+  FEATURES="--features no_winit"
+fi
+
 sed -e "s/@TARGET@/${TARGET}/" src/Makevars.in > src/Makevars
