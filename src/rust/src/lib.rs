@@ -1,30 +1,15 @@
 mod graphics;
 mod vello_device;
 
+use savvy::savvy;
+
 use graphics::DeviceDescriptor;
 use graphics::DeviceDriver;
-use savvy::savvy;
-use vello_device::VelloGraphicsDeviceWithServer;
-use vellogd_shared::protocol::Request;
-use vellogd_shared::protocol::Response;
-
 use vello_device::VelloGraphicsDevice;
+use vello_device::VelloGraphicsDeviceWithServer;
 
 #[cfg(debug_assertions)]
 mod debug_device;
-
-pub trait WindowController {
-    fn send_event(&self, event: Request) -> savvy::Result<()>;
-    fn recv_response(&self) -> savvy::Result<Response>;
-
-    fn get_window_sizes(&self) -> savvy::Result<(u32, u32)> {
-        self.send_event(Request::GetWindowSizes)?;
-        match self.recv_response()? {
-            Response::WindowSizes { width, height } => Ok((width, height)),
-            _ => Err("Unexpected result".into()),
-        }
-    }
-}
 
 #[savvy]
 fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {

@@ -1,7 +1,9 @@
 use ipc_channel::ipc::{IpcOneShotServer, IpcReceiver, IpcSender};
 use vellogd_shared::protocol::{Request, Response};
 
-use crate::{graphics::DeviceDriver, WindowController};
+use crate::graphics::DeviceDriver;
+
+use super::WindowController;
 
 pub struct VelloGraphicsDeviceWithServer {
     filename: String,

@@ -1,15 +1,13 @@
 use std::ffi::CStr;
 
+use super::WindowController;
 use crate::graphics::DeviceDriver;
 use crate::graphics::TextMetric;
-use crate::WindowController;
 use vellogd_shared::ffi::DevDesc;
 use vellogd_shared::ffi::R_GE_gcontext;
 use vellogd_shared::ffi::R_NilValue;
-use vellogd_shared::protocol::FillParams;
 use vellogd_shared::protocol::Request;
 use vellogd_shared::protocol::Response;
-use vellogd_shared::protocol::StrokeParams;
 use vellogd_shared::winit_app::build_layout_into;
 use vellogd_shared::winit_app::EVENT_LOOP;
 
@@ -45,65 +43,25 @@ impl WindowController for VelloGraphicsDevice {
     }
 }
 
-fn xy_to_path(x: &[f64], y: &[f64], close: bool) -> kurbo::BezPath {
-    let mut path = kurbo::BezPath::new();
-
-    let x_iter = x.iter();
-    let y_iter = y.iter();
-    let mut points = x_iter.zip(y_iter);
-    if let Some(first) = points.next() {
-        path.move_to(kurbo::Point::new(*first.0, *first.1));
-    } else {
-        return path;
-    }
-
-    for (x, y) in points {
-        path.line_to(kurbo::Point::new(*x, *y));
-    }
-
-    if close {
-        path.close_path();
-    }
-
-    path
-}
-
 impl DeviceDriver for VelloGraphicsDevice {
     fn activate(&mut self, _: DevDesc) {
-        self.send_event(Request::NewWindow).unwrap();
+        self.request_new_window().unwrap();
     }
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
-        if fill_params.is_some() || stroke_params.is_some() {
-            self.send_event(Request::DrawCircle {
-                center: center.into(),
-                radius: r,
-                fill_params,
-                stroke_params,
-            })
-            .unwrap();
-        }
+        self.request_circle(center, r, gc).unwrap();
     }
 
     fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {}
 
     fn close(&mut self, _: DevDesc) {
-        self.send_event(Request::CloseWindow).unwrap();
+        self.request_close_window().unwrap();
     }
 
     fn deactivate(&mut self, _: DevDesc) {}
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        if let Some(stroke_params) = StrokeParams::from_gc(gc) {
-            self.send_event(Request::DrawLine {
-                p0: from.into(),
-                p1: to.into(),
-                stroke_params,
-            })
-            .unwrap();
-        }
+        self.request_line(from, to, gc).unwrap();
     }
 
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {
@@ -141,46 +99,20 @@ impl DeviceDriver for VelloGraphicsDevice {
 
     fn mode(&mut self, mode: i32, _: DevDesc) {}
 
-    fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
-        self.send_event(Request::NewPage).unwrap();
+    fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
+        self.request_new_page().unwrap();
     }
 
     fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
-        if fill_params.is_some() || stroke_params.is_some() {
-            self.send_event(Request::DrawPolygon {
-                path: xy_to_path(x, y, true),
-                fill_params,
-                stroke_params,
-            })
-            .unwrap();
-        }
+        self.request_polygon(x, y, gc).unwrap();
     }
 
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        let stroke_params = StrokeParams::from_gc(gc);
-        if let Some(stroke_params) = stroke_params {
-            self.send_event(Request::DrawPolyline {
-                path: xy_to_path(x, y, true),
-                stroke_params,
-            })
-            .unwrap();
-        }
+        self.request_polyline(x, y, gc).unwrap();
     }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
-        if fill_params.is_some() || stroke_params.is_some() {
-            self.send_event(Request::DrawRect {
-                p0: from.into(),
-                p1: to.into(),
-                fill_params,
-                stroke_params,
-            })
-            .unwrap();
-        }
+        self.request_rect(from, to, gc).unwrap();
     }
 
     fn path(
@@ -244,30 +176,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
-        let [r, g, b, a] = gc.col.to_ne_bytes();
-        let color = vello::peniko::Color::rgba8(r, g, b, a);
-        let family = unsafe {
-            CStr::from_ptr(gc.fontfamily.as_ptr())
-                .to_str()
-                .unwrap_or("Arial")
-        }
-        .to_string();
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
-        if fill_params.is_some() || stroke_params.is_some() {
-            self.send_event(Request::DrawText {
-                pos: pos.into(),
-                text: text.into(),
-                color,
-                size: (gc.cex * gc.ps) as _,
-                lineheight: gc.lineheight as _,
-                // face: gc.fontface as _,
-                family,
-                angle: angle.to_radians() as _,
-                hadj: hadj as _,
-            })
-            .unwrap();
-        }
+        self.request_text(pos, text, angle, hadj, gc).unwrap();
     }
 
     fn on_exit(&mut self, _: DevDesc) {}
