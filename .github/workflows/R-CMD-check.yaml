@@ -48,6 +48,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src/rust
+          cache-all-crates: true # This is necessary because this package uses a feature gate
 
       - uses: r-lib/actions/check-r-package@v2
         with:
