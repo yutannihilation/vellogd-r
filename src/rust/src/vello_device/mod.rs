@@ -7,3 +7,6 @@ pub use default::VelloGraphicsDevice;
 mod macos;
 #[cfg(target_os = "macos")]
 pub use macos::VelloGraphicsDevice;
+
+mod with_server;
+pub use with_server::VelloGraphicsDeviceWithServer;

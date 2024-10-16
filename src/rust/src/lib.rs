@@ -4,6 +4,7 @@ mod vello_device;
 use graphics::DeviceDescriptor;
 use graphics::DeviceDriver;
 use savvy::savvy;
+use vello_device::VelloGraphicsDeviceWithServer;
 use vellogd_shared::protocol::UserEvent;
 use vellogd_shared::protocol::UserResponse;
 
@@ -32,6 +33,23 @@ fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
     let device_descriptor = DeviceDescriptor::new(width, height);
 
     device_driver.create_device::<VelloGraphicsDevice>(device_descriptor, "vellogd")?;
+
+    Ok(())
+}
+
+#[savvy]
+fn vellogd_with_server_impl(
+    filename: &str,
+    width: f64,
+    height: f64,
+    server: Option<&str>,
+) -> savvy::Result<()> {
+    let device_driver = VelloGraphicsDeviceWithServer::new(filename, server)?;
+
+    // TODO: the actual width and height is kept on the server's side.
+    let device_descriptor = DeviceDescriptor::new(width, height);
+
+    device_driver.create_device::<VelloGraphicsDeviceWithServer>(device_descriptor, "vellogd")?;
 
     Ok(())
 }

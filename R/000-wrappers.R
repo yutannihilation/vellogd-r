@@ -29,6 +29,11 @@ NULL
 }
 
 
+`vellogd_with_server_impl` <- function(`filename`, `width`, `height`, `server` = NULL) {
+  invisible(.Call(savvy_vellogd_with_server_impl__impl, `filename`, `width`, `height`, `server`))
+}
+
+
 `debuggd` <- function() {
   invisible(.Call(savvy_debuggd__impl))
 }
