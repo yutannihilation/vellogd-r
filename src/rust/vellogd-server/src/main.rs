@@ -1,6 +1,6 @@
 use ipc_channel::ipc::{IpcOneShotServer, IpcSender};
 use vellogd_shared::{
-    protocol::{UserEvent, UserResponse},
+    protocol::{Request, Response},
     winit_app::{create_event_loop, VelloApp},
 };
 
@@ -8,17 +8,17 @@ fn main() {
     let tx_server_name = std::env::args().nth(1).unwrap();
 
     // First, connect from server to client
-    let tx: IpcSender<UserResponse> = IpcSender::connect(tx_server_name).unwrap();
+    let tx: IpcSender<Response> = IpcSender::connect(tx_server_name).unwrap();
     // Then, create a connection of the opposite direction
-    let (rx_server, rx_server_name) = IpcOneShotServer::<UserEvent>::new().unwrap();
+    let (rx_server, rx_server_name) = IpcOneShotServer::<Request>::new().unwrap();
     // Tell the server name to the client
-    tx.send(UserResponse::Connect {
+    tx.send(Response::Connect {
         server_name: rx_server_name,
     })
     .unwrap();
     // Wait for the client is ready
     let rx = match rx_server.accept() {
-        Ok((rx, UserEvent::ConnectionReady)) => rx,
+        Ok((rx, Request::ConnectionReady)) => rx,
         Ok((_, data)) => panic!("got unexpected data: {data:?}"),
         Err(e) => panic!("failed to accept connection: {e}"),
     };

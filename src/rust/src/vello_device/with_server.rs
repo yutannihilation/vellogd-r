@@ -1,5 +1,5 @@
 use ipc_channel::ipc::{IpcOneShotServer, IpcReceiver, IpcSender};
-use vellogd_shared::protocol::{UserEvent, UserResponse};
+use vellogd_shared::protocol::{Request, Response};
 
 use crate::{graphics::DeviceDriver, WindowController};
 
@@ -7,14 +7,14 @@ pub struct VelloGraphicsDeviceWithServer {
     filename: String,
     layout: parley::Layout<vello::peniko::Brush>,
     process: Option<std::process::Child>,
-    tx: IpcSender<UserEvent>,
-    rx: IpcReceiver<UserResponse>,
+    tx: IpcSender<Request>,
+    rx: IpcReceiver<Response>,
 }
 
 impl VelloGraphicsDeviceWithServer {
     pub(crate) fn new(filename: &str, server: Option<&str>) -> savvy::Result<Self> {
         // server -> controller
-        let (rx_server, rx_server_name) = IpcOneShotServer::<UserResponse>::new().unwrap();
+        let (rx_server, rx_server_name) = IpcOneShotServer::<Response>::new().unwrap();
 
         let server_process = if let Some(server_bin) = server {
             // spawn a server process
@@ -40,10 +40,10 @@ impl VelloGraphicsDeviceWithServer {
 
         // establish connections of both direction
         let (tx, rx) = match rx_server.accept() {
-            Ok((rx, UserResponse::Connect { server_name })) => {
+            Ok((rx, Response::Connect { server_name })) => {
                 savvy::r_eprint!("Connecting to {server_name}...");
-                let tx: IpcSender<UserEvent> = IpcSender::connect(server_name).unwrap();
-                tx.send(UserEvent::ConnectionReady).unwrap();
+                let tx: IpcSender<Request> = IpcSender::connect(server_name).unwrap();
+                tx.send(Request::ConnectionReady).unwrap();
                 (tx, rx)
             }
             Ok((_, data)) => panic!("got unexpected data: {data:?}"),
@@ -62,11 +62,11 @@ impl VelloGraphicsDeviceWithServer {
 }
 
 impl WindowController for VelloGraphicsDeviceWithServer {
-    fn send_event(&self, event: vellogd_shared::protocol::UserEvent) -> savvy::Result<()> {
+    fn send_event(&self, event: vellogd_shared::protocol::Request) -> savvy::Result<()> {
         self.tx.send(event).map_err(|e| e.to_string().into())
     }
 
-    fn recv_response(&self) -> savvy::Result<vellogd_shared::protocol::UserResponse> {
+    fn recv_response(&self) -> savvy::Result<vellogd_shared::protocol::Response> {
         self.rx.recv().map_err(|e| e.to_string().into())
     }
 }

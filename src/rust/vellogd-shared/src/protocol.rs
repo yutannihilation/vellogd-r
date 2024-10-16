@@ -13,7 +13,7 @@ pub struct StrokeParams {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum UserEvent {
+pub enum Request {
     ConnectionReady,
     NewWindow,
     RedrawWindow,
@@ -61,23 +61,23 @@ pub enum UserEvent {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum UserResponse {
+pub enum Response {
     WindowSizes { width: u32, height: u32 },
     Connect { server_name: String },
 }
 
 pub trait AppResponseRelay {
-    fn respond(&self, response: UserResponse);
+    fn respond(&self, response: Response);
 }
 
-impl AppResponseRelay for std::sync::mpsc::Sender<UserResponse> {
-    fn respond(&self, response: UserResponse) {
+impl AppResponseRelay for std::sync::mpsc::Sender<Response> {
+    fn respond(&self, response: Response) {
         self.send(response).unwrap();
     }
 }
 
-impl AppResponseRelay for ipc_channel::ipc::IpcSender<UserResponse> {
-    fn respond(&self, response: UserResponse) {
+impl AppResponseRelay for ipc_channel::ipc::IpcSender<Response> {
+    fn respond(&self, response: Response) {
         self.send(response).unwrap();
     }
 }

@@ -5,8 +5,8 @@ use graphics::DeviceDescriptor;
 use graphics::DeviceDriver;
 use savvy::savvy;
 use vello_device::VelloGraphicsDeviceWithServer;
-use vellogd_shared::protocol::UserEvent;
-use vellogd_shared::protocol::UserResponse;
+use vellogd_shared::protocol::Request;
+use vellogd_shared::protocol::Response;
 
 use vello_device::VelloGraphicsDevice;
 
@@ -14,12 +14,13 @@ use vello_device::VelloGraphicsDevice;
 mod debug_device;
 
 pub trait WindowController {
-    fn send_event(&self, event: UserEvent) -> savvy::Result<()>;
-    fn recv_response(&self) -> savvy::Result<UserResponse>;
+    fn send_event(&self, event: Request) -> savvy::Result<()>;
+    fn recv_response(&self) -> savvy::Result<Response>;
+
     fn get_window_sizes(&self) -> savvy::Result<(u32, u32)> {
-        self.send_event(UserEvent::GetWindowSizes)?;
+        self.send_event(Request::GetWindowSizes)?;
         match self.recv_response()? {
-            UserResponse::WindowSizes { width, height } => Ok((width, height)),
+            Response::WindowSizes { width, height } => Ok((width, height)),
             _ => Err("Unexpected result".into()),
         }
     }

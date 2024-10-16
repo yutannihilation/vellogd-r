@@ -21,7 +21,7 @@ use winit::{
     window::{Window, WindowAttributes},
 };
 
-use crate::protocol::{AppResponseRelay, UserEvent, UserResponse};
+use crate::protocol::{AppResponseRelay, Request, Response};
 
 pub struct ActiveRenderState<'a> {
     // The fields MUST be in this order, so that the surface is dropped before the window
@@ -143,10 +143,10 @@ fn add_platform_specific_attributes(attrs: WindowAttributes) -> WindowAttributes
 }
 
 #[cfg(target_os = "windows")]
-pub fn create_event_loop(any_thread: bool) -> EventLoop<UserEvent> {
+pub fn create_event_loop(any_thread: bool) -> EventLoop<Request> {
     use winit::platform::windows::EventLoopBuilderExtWindows;
 
-    let event_loop = EventLoop::<UserEvent>::with_user_event()
+    let event_loop = EventLoop::<Request>::with_user_event()
         .with_any_thread(any_thread)
         .build()
         .unwrap();
@@ -155,10 +155,10 @@ pub fn create_event_loop(any_thread: bool) -> EventLoop<UserEvent> {
 }
 
 #[cfg(target_os = "linux")]
-pub fn create_event_loop(any_thread: bool) -> EventLoop<UserEvent> {
+pub fn create_event_loop(any_thread: bool) -> EventLoop<Request> {
     use winit::platform::wayland::EventLoopBuilderExtWayland;
 
-    let event_loop = EventLoop::<UserEvent>::with_user_event()
+    let event_loop = EventLoop::<Request>::with_user_event()
         .with_any_thread(any_thread)
         .build()
         .unwrap();
@@ -167,16 +167,16 @@ pub fn create_event_loop(any_thread: bool) -> EventLoop<UserEvent> {
 }
 
 #[cfg(target_os = "macos")]
-pub fn create_event_loop(any_thread: bool) -> EventLoop<UserEvent> {
+pub fn create_event_loop(any_thread: bool) -> EventLoop<Request> {
     if any_thread {
         panic!("Not supported!");
     }
-    let event_loop = EventLoop::<UserEvent>::with_user_event().build().unwrap();
+    let event_loop = EventLoop::<Request>::with_user_event().build().unwrap();
     event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
     event_loop
 }
 
-impl<'a, T: AppResponseRelay> ApplicationHandler<UserEvent> for VelloApp<'a, T> {
+impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         self.create_new_window(event_loop);
     }
@@ -250,8 +250,8 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<UserEvent> for VelloApp<'a, T> 
         }
     }
 
-    fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: UserEvent) {
-        if matches!(event, UserEvent::NewWindow) {
+    fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: Request) {
+        if matches!(event, Request::NewWindow) {
             self.create_new_window(event_loop);
             return;
         }
@@ -264,29 +264,29 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<UserEvent> for VelloApp<'a, T> 
         };
 
         match event {
-            UserEvent::ConnectionReady => {
+            Request::ConnectionReady => {
                 unreachable!("This event should not be sent to app")
             }
-            UserEvent::NewWindow => {
+            Request::NewWindow => {
                 // TODO
             }
-            UserEvent::RedrawWindow => {
+            Request::RedrawWindow => {
                 if self.needs_redraw {
                     render_state.window.request_redraw();
                 }
             }
-            UserEvent::CloseWindow => {
+            Request::CloseWindow => {
                 self.state = RenderState::Suspended(None);
             }
-            UserEvent::NewPage => {
+            Request::NewPage => {
                 self.scene.reset();
                 self.needs_redraw = true;
             }
-            UserEvent::GetWindowSizes => {
+            Request::GetWindowSizes => {
                 let PhysicalSize { width, height } = render_state.window.inner_size();
-                self.tx.respond(UserResponse::WindowSizes { width, height });
+                self.tx.respond(Response::WindowSizes { width, height });
             }
-            UserEvent::DrawCircle {
+            Request::DrawCircle {
                 center,
                 radius,
                 fill_params,
@@ -316,7 +316,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<UserEvent> for VelloApp<'a, T> 
 
                 self.needs_redraw = true;
             }
-            UserEvent::DrawLine {
+            Request::DrawLine {
                 p0,
                 p1,
                 stroke_params,
@@ -333,7 +333,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<UserEvent> for VelloApp<'a, T> 
 
                 self.needs_redraw = true;
             }
-            UserEvent::DrawPolyline {
+            Request::DrawPolyline {
                 path,
                 stroke_params,
             } => {
@@ -347,7 +347,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<UserEvent> for VelloApp<'a, T> 
 
                 self.needs_redraw = true;
             }
-            UserEvent::DrawPolygon {
+            Request::DrawPolygon {
                 path,
                 fill_params,
                 stroke_params,
@@ -375,7 +375,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<UserEvent> for VelloApp<'a, T> 
                 self.needs_redraw = true;
             }
 
-            UserEvent::DrawRect {
+            Request::DrawRect {
                 p0,
                 p1,
                 fill_params,
@@ -405,7 +405,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<UserEvent> for VelloApp<'a, T> 
                 self.needs_redraw = true;
             }
 
-            UserEvent::DrawText {
+            Request::DrawText {
                 pos,
                 text,
                 color,
@@ -522,8 +522,8 @@ const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(1
 
 #[derive(Debug)]
 pub struct EventLoopWithRx {
-    pub event_loop: EventLoopProxy<UserEvent>,
-    pub rx: std::sync::Mutex<std::sync::mpsc::Receiver<UserResponse>>,
+    pub event_loop: EventLoopProxy<Request>,
+    pub rx: std::sync::Mutex<std::sync::mpsc::Receiver<Response>>,
 }
 
 pub static EVENT_LOOP: LazyLock<EventLoopWithRx> = LazyLock::new(|| {
@@ -531,7 +531,7 @@ pub static EVENT_LOOP: LazyLock<EventLoopWithRx> = LazyLock::new(|| {
     let _ = std::thread::spawn(move || {
         let event_loop = create_event_loop(true);
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
-        let (tx, rx) = std::sync::mpsc::channel::<UserResponse>();
+        let (tx, rx) = std::sync::mpsc::channel::<Response>();
         let proxy = EventLoopWithRx {
             event_loop: event_loop.create_proxy(),
             rx: std::sync::Mutex::new(rx),
@@ -551,7 +551,7 @@ pub static EVENT_LOOP: LazyLock<EventLoopWithRx> = LazyLock::new(|| {
     // TODO: stop refreshing when no window
     std::thread::spawn(move || loop {
         event_loop_for_refresh
-            .send_event(UserEvent::RedrawWindow)
+            .send_event(Request::RedrawWindow)
             .unwrap();
         std::thread::sleep(REFRESH_INTERVAL);
     });

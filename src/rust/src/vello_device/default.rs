@@ -7,9 +7,9 @@ use vellogd_shared::ffi::DevDesc;
 use vellogd_shared::ffi::R_GE_gcontext;
 use vellogd_shared::ffi::R_NilValue;
 use vellogd_shared::protocol::FillParams;
+use vellogd_shared::protocol::Request;
+use vellogd_shared::protocol::Response;
 use vellogd_shared::protocol::StrokeParams;
-use vellogd_shared::protocol::UserEvent;
-use vellogd_shared::protocol::UserResponse;
 use vellogd_shared::winit_app::build_layout_into;
 use vellogd_shared::winit_app::EVENT_LOOP;
 
@@ -28,14 +28,14 @@ impl VelloGraphicsDevice {
 }
 
 impl WindowController for VelloGraphicsDevice {
-    fn send_event(&self, event: UserEvent) -> savvy::Result<()> {
+    fn send_event(&self, event: Request) -> savvy::Result<()> {
         EVENT_LOOP
             .event_loop
             .send_event(event)
             .map_err(|e| format!("Failed to send event {e:?}").into())
     }
 
-    fn recv_response(&self) -> savvy::Result<UserResponse> {
+    fn recv_response(&self) -> savvy::Result<Response> {
         EVENT_LOOP
             .rx
             .lock()
@@ -70,14 +70,14 @@ fn xy_to_path(x: &[f64], y: &[f64], close: bool) -> kurbo::BezPath {
 
 impl DeviceDriver for VelloGraphicsDevice {
     fn activate(&mut self, _: DevDesc) {
-        self.send_event(UserEvent::NewWindow).unwrap();
+        self.send_event(Request::NewWindow).unwrap();
     }
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            self.send_event(UserEvent::DrawCircle {
+            self.send_event(Request::DrawCircle {
                 center: center.into(),
                 radius: r,
                 fill_params,
@@ -90,14 +90,14 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {}
 
     fn close(&mut self, _: DevDesc) {
-        self.send_event(UserEvent::CloseWindow).unwrap();
+        self.send_event(Request::CloseWindow).unwrap();
     }
 
     fn deactivate(&mut self, _: DevDesc) {}
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         if let Some(stroke_params) = StrokeParams::from_gc(gc) {
-            self.send_event(UserEvent::DrawLine {
+            self.send_event(Request::DrawLine {
                 p0: from.into(),
                 p1: to.into(),
                 stroke_params,
@@ -142,14 +142,14 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn mode(&mut self, mode: i32, _: DevDesc) {}
 
     fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
-        self.send_event(UserEvent::NewPage).unwrap();
+        self.send_event(Request::NewPage).unwrap();
     }
 
     fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            self.send_event(UserEvent::DrawPolygon {
+            self.send_event(Request::DrawPolygon {
                 path: xy_to_path(x, y, true),
                 fill_params,
                 stroke_params,
@@ -161,7 +161,7 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         let stroke_params = StrokeParams::from_gc(gc);
         if let Some(stroke_params) = stroke_params {
-            self.send_event(UserEvent::DrawPolyline {
+            self.send_event(Request::DrawPolyline {
                 path: xy_to_path(x, y, true),
                 stroke_params,
             })
@@ -173,7 +173,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            self.send_event(UserEvent::DrawRect {
+            self.send_event(Request::DrawRect {
                 p0: from.into(),
                 p1: to.into(),
                 fill_params,
@@ -255,7 +255,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            self.send_event(UserEvent::DrawText {
+            self.send_event(Request::DrawText {
                 pos: pos.into(),
                 text: text.into(),
                 color,
