@@ -1,3 +1,6 @@
+#![allow(unused_variables)]
+#![allow(dead_code)]
+
 // From R internals[^1]:
 //
 // > There should be a ‘pointsize’ argument which defaults to 12, and it should

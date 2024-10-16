@@ -202,7 +202,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
 
     fn window_event(
         &mut self,
-        event_loop: &winit::event_loop::ActiveEventLoop,
+        _event_loop: &winit::event_loop::ActiveEventLoop,
         window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
@@ -424,7 +424,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 color,
                 size,
                 lineheight,
-                family,
+                family: _,
                 angle,
                 hadj,
             } => {

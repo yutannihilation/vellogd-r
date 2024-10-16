@@ -1,8 +1,6 @@
-use std::ffi::CStr;
-
 use ipc_channel::ipc::{IpcOneShotServer, IpcReceiver, IpcSender};
 use vellogd_shared::{
-    ffi::{DevDesc, R_GE_gcontext, R_NilValue},
+    ffi::{DevDesc, R_GE_gcontext},
     protocol::{Request, Response},
     text_layouter::{TextLayouter, TextMetric},
 };
@@ -165,7 +163,7 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     //     unsafe { R_NilValue }
     // }
 
-    fn size(&mut self, dd: DevDesc) -> (f64, f64, f64, f64) {
+    fn size(&mut self, _: DevDesc) -> (f64, f64, f64, f64) {
         let sizes = self.get_window_sizes().unwrap_or((0, 0));
         (0.0, sizes.0 as _, 0.0, sizes.1 as _)
     }

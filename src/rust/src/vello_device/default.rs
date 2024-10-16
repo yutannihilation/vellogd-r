@@ -126,7 +126,7 @@ impl DeviceDriver for VelloGraphicsDevice {
     //     unsafe { R_NilValue }
     // }
 
-    fn size(&mut self, dd: DevDesc) -> (f64, f64, f64, f64) {
+    fn size(&mut self, _: DevDesc) -> (f64, f64, f64, f64) {
         let sizes = self.get_window_sizes().unwrap_or((0, 0));
         (0.0, sizes.0 as _, 0.0, sizes.1 as _)
     }
