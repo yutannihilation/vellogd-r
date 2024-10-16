@@ -40,7 +40,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src/rust
-          cache-all-crates: true
 
       - name: Build Rust server
         run: |
