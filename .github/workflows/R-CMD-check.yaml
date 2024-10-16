@@ -57,6 +57,7 @@ jobs:
         run: |
           Rscript -e 'pkgbuild::compile_dll(debug = FALSE)'
           Rscript -e 'pkgbuild::compile_dll(debug = FALSE)'
+          exit 1
 
       - uses: r-lib/actions/check-r-package@v2
         with:
