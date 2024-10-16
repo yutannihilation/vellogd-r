@@ -1,0 +1,78 @@
+# Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
+# Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+  pull_request:
+    branches:
+      - main
+
+name: build server
+
+permissions: read-all
+
+jobs:
+  build:
+    runs-on: ${{ matrix.config.os }}
+    
+    # TODO
+    if: false
+
+    name: "${{ matrix.config.os }}"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {os: windows-latest}
+          - {os: macOS-latest  }
+          - {os: ubuntu-latest }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Rust server
+        run: |
+          cargo version
+          cargo build --release --manifest-path ./src/rust/Cargo.toml --bin winit_r_package_server
+
+      - uses: actions/upload-artifact@v4
+        if: github.ref_type == 'tag'
+        with:
+          name: server-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            ./src/rust/target/release/winit_r_package_server
+            ./src/rust/target/release/winit_r_package_server.exe
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.ref_type == 'tag'
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+        pattern: server-*
+
+    - name: release
+      run: |
+        mkdir "${{ runner.temp }}/dist/"
+        for d in $(ls ./artifacts/); do
+          echo "./artifacts/${d}"
+          
+          cd "./artifacts/${d}"
+          chmod +x ./winit_r_package_server*
+          tar -czf "${{ runner.temp }}/dist/${d}.tar.gz" ./winit_r_package_server*
+          cd -
+        done
+
+        gh release create ${{ github.ref_name }} ${{ runner.temp }}/dist/*

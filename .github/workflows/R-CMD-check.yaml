@@ -1,0 +1,55 @@
+# Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
+# Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+name: R-CMD-check.yaml
+
+permissions: read-all
+
+jobs:
+  R-CMD-check:
+    runs-on: ${{ matrix.config.os }}
+
+    name: "${{ matrix.config.os }} (R: ${{ matrix.config.r }}, Rust: ${{ matrix.config.rust }})"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {os: windows-latest, r: 'release',  rust: 'stable-msvc'}
+          - {os: macOS-latest,   r: 'release',  rust: 'stable'     }
+          - {os: ubuntu-latest,  r: 'release',  rust: 'stable'     }
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.config.rust }}
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rcmdcheck
+          needs: check
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          upload-results: 'never'
+          error-on: '"error"'
+          build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
+      
+      - name: show R error
+        if: failure()
+        run: cat ./check/winitRPackage.Rcheck/00install.out
