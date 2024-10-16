@@ -339,12 +339,12 @@ fn debuggd() -> savvy::Result<()> {
 
 #[cfg(debug_assertions)]
 fn debuggd_inner() {
-    let device_driver = debug_device::DebugDevice {};
+    let device_driver = debug_device::DebugGraphicsDevice {};
 
     // TODO: the actual width and height is kept on the server's side.
     let device_descriptor = DeviceDescriptor::new(480.0, 480.0);
 
-    device_driver.create_device::<debug_device::DebugDevice>(device_descriptor, "debug");
+    device_driver.create_device::<debug_device::DebugGraphicsDevice>(device_descriptor, "debug");
 }
 
 #[cfg(not(debug_assertions))]

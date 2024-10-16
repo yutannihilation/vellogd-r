@@ -23,9 +23,9 @@ fn text_related_params(gc: R_GE_gcontext) -> String {
     format!("fill: {:08x}", gc.fill)
 }
 
-pub struct DebugDevice {}
+pub struct DebugGraphicsDevice {}
 
-impl DeviceDriver for DebugDevice {
+impl DeviceDriver for DebugGraphicsDevice {
     const USE_RASTER: bool = true;
 
     const USE_CAPTURE: bool = true;
