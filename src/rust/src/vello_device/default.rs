@@ -8,7 +8,7 @@ use vellogd_shared::ffi::R_GE_gcontext;
 use vellogd_shared::ffi::R_NilValue;
 use vellogd_shared::protocol::Request;
 use vellogd_shared::protocol::Response;
-use vellogd_shared::winit_app::TextLayouter;
+use vellogd_shared::text_layouter::TextLayouter;
 use vellogd_shared::winit_app::EVENT_LOOP;
 
 pub struct VelloGraphicsDevice {
