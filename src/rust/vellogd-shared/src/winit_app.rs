@@ -21,7 +21,7 @@ use winit::{
     window::{Window, WindowAttributes},
 };
 
-use crate::protocol::{UserEvent, UserResponse};
+use crate::protocol::{AppResponseRelay, UserEvent, UserResponse};
 
 pub struct ActiveRenderState<'a> {
     // The fields MUST be in this order, so that the surface is dropped before the window
@@ -34,14 +34,14 @@ pub enum RenderState<'a> {
     Suspended(Option<Arc<Window>>),
 }
 
-pub struct VelloApp<'a> {
+pub struct VelloApp<'a, T: AppResponseRelay> {
     context: RenderContext,
     renderers: Vec<Option<Renderer>>,
     state: RenderState<'a>,
     scene: Scene,
     background_color: Color,
     layout: parley::Layout<vello::peniko::Brush>,
-    tx: std::sync::mpsc::Sender<UserResponse>,
+    tx: T,
 
     // Since R's graphics device is left-bottom origin, the Y value needs to be
     // flipped
@@ -53,8 +53,8 @@ pub struct VelloApp<'a> {
     needs_redraw: bool,
 }
 
-impl<'a> VelloApp<'a> {
-    pub fn new(width: f32, height: f32, tx: std::sync::mpsc::Sender<UserResponse>) -> Self {
+impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
+    pub fn new(width: f32, height: f32, tx: T) -> Self {
         Self {
             context: RenderContext::new(),
             renderers: vec![],
@@ -146,20 +146,24 @@ fn add_platform_specific_attributes(attrs: WindowAttributes) -> WindowAttributes
 pub fn create_event_loop(any_thread: bool) -> EventLoop<UserEvent> {
     use winit::platform::windows::EventLoopBuilderExtWindows;
 
-    winit::event_loop::EventLoop::<UserEvent>::with_user_event()
+    let event_loop = EventLoop::<UserEvent>::with_user_event()
         .with_any_thread(any_thread)
         .build()
-        .unwrap()
+        .unwrap();
+    event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+    event_loop
 }
 
 #[cfg(target_os = "linux")]
 pub fn create_event_loop(any_thread: bool) -> EventLoop<UserEvent> {
     use winit::platform::wayland::EventLoopBuilderExtWayland;
 
-    EventLoop::<UserEvent>::with_user_event()
+    let event_loop = EventLoop::<UserEvent>::with_user_event()
         .with_any_thread(any_thread)
         .build()
-        .unwrap()
+        .unwrap();
+    event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+    event_loop
 }
 
 #[cfg(target_os = "macos")]
@@ -167,10 +171,12 @@ pub fn create_event_loop(any_thread: bool) -> EventLoop<UserEvent> {
     if any_thread {
         panic!("Not supported!");
     }
-    EventLoop::<UserEvent>::with_user_event().build().unwrap()
+    let event_loop = EventLoop::<UserEvent>::with_user_event().build().unwrap();
+    event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+    event_loop
 }
 
-impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
+impl<'a, T: AppResponseRelay> ApplicationHandler<UserEvent> for VelloApp<'a, T> {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         self.create_new_window(event_loop);
     }
@@ -258,6 +264,9 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
         };
 
         match event {
+            UserEvent::ConnectionReady => {
+                unreachable!("This event should not be sent to app")
+            }
             UserEvent::NewWindow => {
                 // TODO
             }
@@ -275,9 +284,7 @@ impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
             }
             UserEvent::GetWindowSizes => {
                 let PhysicalSize { width, height } = render_state.window.inner_size();
-                self.tx
-                    .send(UserResponse::WindowSizes { width, height })
-                    .unwrap();
+                self.tx.respond(UserResponse::WindowSizes { width, height });
             }
             UserEvent::DrawCircle {
                 center,

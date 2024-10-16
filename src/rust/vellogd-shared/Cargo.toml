@@ -9,6 +9,10 @@ no_winit = []
 
 [dependencies]
 vello.workspace = true
+kurbo.workspace = true
+peniko.workspace = true
 parley.workspace = true
 winit = { workspace = true, optional = true }
 pollster = { workspace = true, optional = true }
+ipc-channel.workspace = true
+serde = { version = "1.0", features = ["derive"] }

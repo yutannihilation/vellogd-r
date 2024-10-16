@@ -45,20 +45,20 @@ impl WindowController for VelloGraphicsDevice {
     }
 }
 
-fn xy_to_path(x: &[f64], y: &[f64], close: bool) -> vello::kurbo::BezPath {
-    let mut path = vello::kurbo::BezPath::new();
+fn xy_to_path(x: &[f64], y: &[f64], close: bool) -> kurbo::BezPath {
+    let mut path = kurbo::BezPath::new();
 
     let x_iter = x.iter();
     let y_iter = y.iter();
     let mut points = x_iter.zip(y_iter);
     if let Some(first) = points.next() {
-        path.move_to(vello::kurbo::Point::new(*first.0, *first.1));
+        path.move_to(kurbo::Point::new(*first.0, *first.1));
     } else {
         return path;
     }
 
     for (x, y) in points {
-        path.line_to(vello::kurbo::Point::new(*x, *y));
+        path.line_to(kurbo::Point::new(*x, *y));
     }
 
     if close {
