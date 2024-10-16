@@ -165,21 +165,21 @@ pub fn create_event_loop(any_thread: bool) -> EventLoop<UserEvent> {
 }
 
 #[cfg(target_os = "linux")]
-pub fn create_event_loop(any_thread: bool) -> EventLoop<DummyEvent> {
+pub fn create_event_loop(any_thread: bool) -> EventLoop<UserEvent> {
     use winit::platform::wayland::EventLoopBuilderExtWayland;
 
-    EventLoop::<DummyEvent>::with_user_event()
+    EventLoop::<UserEvent>::with_user_event()
         .with_any_thread(any_thread)
         .build()
         .unwrap()
 }
 
 #[cfg(target_os = "macos")]
-pub fn create_event_loop(any_thread: bool) -> EventLoop<DummyEvent> {
+pub fn create_event_loop(any_thread: bool) -> EventLoop<UserEvent> {
     if any_thread {
         panic!("Not supported!");
     }
-    EventLoop::<DummyEvent>::with_user_event().build().unwrap()
+    EventLoop::<UserEvent>::with_user_event().build().unwrap()
 }
 
 impl<'a> ApplicationHandler<UserEvent> for VelloApp<'a> {
