@@ -55,6 +55,10 @@ jobs:
           error-on: '"error"'
           build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
       
-      - name: show R error
-        if: failure()
-        run: cat ./check/vellogd.Rcheck/00install.out
+      - name: show install log
+        if: always()
+        run: |
+          echo "--<< 00install.out >>-----------------------"
+          cat ./check/vellogd.Rcheck/00install.out
+          echo "--<< 00check.log >>-----------------------"
+          cat ./check/vellogd.Rcheck/00check.log
