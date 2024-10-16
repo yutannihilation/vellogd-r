@@ -4,3 +4,4 @@
 ^src/rust/.cargo$
 ^src/rust/target$
 ^\.github$
+^LICENSE\.md$
