@@ -54,10 +54,6 @@ jobs:
           workspaces: src/rust
           prefix-key: "v1-rust"
 
-      - name: debug
-        run: |
-          Rscript -e 'pkgbuild::compile_dll(debug = FALSE)'
-
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-results: 'never'
