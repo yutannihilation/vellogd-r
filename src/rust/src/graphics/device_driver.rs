@@ -73,7 +73,7 @@ pub trait DeviceDriver: std::marker::Sized {
 
     /// To what extent the device takes the responsibility of clipping. See
     /// [ClippingStrategy] for the details.
-    const CLIPPING_STRATEGY: ClippingStrategy = ClippingStrategy::DeviceAndEngine;
+    const CLIPPING_STRATEGY: ClippingStrategy = ClippingStrategy::Device;
 
     /// Set this to `false` if the implemented `strWidth()` and `text()` only
     /// accept ASCII text.
@@ -278,7 +278,7 @@ pub trait DeviceDriver: std::marker::Sized {
         self,
         device_descriptor: DeviceDescriptor,
         device_name: &'static str,
-    ) -> pGEDevDesc {
+    ) -> savvy::Result<()> {
         #![allow(non_snake_case)]
         #![allow(unused_variables)]
         use std::os::raw::{c_char, c_int, c_uint};
@@ -883,6 +883,6 @@ pub trait DeviceDriver: std::marker::Sized {
             GEinitDisplayList(device);
         }
 
-        device
+        Ok(())
     }
 }
