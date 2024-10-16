@@ -21,19 +21,12 @@ use winit::{
     window::{Window, WindowAttributes},
 };
 
-use crate::{UserEvent, UserResponse};
+use crate::protocol::{UserEvent, UserResponse};
 
 pub struct ActiveRenderState<'a> {
     // The fields MUST be in this order, so that the surface is dropped before the window
     surface: RenderSurface<'a>,
     window: Arc<Window>,
-}
-
-#[cfg(debug_assertions)]
-impl<'a> Drop for ActiveRenderState<'a> {
-    fn drop(&mut self) {
-        savvy::r_eprintln!("render state dropped!");
-    }
 }
 
 pub enum RenderState<'a> {
@@ -131,11 +124,6 @@ fn create_vello_renderer(render_cx: &RenderContext, surface: &RenderSurface) -> 
         },
     )
     .expect("Couldn't create renderer")
-}
-
-fn create_window_attributes(title: String) -> WindowAttributes {
-    let attrs = WindowAttributes::default().with_title(title);
-    add_platform_specific_attributes(attrs)
 }
 
 #[cfg(target_os = "windows")]

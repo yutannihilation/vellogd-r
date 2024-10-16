@@ -7,8 +7,8 @@ edition.workspace = true
 crate-type = ["staticlib", "lib"]
 
 [features]
-default = ["winit", "pollster"]
-no_winit = []
+default = ["winit"]
+no_winit = ["vellogd-shared/no_winit"]
 
 [dependencies]
 libc = "0.2.155"
@@ -16,12 +16,12 @@ savvy = "*"
 vellogd-shared.workspace = true
 vello.workspace = true
 parley.workspace = true
+ipc-channel.workspace = true
 
 winit = { workspace = true, optional = true }
-pollster = { workspace = true, optional = true }
 
 [workspace]
-members = ["vellogd-shared"]
+members = ["vellogd-server", "vellogd-shared"]
 resolver = "2"
 
 [workspace.package]
@@ -31,6 +31,7 @@ edition = "2021"
 [workspace.dependencies]
 vellogd-shared = { path = "./vellogd-shared" }
 
+ipc-channel = "0.18.3"
 winit = "0.30"
 pollster = "0.3"
 vello = "0.3"

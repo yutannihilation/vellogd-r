@@ -1,0 +1,8 @@
+[package]
+name = "vellogd-server"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vellogd-shared.workspace = true
+ipc-channel.workspace = true

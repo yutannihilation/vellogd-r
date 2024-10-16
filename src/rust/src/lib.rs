@@ -1,9 +1,6 @@
 mod graphics;
 mod vello_device;
 
-#[cfg(not(target_os = "macos"))]
-mod winit_app;
-
 use graphics::DeviceDescriptor;
 use graphics::DeviceDriver;
 use savvy::savvy;

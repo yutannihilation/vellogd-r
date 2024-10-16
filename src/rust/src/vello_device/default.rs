@@ -2,8 +2,6 @@ use std::ffi::CStr;
 
 use crate::graphics::DeviceDriver;
 use crate::graphics::TextMetric;
-use crate::winit_app::build_layout_into;
-use crate::winit_app::EVENT_LOOP;
 use crate::WindowController;
 use vellogd_shared::ffi::DevDesc;
 use vellogd_shared::ffi::R_GE_gcontext;
@@ -12,6 +10,8 @@ use vellogd_shared::protocol::FillParams;
 use vellogd_shared::protocol::StrokeParams;
 use vellogd_shared::protocol::UserEvent;
 use vellogd_shared::protocol::UserResponse;
+use vellogd_shared::winit_app::build_layout_into;
+use vellogd_shared::winit_app::EVENT_LOOP;
 
 pub struct VelloGraphicsDevice {
     filename: String,

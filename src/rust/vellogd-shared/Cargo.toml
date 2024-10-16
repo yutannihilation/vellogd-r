@@ -3,5 +3,12 @@ name = "vellogd-shared"
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = ["winit", "pollster"]
+no_winit = []
+
 [dependencies]
 vello.workspace = true
+parley.workspace = true
+winit = { workspace = true, optional = true }
+pollster = { workspace = true, optional = true }
