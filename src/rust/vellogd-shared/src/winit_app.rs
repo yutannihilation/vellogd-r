@@ -183,7 +183,7 @@ pub trait TextLayouter {
     fn layout_mut(&mut self) -> &mut parley::Layout<peniko::Brush>;
     fn layout_ref(&self) -> &parley::Layout<peniko::Brush>;
 
-    fn build_layout_into(
+    fn build_layout(
         &mut self,
         text: impl AsRef<str>,
         // TODO
@@ -463,7 +463,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 angle,
                 hadj,
             } => {
-                self.build_layout_into(text, size, lineheight);
+                self.build_layout(text, size, lineheight);
 
                 let width = self.layout.width();
                 let transform = vello::kurbo::Affine::translate((-(width * hadj) as f64, 0.0))

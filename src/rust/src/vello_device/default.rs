@@ -83,7 +83,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         }
         .to_string();
         let size = gc.cex * gc.ps;
-        self.build_layout_into(c.to_string(), size as _, gc.lineheight as _);
+        self.build_layout(c.to_string(), size as _, gc.lineheight as _);
         let line = self.layout.lines().next();
         match line {
             Some(line) => {
@@ -168,7 +168,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         }
         .to_string();
         let size = gc.cex * gc.ps;
-        self.build_layout_into(text, size as _, gc.lineheight as _);
+        self.build_layout(text, size as _, gc.lineheight as _);
         self.layout.width() as _
     }
 
