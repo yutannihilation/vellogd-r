@@ -44,6 +44,10 @@ jobs:
           extra-packages: any::rcmdcheck
           needs: check
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src/rust
+
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-results: 'never'

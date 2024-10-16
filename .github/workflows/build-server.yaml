@@ -37,7 +37,13 @@ jobs:
       - name: Build Rust server
         run: |
           cargo version
-          cargo build --release --manifest-path ./src/rust/Cargo.toml --bin vellogd-server
+          if [ "${{ github.ref_type }}" == 'tag' ]; then
+            PROFILE=release
+          else
+            PROFILE=dev
+          fi
+          cargo build --profile ${PROFILE} --manifest-path ./src/rust/Cargo.toml --bin vellogd-server
+        shell: bash
 
       - uses: actions/upload-artifact@v4
         if: github.ref_type == 'tag'
