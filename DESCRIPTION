@@ -8,8 +8,7 @@ Authors@R:
              email = "yutani.ini@gmail.com",
              comment = c(ORCID = "0000-0002-3385-7233")),
       person(given = "The authors of the dependency Rust crates",
-             role = c("ctb"),
-             comment = "see inst/AUTHORS file for details"))
+             role = c("ctb")))
 Description: A blazingly fast graphics device powered by 'vello', a GPU compute-centric 2D renderer.
 License: MIT + file LICENSE
 Encoding: UTF-8
