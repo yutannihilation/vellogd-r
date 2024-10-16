@@ -2,7 +2,6 @@ use super::WindowController;
 use crate::graphics::DeviceDriver;
 use vellogd_shared::ffi::DevDesc;
 use vellogd_shared::ffi::R_GE_gcontext;
-use vellogd_shared::ffi::R_NilValue;
 use vellogd_shared::protocol::Request;
 use vellogd_shared::protocol::Response;
 use vellogd_shared::text_layouter::TextLayouter;

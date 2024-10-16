@@ -40,7 +40,7 @@ use super::{device_descriptor::*, Raster};
 ///     https://cran.r-project.org/doc/manuals/r-release/R-ints.html#Handling-text
 /// [the announcement blog post]:
 ///     https://developer.r-project.org/Blog/public/2020/06/08/improvements-to-clipping-in-the-r-graphics-engine/
-pub enum ClippingStrategy {
+enum ClippingStrategy {
     Device,
     DeviceAndEngine,
     Engine,
