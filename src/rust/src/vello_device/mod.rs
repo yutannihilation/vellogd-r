@@ -1,5 +1,6 @@
 #[cfg(not(target_os = "macos"))]
 mod default;
+
 #[cfg(not(target_os = "macos"))]
 pub use default::VelloGraphicsDevice;
 
@@ -9,6 +10,7 @@ mod macos;
 pub use macos::VelloGraphicsDevice;
 
 mod with_server;
+
 use vellogd_shared::{
     ffi::R_GE_gcontext,
     protocol::{FillParams, Request, Response, StrokeParams},

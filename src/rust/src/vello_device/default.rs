@@ -8,7 +8,7 @@ use vellogd_shared::ffi::R_GE_gcontext;
 use vellogd_shared::ffi::R_NilValue;
 use vellogd_shared::protocol::Request;
 use vellogd_shared::protocol::Response;
-use vellogd_shared::winit_app::build_layout_into;
+use vellogd_shared::winit_app::TextLayouter;
 use vellogd_shared::winit_app::EVENT_LOOP;
 
 pub struct VelloGraphicsDevice {
@@ -43,6 +43,16 @@ impl WindowController for VelloGraphicsDevice {
     }
 }
 
+impl TextLayouter for VelloGraphicsDevice {
+    fn layout_mut(&mut self) -> &mut parley::Layout<vello::peniko::Brush> {
+        &mut self.layout
+    }
+
+    fn layout_ref(&self) -> &parley::Layout<vello::peniko::Brush> {
+        &self.layout
+    }
+}
+
 impl DeviceDriver for VelloGraphicsDevice {
     fn activate(&mut self, _: DevDesc) {
         self.request_new_window().unwrap();
@@ -73,12 +83,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         }
         .to_string();
         let size = gc.cex * gc.ps;
-        build_layout_into(
-            &mut self.layout,
-            c.to_string(),
-            size as _,
-            gc.lineheight as _,
-        );
+        self.build_layout_into(c.to_string(), size as _, gc.lineheight as _);
         let line = self.layout.lines().next();
         match line {
             Some(line) => {
@@ -163,7 +168,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         }
         .to_string();
         let size = gc.cex * gc.ps;
-        build_layout_into(&mut self.layout, text, size as _, gc.lineheight as _);
+        self.build_layout_into(text, size as _, gc.lineheight as _);
         self.layout.width() as _
     }
 
