@@ -31,6 +31,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: Swatinem/rust-cache@v2
+        if: github.ref_type != 'tag'
+        with:
+          workspaces: src/rust
+          shared-key: shared-cache
+
       - name: Build Rust server
         run: |
           cargo version
@@ -39,7 +45,7 @@ jobs:
           else
             PROFILE=dev
           fi
-          cargo build --profile ${PROFILE} --manifest-path ./src/rust/Cargo.toml --bin vellogd-server
+          cargo build --profile ${PROFILE} --manifest-path ./src/rust/Cargo.toml --p vellogd-server
         shell: bash
 
       - uses: actions/upload-artifact@v4

@@ -47,6 +47,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src/rust
+          shared-key: shared-cache
 
       - uses: r-lib/actions/check-r-package@v2
         with:
