@@ -4,6 +4,9 @@ use vellogd_shared::{
     winit_app::{create_event_loop, VelloApp},
 };
 
+// TODO: make this configurable
+const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16); // = 60fps
+
 fn main() {
     let tx_server_name = std::env::args().nth(1).unwrap();
 
@@ -26,6 +29,13 @@ fn main() {
     let event_loop = create_event_loop(false);
     let proxy = event_loop.create_proxy();
 
+    let proxy_for_refresh = proxy.clone();
+    // TODO: stop refreshing when no window
+    std::thread::spawn(move || loop {
+        proxy_for_refresh.send_event(Request::RedrawWindow).unwrap();
+        std::thread::sleep(REFRESH_INTERVAL);
+    });
+
     // Since the main thread will be occupied by event_loop, the server needs to
     // run in a spawned thread. rx waits for the event and forward it to
     // event_loop via proxy.
@@ -33,6 +43,7 @@ fn main() {
         let event = rx.recv().unwrap();
         proxy.send_event(event).unwrap();
     });
+
     // TODO: supply width and height
     let mut app = VelloApp::new(480.0 as _, 480.0 as _, tx);
     event_loop.run_app(&mut app).unwrap();
