@@ -1,22 +1,38 @@
 [package]
 name = "vellogd"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [lib]
 crate-type = ["staticlib", "lib"]
 
+[features]
+default = ["winit", "pollster"]
+no_winit = []
+
 [dependencies]
 libc = "0.2.155"
 savvy = "*"
+vello.workspace = true
+parley.workspace = true
 
-winit = "*"
+winit = { workspace = true, optional = true }
+pollster = { workspace = true, optional = true }
+
+[workspace]
+members = []
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+winit = "0.30"
+pollster = "0.3"
 vello = "0.3"
 parley = "0.2"
-
-pollster = "0.3"
 anyhow = "1.0"
-
 
 [profile.release]
 # By default, on release build, savvy terminates the R session when a panic
