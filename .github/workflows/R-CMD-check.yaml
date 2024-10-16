@@ -52,6 +52,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src/rust
+          prefix-key: "v1-rust"
 
       - name: debug
         run: |
