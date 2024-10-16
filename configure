@@ -36,4 +36,7 @@ if [ "$(uname)" = "Darwin" ]; then
   FEATURES="--features no_winit"
 fi
 
-sed -e "s/@TARGET@/${TARGET}/" src/Makevars.in > src/Makevars
+sed \
+  -e "s/@TARGET@/${TARGET}/" \
+  -e "s/@FEATURES@/${FEATURES}/" \
+  src/Makevars.in > src/Makevars
