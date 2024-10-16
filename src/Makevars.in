@@ -4,7 +4,7 @@ TARGET = @TARGET@
 PROFILE = $(subst x,release,$(subst truex,dev,$(DEBUG)x))
 FEATURES = @FEATURES@
 
-TARGET_DIR = $(CURDIR)/rust/target
+TARGET_DIR = @CARGO_TARGET_DIR@
 LIBDIR = $(TARGET_DIR)/$(TARGET)/$(subst dev,debug,$(PROFILE))
 STATLIB = $(LIBDIR)/libvellogd.a
 PKG_LIBS = -L$(LIBDIR) -lvellogd

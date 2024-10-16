@@ -32,6 +32,14 @@ if [ "$(uname)" = "Emscripten" ]; then
   TARGET="wasm32-unknown-emscripten"
 fi
 
+# In order to use rust-cache action, target dir needs to be a fixed, existing path.
+if [ -d "${GITHUB_WORKSPACE}" ]; then
+  CARGO_TARGET_DIR="${GITHUB_WORKSPACE}/src/rust/target"
+  echo "Detected GitHub Actions envvar. Using ${CARGO_TARGET_DIR} for the target dir of cargo"
+else
+  CARGO_TARGET_DIR='$(CURDIR)/rust/target'
+fi
+
 if [ "$(uname)" = "Darwin" ]; then
   FEATURES="--features no_winit"
 fi
@@ -39,4 +47,5 @@ fi
 sed \
   -e "s/@TARGET@/${TARGET}/" \
   -e "s/@FEATURES@/${FEATURES}/" \
+  -e "s|@CARGO_TARGET_DIR@|${CARGO_TARGET_DIR}|" \
   src/Makevars.in > src/Makevars
