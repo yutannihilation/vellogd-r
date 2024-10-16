@@ -18,9 +18,6 @@ jobs:
   build:
     runs-on: ${{ matrix.config.os }}
     
-    # TODO
-    if: false
-
     name: "${{ matrix.config.os }}"
 
     strategy:
