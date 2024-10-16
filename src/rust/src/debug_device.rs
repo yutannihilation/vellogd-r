@@ -3,6 +3,7 @@ use crate::graphics::DeviceDriver;
 use vellogd_shared::ffi::DevDesc;
 use vellogd_shared::ffi::R_GE_gcontext;
 use vellogd_shared::ffi::R_NilValue;
+use vellogd_shared::text_layouter::TextMetric;
 
 #[cfg(debug_assertions)]
 fn fill_related_params(gc: R_GE_gcontext) -> String {
@@ -56,18 +57,13 @@ impl DeviceDriver for DebugGraphicsDevice {
         );
     }
 
-    fn char_metric(
-        &mut self,
-        c: char,
-        gc: R_GE_gcontext,
-        _: DevDesc,
-    ) -> crate::graphics::TextMetric {
+    fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {
         savvy::r_eprintln!(
             "[char_metric] c: {c:?}, text params: {{ {} }}",
             text_related_params(gc)
         );
 
-        crate::graphics::TextMetric {
+        TextMetric {
             ascent: 0.0,
             descent: 0.0,
             width: 0.0,

@@ -7,12 +7,6 @@ pub use device_descriptor::DeviceDescriptor;
 
 pub use device_driver::DeviceDriver;
 
-pub struct TextMetric {
-    pub ascent: f64,
-    pub descent: f64,
-    pub width: f64,
-}
-
 /// A row-major array of pixels. One pixel is 32-bit, whose each byte represents
 /// alpha, blue, green, and red in the order.
 #[derive(Clone, Debug, PartialEq)]

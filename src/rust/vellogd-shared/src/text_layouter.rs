@@ -1,5 +1,13 @@
 use std::sync::{LazyLock, Mutex};
 
+use crate::ffi::R_GE_gcontext;
+
+pub struct TextMetric {
+    pub ascent: f64,
+    pub descent: f64,
+    pub width: f64,
+}
+
 static FONT_CTX: LazyLock<Mutex<parley::FontContext>> =
     LazyLock::new(|| Mutex::new(parley::FontContext::new()));
 
@@ -35,5 +43,47 @@ pub trait TextLayouter {
         layout.break_all_lines(None);
 
         layout.align(None, parley::Alignment::Start);
+    }
+
+    fn get_text_width<T: AsRef<str>>(&mut self, text: T, gc: R_GE_gcontext) -> f64 {
+        // TODO
+        // let family = unsafe {
+        //     CStr::from_ptr(gc.fontfamily.as_ptr())
+        //         .to_str()
+        //         .unwrap_or("Arial")
+        // }
+        // .to_string();
+        let size = gc.cex * gc.ps;
+        self.build_layout(text, size as _, gc.lineheight as _);
+        self.layout_ref().width() as _
+    }
+
+    fn get_char_metric(&mut self, c: char, gc: R_GE_gcontext) -> TextMetric {
+        // TODO
+        // let _family = unsafe {
+        //     CStr::from_ptr(gc.fontfamily.as_ptr())
+        //         .to_str()
+        //         .unwrap_or("Arial")
+        // }
+        // .to_string();
+        let size = gc.cex * gc.ps;
+        self.build_layout(c.to_string(), size as _, gc.lineheight as _);
+        let layout_ref = self.layout_ref();
+        let line = layout_ref.lines().next();
+        match line {
+            Some(line) => {
+                let metrics = line.metrics();
+                TextMetric {
+                    ascent: metrics.ascent as _,
+                    descent: metrics.descent as _,
+                    width: layout_ref.width() as _, // TOOD: should this be run.metrics().width of the first char?
+                }
+            }
+            None => TextMetric {
+                ascent: 0.0,
+                descent: 0.0,
+                width: 0.0,
+            },
+        }
     }
 }

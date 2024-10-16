@@ -4,10 +4,10 @@ use ipc_channel::ipc::{IpcOneShotServer, IpcReceiver, IpcSender};
 use vellogd_shared::{
     ffi::{DevDesc, R_GE_gcontext, R_NilValue},
     protocol::{Request, Response},
-    text_layouter::TextLayouter,
+    text_layouter::{TextLayouter, TextMetric},
 };
 
-use crate::graphics::{DeviceDriver, TextMetric};
+use crate::graphics::DeviceDriver;
 
 use super::WindowController;
 
