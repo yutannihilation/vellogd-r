@@ -24,17 +24,23 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: windows-latest}
-          - {os: macOS-latest  }
-          - {os: ubuntu-latest }
+          - {os: windows-latest, rust: 'stable'}
+          - {os: macOS-latest,   rust: 'stable'}
+          - {os: ubuntu-latest,  rust: 'stable'}
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@master
+        id: toolchain
+        with:
+          toolchain: ${{ matrix.config.rust }}
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src/rust
-          shared-key: shared-cache
+          shared-key: shared-cache-${{ runner.os }}-${{ steps.toolchain.outputs.name }}
 
       - name: Build Rust server
         run: |

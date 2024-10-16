@@ -32,6 +32,7 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@master
+        id: toolchain
         with:
           toolchain: ${{ matrix.config.rust }}
 
@@ -47,7 +48,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src/rust
-          shared-key: shared-cache
+          shared-key: shared-cache-${{ runner.os }}-${{ steps.toolchain.outputs.name }}
 
       - uses: r-lib/actions/check-r-package@v2
         with:
