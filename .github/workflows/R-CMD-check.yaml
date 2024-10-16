@@ -52,4 +52,4 @@ jobs:
       
       - name: show R error
         if: failure()
-        run: cat ./check/winitRPackage.Rcheck/00install.out
+        run: cat ./check/vellogd.Rcheck/00install.out

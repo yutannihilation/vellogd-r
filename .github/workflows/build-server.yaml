@@ -37,15 +37,15 @@ jobs:
       - name: Build Rust server
         run: |
           cargo version
-          cargo build --release --manifest-path ./src/rust/Cargo.toml --bin winit_r_package_server
+          cargo build --release --manifest-path ./src/rust/Cargo.toml --bin vellogd-server
 
       - uses: actions/upload-artifact@v4
         if: github.ref_type == 'tag'
         with:
           name: server-${{ runner.os }}-${{ runner.arch }}
           path: |
-            ./src/rust/target/release/winit_r_package_server
-            ./src/rust/target/release/winit_r_package_server.exe
+            ./src/rust/target/release/vellogd_server
+            ./src/rust/target/release/vellogd_server.exe
 
   release:
     needs: build
@@ -70,8 +70,8 @@ jobs:
           echo "./artifacts/${d}"
           
           cd "./artifacts/${d}"
-          chmod +x ./winit_r_package_server*
-          tar -czf "${{ runner.temp }}/dist/${d}.tar.gz" ./winit_r_package_server*
+          chmod +x ./vellogd_server*
+          tar -czf "${{ runner.temp }}/dist/${d}.tar.gz" ./vellogd_server*
           cd -
         done
 
