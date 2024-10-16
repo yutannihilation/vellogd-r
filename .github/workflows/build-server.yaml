@@ -47,8 +47,8 @@ jobs:
         with:
           name: server-${{ runner.os }}-${{ runner.arch }}
           path: |
-            ./src/rust/target/release/vellogd_server
-            ./src/rust/target/release/vellogd_server.exe
+            ./src/rust/target/release/vellogd-server
+            ./src/rust/target/release/vellogd-server.exe
 
   release:
     needs: build
@@ -73,8 +73,8 @@ jobs:
           echo "./artifacts/${d}"
           
           cd "./artifacts/${d}"
-          chmod +x ./vellogd_server*
-          tar -czf "${{ runner.temp }}/dist/${d}.tar.gz" ./vellogd_server*
+          chmod +x ./vellogd-server*
+          tar -czf "${{ runner.temp }}/dist/${d}.tar.gz" ./vellogd-server*
           cd -
         done
 

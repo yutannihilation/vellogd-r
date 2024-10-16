@@ -32,10 +32,10 @@ server_path_default <- function() {
   path <- file.path(pkg_cache_dir(), bin)
 }
 
-URL_BASE <- "https://github.com/yutannihilation/vellogd/releases/download"
+URL_BASE <- "https://github.com/yutannihilation/vellogd-r/releases/download"
 
 get_latest_release <- function() {
-  jsonlite::read_json("https://api.github.com/repos/yutannihilation/vellogd/releases/latest")[["tag_name"]]
+  jsonlite::read_json("https://api.github.com/repos/yutannihilation/vellogd-r/releases/latest")[["tag_name"]]
 }
 
 get_download_url <- function() {
