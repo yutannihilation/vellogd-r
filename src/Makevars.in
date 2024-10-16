@@ -9,7 +9,7 @@ LIBDIR = $(TARGET_DIR)/$(TARGET)/$(subst dev,debug,$(PROFILE))
 STATLIB = $(LIBDIR)/libvellogd.a
 PKG_LIBS = -L$(LIBDIR) -lvellogd
 
-CARGO_BUILD_ARGS = --lib --profile $(PROFILE) --manifest-path=./rust/Cargo.toml --target-dir $(TARGET_DIR) $(FEATURES) -vvv
+CARGO_BUILD_ARGS = --lib --profile $(PROFILE) --manifest-path=./rust/Cargo.toml --target-dir $(TARGET_DIR) $(FEATURES) -vv
 
 all: C_clean
 
