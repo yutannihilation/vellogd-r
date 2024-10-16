@@ -1,6 +1,8 @@
 vellogd: A Vello Graphics Device for R
 ======================================
 
+[![R-CMD-check.yaml](https://github.com/yutannihilation/vellogd-r/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/yutannihilation/vellogd-r/actions/workflows/R-CMD-check.yaml)
+
 This is a prototype for Rust-implemented R graphics device. This relies on these crates:
 
 * vello: 2D rendering engine with GPU
