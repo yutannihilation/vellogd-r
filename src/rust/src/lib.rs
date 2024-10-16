@@ -53,7 +53,9 @@ fn debuggd_inner() {
     // TODO: the actual width and height is kept on the server's side.
     let device_descriptor = DeviceDescriptor::new(480.0, 480.0);
 
-    device_driver.create_device::<debug_device::DebugGraphicsDevice>(device_descriptor, "debug");
+    device_driver
+        .create_device::<debug_device::DebugGraphicsDevice>(device_descriptor, "debug")
+        .unwrap();
 }
 
 #[cfg(not(debug_assertions))]
