@@ -156,7 +156,7 @@ pub trait WindowController {
         gc: R_GE_gcontext,
     ) -> savvy::Result<()> {
         let [r, g, b, a] = gc.col.to_ne_bytes();
-        let color = vello::peniko::Color::rgba8(r, g, b, a);
+        let color = peniko::Color::rgba8(r, g, b, a);
         let family = unsafe {
             std::ffi::CStr::from_ptr(gc.fontfamily.as_ptr())
                 .to_str()

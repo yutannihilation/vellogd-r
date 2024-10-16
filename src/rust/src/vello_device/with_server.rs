@@ -7,7 +7,7 @@ use super::WindowController;
 
 pub struct VelloGraphicsDeviceWithServer {
     filename: String,
-    layout: parley::Layout<vello::peniko::Brush>,
+    layout: parley::Layout<peniko::Brush>,
     process: Option<std::process::Child>,
     tx: IpcSender<Request>,
     rx: IpcReceiver<Response>,

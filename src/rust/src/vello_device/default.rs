@@ -13,7 +13,7 @@ use vellogd_shared::winit_app::EVENT_LOOP;
 
 pub struct VelloGraphicsDevice {
     filename: String,
-    layout: parley::Layout<vello::peniko::Brush>,
+    layout: parley::Layout<peniko::Brush>,
 }
 
 impl VelloGraphicsDevice {
@@ -44,11 +44,11 @@ impl WindowController for VelloGraphicsDevice {
 }
 
 impl TextLayouter for VelloGraphicsDevice {
-    fn layout_mut(&mut self) -> &mut parley::Layout<vello::peniko::Brush> {
+    fn layout_mut(&mut self) -> &mut parley::Layout<peniko::Brush> {
         &mut self.layout
     }
 
-    fn layout_ref(&self) -> &parley::Layout<vello::peniko::Brush> {
+    fn layout_ref(&self) -> &parley::Layout<peniko::Brush> {
         &self.layout
     }
 }

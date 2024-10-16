@@ -40,7 +40,7 @@ pub struct VelloApp<'a, T: AppResponseRelay> {
     state: RenderState<'a>,
     scene: Scene,
     background_color: Color,
-    layout: parley::Layout<vello::peniko::Brush>,
+    layout: parley::Layout<peniko::Brush>,
     tx: T,
 
     // Since R's graphics device is left-bottom origin, the Y value needs to be
@@ -180,8 +180,8 @@ static FONT_CTX: LazyLock<Mutex<parley::FontContext>> =
     LazyLock::new(|| Mutex::new(parley::FontContext::new()));
 
 pub trait TextLayouter {
-    fn layout_mut(&mut self) -> &mut parley::Layout<vello::peniko::Brush>;
-    fn layout_ref(&self) -> &parley::Layout<vello::peniko::Brush>;
+    fn layout_mut(&mut self) -> &mut parley::Layout<peniko::Brush>;
+    fn layout_ref(&self) -> &parley::Layout<peniko::Brush>;
 
     fn build_layout_into(
         &mut self,
@@ -196,8 +196,7 @@ pub trait TextLayouter {
         let mut font_ctx = FONT_CTX.lock().unwrap();
         // Note: parley is probably a little bit overkill, but it seems
         // this is the only interface.
-        let mut layout_ctx: parley::LayoutContext<vello::peniko::Brush> =
-            parley::LayoutContext::new();
+        let mut layout_ctx: parley::LayoutContext<peniko::Brush> = parley::LayoutContext::new();
         let mut layout_builder = layout_ctx.ranged_builder(&mut font_ctx, text, 1.0);
         // TODO: should scale be configurable?
         layout_builder.push_default(parley::StyleProperty::FontSize(size));
@@ -216,11 +215,11 @@ pub trait TextLayouter {
 }
 
 impl<'a, T: AppResponseRelay> TextLayouter for VelloApp<'a, T> {
-    fn layout_mut(&mut self) -> &mut parley::Layout<vello::peniko::Brush> {
+    fn layout_mut(&mut self) -> &mut parley::Layout<peniko::Brush> {
         &mut self.layout
     }
 
-    fn layout_ref(&self) -> &parley::Layout<vello::peniko::Brush> {
+    fn layout_ref(&self) -> &parley::Layout<peniko::Brush> {
         &self.layout
     }
 }
@@ -345,7 +344,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
 
                 if let Some(fill_params) = fill_params {
                     self.scene.fill(
-                        vello::peniko::Fill::NonZero,
+                        peniko::Fill::NonZero,
                         self.y_transform,
                         fill_params.color,
                         None,
@@ -403,7 +402,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
             } => {
                 if let Some(fill_params) = fill_params {
                     self.scene.fill(
-                        vello::peniko::Fill::NonZero,
+                        peniko::Fill::NonZero,
                         self.y_transform,
                         fill_params.color,
                         None,
@@ -433,7 +432,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 let rect = vello::kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y);
                 if let Some(fill_params) = fill_params {
                     self.scene.fill(
-                        vello::peniko::Fill::NonZero,
+                        peniko::Fill::NonZero,
                         self.y_transform,
                         fill_params.color,
                         None,
@@ -510,7 +509,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                             .font_size(font_size)
                             .normalized_coords(&coords)
                             .draw(
-                                vello::peniko::Fill::NonZero,
+                                peniko::Fill::NonZero,
                                 glyph_run.glyphs().map(|g| {
                                     let gx = x + g.x;
                                     let gy = y - g.y;
