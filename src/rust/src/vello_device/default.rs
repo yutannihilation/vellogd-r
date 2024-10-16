@@ -52,25 +52,37 @@ impl TextLayouter for VelloGraphicsDevice {
 
 impl DeviceDriver for VelloGraphicsDevice {
     fn activate(&mut self, _: DevDesc) {
-        self.request_new_window().unwrap();
+        match self.request_new_window() {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("Failed to activate: {e}"),
+        }
     }
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
-        self.request_circle(center, r, gc).unwrap();
+        match self.request_circle(center, r, gc) {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("Failed to draw circle: {e}"),
+        }
     }
 
     // TODO
     // fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {}
 
     fn close(&mut self, _: DevDesc) {
-        self.request_close_window().unwrap();
+        match self.request_close_window() {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("Failed to close window: {e}"),
+        }
     }
 
     // TODO
     // fn deactivate(&mut self, _: DevDesc) {}
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        self.request_line(from, to, gc).unwrap();
+        match self.request_line(from, to, gc) {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("Failed to draw line: {e}"),
+        }
     }
 
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {
@@ -81,19 +93,31 @@ impl DeviceDriver for VelloGraphicsDevice {
     // fn mode(&mut self, mode: i32, _: DevDesc) {}
 
     fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
-        self.request_new_page().unwrap();
+        match self.request_new_page() {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("Failed to create a new page: {e}"),
+        }
     }
 
     fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        self.request_polygon(x, y, gc).unwrap();
+        match self.request_polygon(x, y, gc) {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("Failed to draw polygon: {e}"),
+        }
     }
 
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        self.request_polyline(x, y, gc).unwrap();
+        match self.request_polyline(x, y, gc) {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("Failed to draw polyline: {e}"),
+        }
     }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        self.request_rect(from, to, gc).unwrap();
+        match self.request_rect(from, to, gc) {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("Failed to draw rect: {e}"),
+        }
     }
 
     // TODO
@@ -144,7 +168,10 @@ impl DeviceDriver for VelloGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
-        self.request_text(pos, text, angle, hadj, gc).unwrap();
+        match self.request_text(pos, text, angle, hadj, gc) {
+            Ok(_) => {}
+            Err(e) => savvy::r_eprintln!("Failed to draw text: {e}"),
+        }
     }
 
     // TODO
