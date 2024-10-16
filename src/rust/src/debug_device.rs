@@ -25,6 +25,21 @@ fn text_related_params(gc: R_GE_gcontext) -> String {
 
 pub struct DebugGraphicsDevice {}
 
+fn take3<T: std::fmt::Debug>(x: &[T]) -> String {
+    if x.len() < 3 {
+        return format!("{x:?}");
+    }
+
+    let x = x
+        .iter()
+        .take(3)
+        .map(|x| format!("{x:?}"))
+        .collect::<Vec<String>>()
+        .join(", ");
+
+    format!("[{x}, ...]")
+}
+
 impl DeviceDriver for DebugGraphicsDevice {
     fn activate(&mut self, _: DevDesc) {
         savvy::r_eprintln!("[activate]");
@@ -74,42 +89,42 @@ impl DeviceDriver for DebugGraphicsDevice {
         savvy::r_eprintln!("[mode] mode: {mode}");
     }
 
-    fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
+    fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
         savvy::r_eprintln!("[new_page]");
     }
 
-    fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        savvy::r_eprintln!("[polygon]");
+    fn polygon(&mut self, x: &[f64], y: &[f64], _: R_GE_gcontext, _: DevDesc) {
+        savvy::r_eprintln!("[polygon] x: {} y: {}", take3(x), take3(y));
     }
 
-    fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        savvy::r_eprintln!("[polyline]");
+    fn polyline(&mut self, x: &[f64], y: &[f64], _: R_GE_gcontext, _: DevDesc) {
+        savvy::r_eprintln!("[polyline] x: {} y: {}", take3(x), take3(y));
     }
 
-    fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        savvy::r_eprintln!("[rect]");
+    fn rect(&mut self, from: (f64, f64), to: (f64, f64), _: R_GE_gcontext, _: DevDesc) {
+        savvy::r_eprintln!("[rect] from: {from:?} to: {to:?}");
     }
 
     fn path(
         &mut self,
-        x: &[f64],
-        y: &[f64],
+        _x: &[f64],
+        _y: &[f64],
         nper: &[i32],
-        winding: bool,
-        gc: R_GE_gcontext,
-        dd: DevDesc,
+        _winding: bool,
+        _gc: R_GE_gcontext,
+        _: DevDesc,
     ) {
         savvy::r_eprintln!("[path] nper: {nper:?}");
     }
 
     fn raster<T: AsRef<[u32]>>(
         &mut self,
-        raster: crate::graphics::Raster<T>,
-        pos: (f64, f64),
-        size: (f64, f64),
-        angle: f64,
-        interpolate: bool,
-        gc: R_GE_gcontext,
+        _raster: crate::graphics::Raster<T>,
+        _pos: (f64, f64),
+        _size: (f64, f64),
+        _angle: f64,
+        _interpolate: bool,
+        _: R_GE_gcontext,
         _: DevDesc,
     ) {
         savvy::r_eprintln!("[raster]");
@@ -137,11 +152,11 @@ impl DeviceDriver for DebugGraphicsDevice {
 
     fn text(
         &mut self,
-        pos: (f64, f64),
+        _pos: (f64, f64),
         text: &str,
-        angle: f64,
-        hadj: f64,
-        gc: R_GE_gcontext,
+        _angle: f64,
+        _hadj: f64,
+        _: R_GE_gcontext,
         _: DevDesc,
     ) {
         savvy::r_eprintln!("[text] text: {text}");
@@ -163,7 +178,7 @@ impl DeviceDriver for DebugGraphicsDevice {
         0
     }
 
-    fn locator(&mut self, x: *mut f64, y: *mut f64, _: DevDesc) -> bool {
+    fn locator(&mut self, _x: *mut f64, _y: *mut f64, _: DevDesc) -> bool {
         savvy::r_eprintln!("[locator]");
 
         true
