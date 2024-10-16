@@ -101,7 +101,9 @@ impl DeviceDriver for VelloGraphicsDevice {
 
     const ACCEPT_UTF8_TEXT: bool = true;
 
-    fn activate(&mut self, _: DevDesc) {}
+    fn activate(&mut self, _: DevDesc) {
+        self.send_event(UserEvent::NewWindow).unwrap();
+    }
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
         let fill_params = FillParams::from_gc(gc);
@@ -325,12 +327,6 @@ fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
     let device_descriptor = DeviceDescriptor::new(width, height);
 
     device_driver.create_device::<VelloGraphicsDevice>(device_descriptor, "vellogd");
-
-    // TODO: do not work now
-    EVENT_LOOP
-        .event_loop
-        .send_event(UserEvent::NewWindow)
-        .unwrap();
 
     Ok(())
 }
