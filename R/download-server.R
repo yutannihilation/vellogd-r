@@ -5,21 +5,21 @@ pkg_cache_dir <- function() {
 }
 
 server_path <- function() {
-  server_path <- Sys.getenv(VELLOGD_SERVER_PATH_ENVVAR)
+  path <- Sys.getenv(VELLOGD_SERVER_PATH_ENVVAR)
 
   # If the server path is provided by the user, return it.
-  if (!identity(server_path, "")) {
-    return(server_path)
+  if (!identical(path, "")) {
+    return(path)
   }
 
-  server_path <- server_path_default()
+  path <- server_path_default()
 
   # TODO: check version
-  if (!file.exists(server_path)) {
+  if (!file.exists(path)) {
     download_server()
   }
 
-  server_path
+  path
 }
 
 server_path_default <- function() {
@@ -30,6 +30,8 @@ server_path_default <- function() {
   }
 
   path <- file.path(pkg_cache_dir(), bin)
+
+  path
 }
 
 URL_BASE <- "https://github.com/yutannihilation/vellogd-r/releases/download"
@@ -66,7 +68,7 @@ download_server <- function() {
   utils::download.file(download_url, destfile = archive_file, mode = "wb")
 
   # extract and copy
-  dst <- server_path()
+  dst <- server_path_default()
   dir.create(dirname(dst), showWarnings = FALSE)
 
   utils::untar(archive_file, exdir = extract_tmp_dir)

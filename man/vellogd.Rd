@@ -2,14 +2,18 @@
 % Please edit documentation in R/main.R
 \name{vellogd}
 \alias{vellogd}
+\alias{vellogd_with_server}
 \title{Open A 'Vello' Graphics Device.}
 \usage{
 vellogd(filename = "Rplot\%03d.png", width = 480, height = 480)
 
-vellogd(filename = "Rplot\%03d.png", width = 480, height = 480)
+vellogd_with_server(filename = "Rplot\%03d.png", width = 480, height = 480)
+}
+\arguments{
+\item{filename}{The name of the output file.}
+
+\item{width, height}{The dimensions of the device in pixel.}
 }
 \description{
 Open A 'Vello' Graphics Device.
-
-Open A 'Vello' Graphics Device With Server.
 }
