@@ -432,6 +432,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
 
         match event {
             WindowEvent::CloseRequested => {
+                // Window is automatically closed when dropped, so just replacing it with Suspended is enough.
                 self.state = RenderState::Suspended(None);
             }
 
