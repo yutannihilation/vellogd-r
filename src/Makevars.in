@@ -25,6 +25,7 @@ $(STATLIB):
 	    export CC="$(CC)" && \
 	    export CFLAGS="$(CFLAGS)" && \
 	    export MACOSX_DEPLOYMENT_TARGET="14.0" && \
+		cargo rustc -- --print=native-static-libs && \
 	    cargo build $(CARGO_BUILD_ARGS); \
 	  else \
 	    export CC="$(CC)" && \
