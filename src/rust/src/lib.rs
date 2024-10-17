@@ -17,10 +17,12 @@ mod tracing;
 #[macro_export]
 macro_rules! add_tracing_point {
     () => {
+        add_tracing_point!(fastrace::func_path!())
+    };
+    ($nm:expr) => {
         #[cfg(feature = "fastrace")]
         {
-            let __guard__ =
-                fastrace::local::LocalSpan::enter_with_local_parent(fastrace::func_path!());
+            let __guard__ = fastrace::local::LocalSpan::enter_with_local_parent($nm);
         }
     };
 }
