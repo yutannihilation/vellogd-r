@@ -8,7 +8,7 @@ FEATURES = @FEATURES@ $(TRACING)
 TARGET_DIR = @CARGO_TARGET_DIR@
 LIBDIR = $(TARGET_DIR)/$(TARGET)/$(subst dev,debug,$(PROFILE))
 STATLIB = $(LIBDIR)/libvellogd.a
-PKG_LIBS = -L$(LIBDIR) -lvellogd
+PKG_LIBS = -L$(LIBDIR) -lvellogd @ADDITIONAL_PKG_LIBS@
 
 CARGO_BUILD_ARGS = --lib --profile $(PROFILE) --manifest-path=./rust/Cargo.toml --target-dir $(TARGET_DIR) $(FEATURES)
 

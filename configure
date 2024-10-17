@@ -42,6 +42,7 @@ fi
 
 if [ "$(uname)" = "Darwin" ]; then
   FEATURES="-vvv"
+  ADDITIONAL_PKG_LIBS="-lobjc"
 else
   FEATURES="--features use_winit"
 fi
@@ -49,5 +50,6 @@ fi
 sed \
   -e "s/@TARGET@/${TARGET}/" \
   -e "s/@FEATURES@/${FEATURES}/" \
+  -e "s/@ADDITIONAL_PKG_LIBS@/${ADDITIONAL_PKG_LIBS}/" \
   -e "s|@CARGO_TARGET_DIR@|${CARGO_TARGET_DIR}|" \
   src/Makevars.in > src/Makevars
