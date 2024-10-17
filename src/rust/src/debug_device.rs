@@ -1,3 +1,4 @@
+use crate::add_tracing_point;
 use crate::graphics::DeviceDriver;
 
 use vellogd_shared::ffi::DevDesc;
@@ -41,13 +42,13 @@ fn take3<T: std::fmt::Debug>(x: &[T]) -> String {
 }
 
 impl DeviceDriver for DebugGraphicsDevice {
-    #[fastrace::trace]
     fn activate(&mut self, _: DevDesc) {
+        add_tracing_point!();
         savvy::r_eprintln!("[activate]");
     }
 
-    #[fastrace::trace]
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
+        add_tracing_point!();
         savvy::r_eprintln!(
             "[circle] center: {center:?} r: {r}, fill params: {{ {} }}, line params: {{ {} }}",
             fill_related_params(gc),
@@ -55,31 +56,31 @@ impl DeviceDriver for DebugGraphicsDevice {
         );
     }
 
-    #[fastrace::trace]
     fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {
+        add_tracing_point!();
         savvy::r_eprintln!("[clip] from: {from:?}, to: {to:?}");
     }
 
-    #[fastrace::trace]
     fn close(&mut self, _: DevDesc) {
+        add_tracing_point!();
         savvy::r_eprintln!("[close]");
     }
 
-    #[fastrace::trace]
     fn deactivate(&mut self, _: DevDesc) {
+        add_tracing_point!();
         savvy::r_eprintln!("[deactivate]");
     }
 
-    #[fastrace::trace]
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
+        add_tracing_point!();
         savvy::r_eprintln!(
             "[line] from: {from:?}, to: {to:?}, line params: {{ {} }}",
             line_related_params(gc)
         );
     }
 
-    #[fastrace::trace]
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {
+        add_tracing_point!();
         savvy::r_eprintln!(
             "[char_metric] c: {c:?}, text params: {{ {} }}",
             text_related_params(gc)
@@ -92,32 +93,31 @@ impl DeviceDriver for DebugGraphicsDevice {
         }
     }
 
-    #[fastrace::trace]
     fn mode(&mut self, mode: i32, _: DevDesc) {
+        add_tracing_point!();
         savvy::r_eprintln!("[mode] mode: {mode}");
     }
 
-    #[fastrace::trace]
     fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
+        add_tracing_point!();
         savvy::r_eprintln!("[new_page]");
     }
 
-    #[fastrace::trace]
     fn polygon(&mut self, x: &[f64], y: &[f64], _: R_GE_gcontext, _: DevDesc) {
+        add_tracing_point!();
         savvy::r_eprintln!("[polygon] x: {} y: {}", take3(x), take3(y));
     }
 
-    #[fastrace::trace]
     fn polyline(&mut self, x: &[f64], y: &[f64], _: R_GE_gcontext, _: DevDesc) {
+        add_tracing_point!();
         savvy::r_eprintln!("[polyline] x: {} y: {}", take3(x), take3(y));
     }
 
-    #[fastrace::trace]
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), _: R_GE_gcontext, _: DevDesc) {
+        add_tracing_point!();
         savvy::r_eprintln!("[rect] from: {from:?} to: {to:?}");
     }
 
-    #[fastrace::trace]
     fn path(
         &mut self,
         _x: &[f64],
@@ -127,10 +127,10 @@ impl DeviceDriver for DebugGraphicsDevice {
         _gc: R_GE_gcontext,
         _: DevDesc,
     ) {
+        add_tracing_point!();
         savvy::r_eprintln!("[path] nper: {nper:?}");
     }
 
-    #[fastrace::trace]
     fn raster<T: AsRef<[u32]>>(
         &mut self,
         _raster: crate::graphics::Raster<T>,
@@ -141,25 +141,26 @@ impl DeviceDriver for DebugGraphicsDevice {
         _: R_GE_gcontext,
         _: DevDesc,
     ) {
+        add_tracing_point!();
         savvy::r_eprintln!("[raster]");
     }
 
-    #[fastrace::trace]
     fn capture(&mut self, _: DevDesc) -> savvy::ffi::SEXP {
+        add_tracing_point!();
         savvy::r_eprintln!("[capture]");
 
         unsafe { R_NilValue }
     }
 
-    #[fastrace::trace]
     fn size(&mut self, dd: DevDesc) -> (f64, f64, f64, f64) {
+        add_tracing_point!();
         savvy::r_eprintln!("[size]");
 
         (dd.left, dd.right, dd.bottom, dd.top)
     }
 
-    #[fastrace::trace]
     fn text_width(&mut self, text: &str, gc: R_GE_gcontext, dd: DevDesc) -> f64 {
+        add_tracing_point!();
         savvy::r_eprintln!("[text_width]");
 
         text.chars()
@@ -167,7 +168,6 @@ impl DeviceDriver for DebugGraphicsDevice {
             .sum()
     }
 
-    #[fastrace::trace]
     fn text(
         &mut self,
         _pos: (f64, f64),
@@ -177,37 +177,38 @@ impl DeviceDriver for DebugGraphicsDevice {
         _: R_GE_gcontext,
         _: DevDesc,
     ) {
+        add_tracing_point!();
         savvy::r_eprintln!("[text] text: {text}");
     }
 
-    #[fastrace::trace]
     fn on_exit(&mut self, _: DevDesc) {
+        add_tracing_point!();
         savvy::r_eprintln!("[on_exit]");
     }
 
-    #[fastrace::trace]
     fn new_frame_confirm(&mut self, _: DevDesc) -> bool {
+        add_tracing_point!();
         savvy::r_eprintln!("[new_frame_confirm]");
 
         true
     }
 
-    #[fastrace::trace]
     fn holdflush(&mut self, _: DevDesc, level: i32) -> i32 {
+        add_tracing_point!();
         savvy::r_eprintln!("[holdflush] level: {level}");
 
         0
     }
 
-    #[fastrace::trace]
     fn locator(&mut self, _x: *mut f64, _y: *mut f64, _: DevDesc) -> bool {
+        add_tracing_point!();
         savvy::r_eprintln!("[locator]");
 
         true
     }
 
-    #[fastrace::trace]
     fn eventHelper(&mut self, _: DevDesc, code: i32) {
+        add_tracing_point!();
         savvy::r_eprintln!("[eventHelper] code {code}");
     }
 }

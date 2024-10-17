@@ -7,7 +7,7 @@ edition.workspace = true
 crate-type = ["staticlib", "lib"]
 
 [features]
-default = ["winit", "tracing"]         # TODO: remove tracing
+default = ["winit"]
 tracing = ["fastrace"]
 no_winit = ["vellogd-shared/no_winit"]
 

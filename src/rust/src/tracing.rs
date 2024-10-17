@@ -1,4 +1,4 @@
-use std::{collections::HashMap, u64};
+use std::collections::HashMap;
 
 use fastrace::collector::Reporter;
 
