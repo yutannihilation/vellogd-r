@@ -17,6 +17,14 @@ pub struct VelloGraphicsDeviceWithServer {
     rx: IpcReceiver<Response>,
 }
 
+impl Drop for VelloGraphicsDeviceWithServer {
+    fn drop(&mut self) {
+        if let Some(c) = self.process.as_mut() {
+            c.kill().unwrap();
+        }
+    }
+}
+
 impl VelloGraphicsDeviceWithServer {
     pub(crate) fn new(filename: &str, server: Option<&str>) -> savvy::Result<Self> {
         // server -> controller
