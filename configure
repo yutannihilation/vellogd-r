@@ -41,7 +41,7 @@ else
 fi
 
 if [ "$(uname)" = "Darwin" ]; then
-  FEATURES="--features no_winit"
+  FEATURES="--no-default-features --features no_winit"
 fi
 
 sed \
