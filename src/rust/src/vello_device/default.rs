@@ -119,7 +119,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         if let Some(stroke_params) = stroke_params {
             EVENT_LOOP
                 .scene
-                .draw_polyline(xy_to_path(x, y, true), stroke_params);
+                .draw_polyline(xy_to_path(x, y, false), stroke_params);
         }
     }
 

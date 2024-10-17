@@ -1,13 +1,13 @@
 use ipc_channel::ipc::{IpcOneShotServer, IpcReceiver, IpcSender};
 use vellogd_shared::{
     ffi::{DevDesc, R_GE_gcontext},
-    protocol::{Request, Response},
+    protocol::{FillParams, Request, Response, StrokeParams},
     text_layouter::{TextLayouter, TextMetric},
 };
 
 use crate::graphics::DeviceDriver;
 
-use super::WindowController;
+use super::{xy_to_path, WindowController};
 
 pub struct VelloGraphicsDeviceWithServer {
     filename: String,
@@ -118,23 +118,66 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     // fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {}
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
-        self.request_circle(center, r, gc).unwrap();
+        let fill_params = FillParams::from_gc(gc);
+        let stroke_params = StrokeParams::from_gc(gc);
+        if fill_params.is_some() || stroke_params.is_some() {
+            self.send_event(Request::DrawCircle {
+                center: center.into(),
+                radius: r,
+                fill_params,
+                stroke_params,
+            })
+            .unwrap();
+        }
     }
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        self.request_line(from, to, gc).unwrap();
+        if let Some(stroke_params) = StrokeParams::from_gc(gc) {
+            self.send_event(Request::DrawLine {
+                p0: from.into(),
+                p1: to.into(),
+                stroke_params,
+            })
+            .unwrap();
+        }
     }
 
     fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        self.request_polygon(x, y, gc).unwrap();
+        let fill_params = FillParams::from_gc(gc);
+        let stroke_params = StrokeParams::from_gc(gc);
+        if fill_params.is_some() || stroke_params.is_some() {
+            self.send_event(Request::DrawPolygon {
+                path: xy_to_path(x, y, true),
+                fill_params,
+                stroke_params,
+            })
+            .unwrap();
+        }
     }
 
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
-        self.request_polyline(x, y, gc).unwrap();
+        let stroke_params = StrokeParams::from_gc(gc);
+        if let Some(stroke_params) = stroke_params {
+            self.send_event(Request::DrawPolyline {
+                path: xy_to_path(x, y, false),
+                stroke_params,
+            })
+            .unwrap();
+        }
     }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        self.request_rect(from, to, gc).unwrap();
+        let fill_params = FillParams::from_gc(gc);
+        let stroke_params = StrokeParams::from_gc(gc);
+        if fill_params.is_some() || stroke_params.is_some() {
+            self.send_event(Request::DrawRect {
+                p0: from.into(),
+                p1: to.into(),
+                fill_params,
+                stroke_params,
+            })
+            .unwrap();
+        }
     }
 
     fn text(
@@ -146,7 +189,30 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
-        self.request_text(pos, text, angle, hadj, gc).unwrap();
+        let [r, g, b, a] = gc.col.to_ne_bytes();
+        let color = peniko::Color::rgba8(r, g, b, a);
+        let family = unsafe {
+            std::ffi::CStr::from_ptr(gc.fontfamily.as_ptr())
+                .to_str()
+                .unwrap_or("Arial")
+        }
+        .to_string();
+        let fill_params = FillParams::from_gc(gc);
+        let stroke_params = StrokeParams::from_gc(gc);
+        if fill_params.is_some() || stroke_params.is_some() {
+            self.send_event(Request::DrawText {
+                pos: pos.into(),
+                text: text.into(),
+                color,
+                size: (gc.cex * gc.ps) as _,
+                lineheight: gc.lineheight as _,
+                // face: gc.fontface as _,
+                family,
+                angle: angle as _,
+                hadj: hadj as _,
+            })
+            .unwrap();
+        }
     }
 
     // TODO
