@@ -566,13 +566,13 @@ pub fn calc_y_translate(h: f32) -> vello::kurbo::Affine {
 
 const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16); // = 60fps
 
-pub struct EventLoopWithRx {
+pub struct GlobalObjects {
     pub event_loop: EventLoopProxy<Request>,
     pub rx: std::sync::Mutex<std::sync::mpsc::Receiver<Response>>,
     pub scene: SceneDrawer,
 }
 
-pub static EVENT_LOOP: LazyLock<EventLoopWithRx> = LazyLock::new(|| {
+pub static GLOBAL_OBJECTS: LazyLock<GlobalObjects> = LazyLock::new(|| {
     let (sender, receiver) = std::sync::mpsc::channel();
     let _ = std::thread::spawn(move || {
         let event_loop = create_event_loop(true);
@@ -580,7 +580,7 @@ pub static EVENT_LOOP: LazyLock<EventLoopWithRx> = LazyLock::new(|| {
         let (tx, rx) = std::sync::mpsc::channel::<Response>();
 
         let scene = SceneDrawer::new(480.0);
-        let proxy = EventLoopWithRx {
+        let proxy = GlobalObjects {
             event_loop: event_loop.create_proxy(),
             rx: std::sync::Mutex::new(rx),
             scene: scene.clone(),
