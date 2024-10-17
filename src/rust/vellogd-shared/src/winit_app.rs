@@ -110,7 +110,7 @@ impl SceneDrawer {
         scene_with_flag.needs_redraw = true;
     }
 
-    pub fn draw_line(&mut self, p0: kurbo::Point, p1: kurbo::Point, stroke_params: StrokeParams) {
+    pub fn draw_line(&self, p0: kurbo::Point, p1: kurbo::Point, stroke_params: StrokeParams) {
         let line = vello::kurbo::Line::new(p0, p1);
         let scene_with_flag = &mut self.inner.lock().unwrap();
 
@@ -125,7 +125,7 @@ impl SceneDrawer {
         scene_with_flag.needs_redraw = true;
     }
 
-    pub fn draw_polyline(&mut self, path: kurbo::BezPath, stroke_params: StrokeParams) {
+    pub fn draw_polyline(&self, path: kurbo::BezPath, stroke_params: StrokeParams) {
         let scene_with_flag = &mut self.inner.lock().unwrap();
         scene_with_flag.scene.stroke(
             &stroke_params.stroke,
@@ -139,7 +139,7 @@ impl SceneDrawer {
     }
 
     pub fn draw_polygon(
-        &mut self,
+        &self,
         path: kurbo::BezPath,
         fill_params: Option<FillParams>,
         stroke_params: Option<StrokeParams>,
@@ -169,7 +169,7 @@ impl SceneDrawer {
     }
 
     pub fn draw_rect(
-        &mut self,
+        &self,
         p0: kurbo::Point,
         p1: kurbo::Point,
         fill_params: Option<FillParams>,
@@ -201,7 +201,7 @@ impl SceneDrawer {
     }
 
     pub fn draw_glyph(
-        &mut self,
+        &self,
         glyph_run: parley::GlyphRun<peniko::Brush>,
         color: peniko::Color,
         transform: kurbo::Affine,
@@ -503,8 +503,10 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 // TODO
             }
             Request::RedrawWindow => {
-                if self.needs_redraw {
-                    render_state.window.request_redraw();
+                if let Ok(s) = self.scene.inner.try_lock() {
+                    if s.needs_redraw {
+                        render_state.window.request_redraw();
+                    }
                 }
             }
             Request::CloseWindow => {

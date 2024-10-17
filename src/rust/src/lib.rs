@@ -13,7 +13,7 @@ mod debug_device;
 
 #[savvy]
 fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
-    let device_driver = VelloGraphicsDevice::new(filename)?;
+    let device_driver = VelloGraphicsDevice::new(filename, height)?;
 
     // TODO: the actual width and height is kept on the server's side.
     let device_descriptor = DeviceDescriptor::new(width, height);
