@@ -41,7 +41,7 @@ else
 fi
 
 if [ "$(uname)" = "Darwin" ]; then
-  FEATURES="-vvv"
+  FEATURES=""
   # result of --print=native-static-libs
   ADDITIONAL_PKG_LIBS="-framework CoreText -framework CoreGraphics -framework CoreFoundation -framework Foundation -lobjc -liconv -lSystem -lc -lm"
 else
