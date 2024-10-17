@@ -5,7 +5,7 @@
 
 use std::{
     num::NonZeroUsize,
-    sync::{Arc, LazyLock},
+    sync::{Arc, LazyLock, Mutex},
 };
 
 use vello::{
@@ -41,7 +41,7 @@ pub struct VelloApp<'a, T: AppResponseRelay> {
     context: RenderContext,
     renderers: Vec<Option<Renderer>>,
     state: RenderState<'a>,
-    scene: Scene,
+    scene: Arc<Mutex<Scene>>,
     background_color: Color,
     layout: parley::Layout<peniko::Brush>,
     tx: T,
@@ -57,12 +57,12 @@ pub struct VelloApp<'a, T: AppResponseRelay> {
 }
 
 impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
-    pub fn new(width: f32, height: f32, tx: T) -> Self {
+    pub fn new(width: f32, height: f32, tx: T, scene: Arc<Mutex<Scene>>) -> Self {
         Self {
             context: RenderContext::new(),
             renderers: vec![],
             state: RenderState::Suspended(None),
-            scene: Scene::new(),
+            scene,
             background_color: Color::WHITE_SMOKE,
             layout: parley::Layout::new(),
             tx,
@@ -75,7 +75,7 @@ impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
     }
 
     pub fn create_new_window(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        self.scene.reset();
+        self.scene.lock().unwrap().reset();
 
         // TODO: handle Active render state as well?
         let RenderState::Suspended(cached_window) = &mut self.state else {
@@ -241,7 +241,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                         .render_to_surface(
                             &device_handle.device,
                             &device_handle.queue,
-                            &self.scene,
+                            &self.scene.lock().unwrap(),
                             &surface_texture,
                             &vello::RenderParams {
                                 base_color: self.background_color,
@@ -292,7 +292,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 self.state = RenderState::Suspended(None);
             }
             Request::NewPage => {
-                self.scene.reset();
+                self.scene.lock().unwrap().reset();
                 self.needs_redraw = true;
             }
             Request::GetWindowSizes => {
@@ -308,7 +308,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 let circle = vello::kurbo::Circle::new(center, radius);
 
                 if let Some(fill_params) = fill_params {
-                    self.scene.fill(
+                    self.scene.lock().unwrap().fill(
                         peniko::Fill::NonZero,
                         self.y_transform,
                         fill_params.color,
@@ -318,7 +318,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 }
 
                 if let Some(stroke_params) = stroke_params {
-                    self.scene.stroke(
+                    self.scene.lock().unwrap().stroke(
                         &stroke_params.stroke,
                         self.y_transform,
                         stroke_params.color,
@@ -336,7 +336,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
             } => {
                 let line = vello::kurbo::Line::new(p0, p1);
 
-                self.scene.stroke(
+                self.scene.lock().unwrap().stroke(
                     &stroke_params.stroke,
                     self.y_transform,
                     stroke_params.color,
@@ -350,7 +350,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 path,
                 stroke_params,
             } => {
-                self.scene.stroke(
+                self.scene.lock().unwrap().stroke(
                     &stroke_params.stroke,
                     self.y_transform,
                     stroke_params.color,
@@ -366,7 +366,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 stroke_params,
             } => {
                 if let Some(fill_params) = fill_params {
-                    self.scene.fill(
+                    self.scene.lock().unwrap().fill(
                         peniko::Fill::NonZero,
                         self.y_transform,
                         fill_params.color,
@@ -376,7 +376,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 }
 
                 if let Some(stroke_params) = stroke_params {
-                    self.scene.stroke(
+                    self.scene.lock().unwrap().stroke(
                         &stroke_params.stroke,
                         self.y_transform,
                         stroke_params.color,
@@ -396,7 +396,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
             } => {
                 let rect = vello::kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y);
                 if let Some(fill_params) = fill_params {
-                    self.scene.fill(
+                    self.scene.lock().unwrap().fill(
                         peniko::Fill::NonZero,
                         self.y_transform,
                         fill_params.color,
@@ -406,7 +406,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 }
 
                 if let Some(stroke_params) = stroke_params {
-                    self.scene.stroke(
+                    self.scene.lock().unwrap().stroke(
                         &stroke_params.stroke,
                         self.y_transform,
                         stroke_params.color,
@@ -468,6 +468,8 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                             .collect::<Vec<_>>();
 
                         self.scene
+                            .lock()
+                            .unwrap()
                             .draw_glyphs(font)
                             .brush(color)
                             .transform(transform)
@@ -501,10 +503,10 @@ pub fn calc_y_translate(h: f32) -> vello::kurbo::Affine {
 
 const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16); // = 60fps
 
-#[derive(Debug)]
 pub struct EventLoopWithRx {
     pub event_loop: EventLoopProxy<Request>,
     pub rx: std::sync::Mutex<std::sync::mpsc::Receiver<Response>>,
+    pub scene: Arc<Mutex<Scene>>,
 }
 
 pub static EVENT_LOOP: LazyLock<EventLoopWithRx> = LazyLock::new(|| {
@@ -513,14 +515,17 @@ pub static EVENT_LOOP: LazyLock<EventLoopWithRx> = LazyLock::new(|| {
         let event_loop = create_event_loop(true);
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
         let (tx, rx) = std::sync::mpsc::channel::<Response>();
+
+        let scene = Arc::new(Mutex::new(Scene::new()));
         let proxy = EventLoopWithRx {
             event_loop: event_loop.create_proxy(),
             rx: std::sync::Mutex::new(rx),
+            scene: scene.clone(),
         };
         sender.send(proxy).unwrap();
 
         // TODO: supply width and height
-        let mut app = VelloApp::new(480.0 as _, 480.0 as _, tx);
+        let mut app = VelloApp::new(480.0 as _, 480.0 as _, tx, scene);
 
         // this blocks until event_loop exits
         event_loop.run_app(&mut app).unwrap();

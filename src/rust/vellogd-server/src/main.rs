@@ -1,7 +1,10 @@
-use ipc_channel::ipc::{IpcOneShotServer, IpcSender};
+use std::sync::{Arc, Mutex};
+
+use ipc_channel::ipc::{IpcOneShotServer, IpcReceiver, IpcSender};
+use vello::Scene;
 use vellogd_shared::{
     protocol::{Request, Response},
-    winit_app::{create_event_loop, VelloApp},
+    winit_app::{calc_y_translate, create_event_loop, VelloApp},
 };
 
 // TODO: make this configurable
@@ -20,7 +23,7 @@ fn main() {
     })
     .unwrap();
     // Wait for the client is ready
-    let rx = match rx_server.accept() {
+    let rx: IpcReceiver<Request> = match rx_server.accept() {
         Ok((rx, Request::ConnectionReady)) => rx,
         Ok((_, data)) => panic!("got unexpected data: {data:?}"),
         Err(e) => panic!("failed to accept connection: {e}"),
@@ -36,15 +39,35 @@ fn main() {
         std::thread::sleep(REFRESH_INTERVAL);
     });
 
+    let scene = Arc::new(Mutex::new(Scene::new()));
+    let scene_for_requests = scene.clone();
+
     // Since the main thread will be occupied by event_loop, the server needs to
     // run in a spawned thread. rx waits for the event and forward it to
     // event_loop via proxy.
     std::thread::spawn(move || loop {
         let event = rx.recv().unwrap();
-        proxy.send_event(event).unwrap();
+        match event {
+            Request::DrawLine {
+                p0,
+                p1,
+                stroke_params,
+            } => {
+                let line = vello::kurbo::Line::new(p0, p1);
+
+                scene_for_requests.lock().unwrap().stroke(
+                    &stroke_params.stroke,
+                    calc_y_translate(480.0),
+                    stroke_params.color,
+                    None,
+                    &line,
+                );
+            }
+            _ => proxy.send_event(event).unwrap(),
+        }
     });
 
     // TODO: supply width and height
-    let mut app = VelloApp::new(480.0 as _, 480.0 as _, tx);
+    let mut app = VelloApp::new(480.0 as _, 480.0 as _, tx, scene);
     event_loop.run_app(&mut app).unwrap();
 }

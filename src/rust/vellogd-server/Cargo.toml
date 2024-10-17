@@ -5,4 +5,5 @@ edition.workspace = true
 
 [dependencies]
 vellogd-shared.workspace = true
+vello.workspace = true
 ipc-channel.workspace = true
