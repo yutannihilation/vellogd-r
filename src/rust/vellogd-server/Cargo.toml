@@ -4,5 +4,6 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-vellogd-shared.workspace = true
+vellogd-shared = { workspace = true, features = ["use_winit"] }
+vello.workspace = true
 ipc-channel.workspace = true

@@ -29,7 +29,10 @@ else
   CARGO_TARGET_DIR='$(CURDIR)/rust/target'
 fi
 
+FEATURES="--features use_winit"
+
 sed \
   -e "s/@TARGET@/x86_64-pc-windows-gnu/" \
+  -e "s/@FEATURES@/${FEATURES}/" \
   -e "s|@CARGO_TARGET_DIR@|${CARGO_TARGET_DIR}|" \
   src/Makevars.win.in > src/Makevars.win

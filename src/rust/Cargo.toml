@@ -7,8 +7,9 @@ edition.workspace = true
 crate-type = ["staticlib", "lib"]
 
 [features]
-default = ["winit"]
-no_winit = ["vellogd-shared/no_winit"]
+default = []
+tracing = ["fastrace"]
+use_winit = ["winit", "vellogd-shared/use_winit"]
 
 [dependencies]
 libc = "0.2.155"
@@ -22,6 +23,8 @@ ipc-channel.workspace = true
 
 winit = { workspace = true, optional = true }
 
+fastrace = { workspace = true, optional = true }
+
 [workspace]
 members = ["vellogd-server", "vellogd-shared"]
 resolver = "2"
@@ -31,7 +34,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
-vellogd-shared = { path = "./vellogd-shared" }
+vellogd-shared = { path = "./vellogd-shared", default-features = false }
 
 ipc-channel = "0.18.3"
 winit = "0.30"
@@ -39,6 +42,7 @@ pollster = "0.3"
 
 vello = "0.3"
 parley = "0.2"
+fastrace = { version = "0.7", features = ["enable"] }
 
 # While vello exposes peniko and kurbo, it doesn't provide the serde feature
 # flag. It seems the recommended way is to use peniko and kurbo directly.

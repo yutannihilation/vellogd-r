@@ -5,7 +5,7 @@
 
 use std::{
     num::NonZeroUsize,
-    sync::{Arc, LazyLock},
+    sync::{Arc, LazyLock, Mutex},
 };
 
 use vello::{
@@ -22,7 +22,7 @@ use winit::{
 };
 
 use crate::{
-    protocol::{AppResponseRelay, Request, Response},
+    protocol::{AppResponseRelay, FillParams, Request, Response, StrokeParams},
     text_layouter::TextLayouter,
 };
 
@@ -37,11 +37,230 @@ pub enum RenderState<'a> {
     Suspended(Option<Arc<Window>>),
 }
 
+pub struct SceneWithFlag {
+    pub scene: Scene,
+    pub needs_redraw: bool,
+}
+
+impl SceneWithFlag {
+    fn new() -> Self {
+        Self {
+            scene: Scene::new(),
+            needs_redraw: false,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct SceneDrawer {
+    inner: Arc<Mutex<SceneWithFlag>>,
+    y_transform: vello::kurbo::Affine,
+}
+
+impl SceneDrawer {
+    pub fn new(height: f32) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(SceneWithFlag::new())),
+            y_transform: calc_y_translate(height),
+        }
+    }
+
+    pub fn set_y_translate(&mut self, height: f32) {
+        self.y_transform = calc_y_translate(height);
+    }
+
+    pub fn reset(&mut self) {
+        self.inner.lock().unwrap().scene.reset();
+    }
+
+    pub fn scene(&self) -> std::sync::MutexGuard<'_, SceneWithFlag> {
+        self.inner.lock().unwrap()
+    }
+
+    pub fn draw_circle(
+        &self,
+        center: kurbo::Point,
+        radius: f64,
+        fill_params: Option<FillParams>,
+        stroke_params: Option<StrokeParams>,
+    ) {
+        let circle = vello::kurbo::Circle::new(center, radius);
+        let scene_with_flag = &mut self.inner.lock().unwrap();
+
+        if let Some(fill_params) = fill_params {
+            scene_with_flag.scene.fill(
+                peniko::Fill::NonZero,
+                self.y_transform,
+                fill_params.color,
+                None,
+                &circle,
+            );
+        }
+
+        if let Some(stroke_params) = stroke_params {
+            scene_with_flag.scene.stroke(
+                &stroke_params.stroke,
+                self.y_transform,
+                stroke_params.color,
+                None,
+                &circle,
+            );
+        }
+
+        scene_with_flag.needs_redraw = true;
+    }
+
+    pub fn draw_line(&self, p0: kurbo::Point, p1: kurbo::Point, stroke_params: StrokeParams) {
+        let line = vello::kurbo::Line::new(p0, p1);
+        let scene_with_flag = &mut self.inner.lock().unwrap();
+
+        scene_with_flag.scene.stroke(
+            &stroke_params.stroke,
+            self.y_transform,
+            stroke_params.color,
+            None,
+            &line,
+        );
+
+        scene_with_flag.needs_redraw = true;
+    }
+
+    pub fn draw_polyline(&self, path: kurbo::BezPath, stroke_params: StrokeParams) {
+        let scene_with_flag = &mut self.inner.lock().unwrap();
+        scene_with_flag.scene.stroke(
+            &stroke_params.stroke,
+            self.y_transform,
+            stroke_params.color,
+            None,
+            &path,
+        );
+
+        scene_with_flag.needs_redraw = true;
+    }
+
+    pub fn draw_polygon(
+        &self,
+        path: kurbo::BezPath,
+        fill_params: Option<FillParams>,
+        stroke_params: Option<StrokeParams>,
+    ) {
+        let scene_with_flag = &mut self.inner.lock().unwrap();
+        if let Some(fill_params) = fill_params {
+            scene_with_flag.scene.fill(
+                peniko::Fill::NonZero,
+                self.y_transform,
+                fill_params.color,
+                None,
+                &path,
+            );
+        }
+
+        if let Some(stroke_params) = stroke_params {
+            scene_with_flag.scene.stroke(
+                &stroke_params.stroke,
+                self.y_transform,
+                stroke_params.color,
+                None,
+                &path,
+            );
+        }
+
+        scene_with_flag.needs_redraw = true;
+    }
+
+    pub fn draw_rect(
+        &self,
+        p0: kurbo::Point,
+        p1: kurbo::Point,
+        fill_params: Option<FillParams>,
+        stroke_params: Option<StrokeParams>,
+    ) {
+        let rect = vello::kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y);
+        let scene_with_flag = &mut self.inner.lock().unwrap();
+        if let Some(fill_params) = fill_params {
+            scene_with_flag.scene.fill(
+                peniko::Fill::NonZero,
+                self.y_transform,
+                fill_params.color,
+                None,
+                &rect,
+            );
+        }
+
+        if let Some(stroke_params) = stroke_params {
+            scene_with_flag.scene.stroke(
+                &stroke_params.stroke,
+                self.y_transform,
+                stroke_params.color,
+                None,
+                &rect,
+            );
+        }
+
+        scene_with_flag.needs_redraw = true;
+    }
+
+    pub fn draw_glyph(
+        &self,
+        glyph_run: parley::GlyphRun<peniko::Brush>,
+        color: peniko::Color,
+        transform: kurbo::Affine,
+        vadj: f32,
+    ) {
+        let scene_with_flag = &mut self.inner.lock().unwrap();
+
+        let mut x = glyph_run.offset();
+        let y = glyph_run.baseline() - vadj;
+        let run = glyph_run.run();
+
+        let font = run.font();
+        let font_size = run.font_size();
+
+        // TODO:  It seems this is to handle italic. Is this necessary?
+        //
+        // https://github.com/linebender/parley/blob/be9e9ab3fc3fe92b3887048d5123c963cffac3d5/examples/vello_editor/src/text.rs#L364-L366
+        // https://docs.rs/kurbo/latest/kurbo/struct.Affine.html#method.skew
+        //
+        // let glyph_xform = run.synthesis().skew().map(|angle| {
+        //     vello::kurbo::Affine::skew(angle.to_radians().tan() as f64, 0.0)
+        // });
+
+        let coords = run
+            .normalized_coords()
+            .iter()
+            .map(|coord| vello::skrifa::instance::NormalizedCoord::from_bits(*coord))
+            .collect::<Vec<_>>();
+
+        scene_with_flag
+            .scene
+            .draw_glyphs(font)
+            .brush(color)
+            .transform(transform)
+            .font_size(font_size)
+            .normalized_coords(&coords)
+            .draw(
+                peniko::Fill::NonZero,
+                glyph_run.glyphs().map(|g| {
+                    let gx = x + g.x;
+                    let gy = y - g.y;
+                    x += g.advance;
+                    vello::Glyph {
+                        id: g.id as _,
+                        x: gx,
+                        y: -gy, // Y-axis is flipped
+                    }
+                }),
+            );
+
+        scene_with_flag.needs_redraw = true;
+    }
+}
+
 pub struct VelloApp<'a, T: AppResponseRelay> {
     context: RenderContext,
     renderers: Vec<Option<Renderer>>,
     state: RenderState<'a>,
-    scene: Scene,
+    scene: SceneDrawer,
     background_color: Color,
     layout: parley::Layout<peniko::Brush>,
     tx: T,
@@ -57,12 +276,12 @@ pub struct VelloApp<'a, T: AppResponseRelay> {
 }
 
 impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
-    pub fn new(width: f32, height: f32, tx: T) -> Self {
+    pub fn new(width: f32, height: f32, tx: T, scene: SceneDrawer) -> Self {
         Self {
             context: RenderContext::new(),
             renderers: vec![],
             state: RenderState::Suspended(None),
-            scene: Scene::new(),
+            scene,
             background_color: Color::WHITE_SMOKE,
             layout: parley::Layout::new(),
             tx,
@@ -213,6 +432,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
 
         match event {
             WindowEvent::CloseRequested => {
+                // Window is automatically closed when dropped, so just replacing it with Suspended is enough.
                 self.state = RenderState::Suspended(None);
             }
 
@@ -241,7 +461,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                         .render_to_surface(
                             &device_handle.device,
                             &device_handle.queue,
-                            &self.scene,
+                            &self.scene.scene().scene, // TODO: looks a bit funny
                             &surface_texture,
                             &vello::RenderParams {
                                 base_color: self.background_color,
@@ -284,8 +504,10 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 // TODO
             }
             Request::RedrawWindow => {
-                if self.needs_redraw {
-                    render_state.window.request_redraw();
+                if let Ok(s) = self.scene.inner.try_lock() {
+                    if s.needs_redraw {
+                        render_state.window.request_redraw();
+                    }
                 }
             }
             Request::CloseWindow => {
@@ -298,124 +520,6 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
             Request::GetWindowSizes => {
                 let PhysicalSize { width, height } = render_state.window.inner_size();
                 self.tx.respond(Response::WindowSizes { width, height });
-            }
-            Request::DrawCircle {
-                center,
-                radius,
-                fill_params,
-                stroke_params,
-            } => {
-                let circle = vello::kurbo::Circle::new(center, radius);
-
-                if let Some(fill_params) = fill_params {
-                    self.scene.fill(
-                        peniko::Fill::NonZero,
-                        self.y_transform,
-                        fill_params.color,
-                        None,
-                        &circle,
-                    );
-                }
-
-                if let Some(stroke_params) = stroke_params {
-                    self.scene.stroke(
-                        &stroke_params.stroke,
-                        self.y_transform,
-                        stroke_params.color,
-                        None,
-                        &circle,
-                    );
-                }
-
-                self.needs_redraw = true;
-            }
-            Request::DrawLine {
-                p0,
-                p1,
-                stroke_params,
-            } => {
-                let line = vello::kurbo::Line::new(p0, p1);
-
-                self.scene.stroke(
-                    &stroke_params.stroke,
-                    self.y_transform,
-                    stroke_params.color,
-                    None,
-                    &line,
-                );
-
-                self.needs_redraw = true;
-            }
-            Request::DrawPolyline {
-                path,
-                stroke_params,
-            } => {
-                self.scene.stroke(
-                    &stroke_params.stroke,
-                    self.y_transform,
-                    stroke_params.color,
-                    None,
-                    &path,
-                );
-
-                self.needs_redraw = true;
-            }
-            Request::DrawPolygon {
-                path,
-                fill_params,
-                stroke_params,
-            } => {
-                if let Some(fill_params) = fill_params {
-                    self.scene.fill(
-                        peniko::Fill::NonZero,
-                        self.y_transform,
-                        fill_params.color,
-                        None,
-                        &path,
-                    );
-                }
-
-                if let Some(stroke_params) = stroke_params {
-                    self.scene.stroke(
-                        &stroke_params.stroke,
-                        self.y_transform,
-                        stroke_params.color,
-                        None,
-                        &path,
-                    );
-                }
-
-                self.needs_redraw = true;
-            }
-
-            Request::DrawRect {
-                p0,
-                p1,
-                fill_params,
-                stroke_params,
-            } => {
-                let rect = vello::kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y);
-                if let Some(fill_params) = fill_params {
-                    self.scene.fill(
-                        peniko::Fill::NonZero,
-                        self.y_transform,
-                        fill_params.color,
-                        None,
-                        &rect,
-                    );
-                }
-
-                if let Some(stroke_params) = stroke_params {
-                    self.scene.stroke(
-                        &stroke_params.stroke,
-                        self.y_transform,
-                        stroke_params.color,
-                        None,
-                        &rect,
-                    );
-                }
-
-                self.needs_redraw = true;
             }
 
             Request::DrawText {
@@ -443,54 +547,15 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                             continue;
                         };
 
-                        let mut x = glyph_run.offset();
-                        let y = glyph_run.baseline() - vadj;
-                        let run = glyph_run.run();
-
-                        let font = run.font();
-                        let font_size = run.font_size();
-
-                        // TODO:  It seems this is to handle italic. Is this necessary?
-                        //
-                        // https://github.com/linebender/parley/blob/be9e9ab3fc3fe92b3887048d5123c963cffac3d5/examples/vello_editor/src/text.rs#L364-L366
-                        // https://docs.rs/kurbo/latest/kurbo/struct.Affine.html#method.skew
-                        //
-                        // let glyph_xform = run.synthesis().skew().map(|angle| {
-                        //     vello::kurbo::Affine::skew(angle.to_radians().tan() as f64, 0.0)
-                        // });
-
-                        let coords = run
-                            .normalized_coords()
-                            .iter()
-                            .map(|coord| {
-                                vello::skrifa::instance::NormalizedCoord::from_bits(*coord)
-                            })
-                            .collect::<Vec<_>>();
-
-                        self.scene
-                            .draw_glyphs(font)
-                            .brush(color)
-                            .transform(transform)
-                            .font_size(font_size)
-                            .normalized_coords(&coords)
-                            .draw(
-                                peniko::Fill::NonZero,
-                                glyph_run.glyphs().map(|g| {
-                                    let gx = x + g.x;
-                                    let gy = y - g.y;
-                                    x += g.advance;
-                                    vello::Glyph {
-                                        id: g.id as _,
-                                        x: gx,
-                                        y: -gy, // Y-axis is flipped
-                                    }
-                                }),
-                            );
+                        self.scene.draw_glyph(glyph_run, color, transform, vadj);
                     }
                 }
 
                 self.needs_redraw = true;
             }
+
+            // ignore other events
+            _ => {}
         };
     }
 }
@@ -501,10 +566,10 @@ pub fn calc_y_translate(h: f32) -> vello::kurbo::Affine {
 
 const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16); // = 60fps
 
-#[derive(Debug)]
 pub struct EventLoopWithRx {
     pub event_loop: EventLoopProxy<Request>,
     pub rx: std::sync::Mutex<std::sync::mpsc::Receiver<Response>>,
+    pub scene: SceneDrawer,
 }
 
 pub static EVENT_LOOP: LazyLock<EventLoopWithRx> = LazyLock::new(|| {
@@ -513,14 +578,17 @@ pub static EVENT_LOOP: LazyLock<EventLoopWithRx> = LazyLock::new(|| {
         let event_loop = create_event_loop(true);
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
         let (tx, rx) = std::sync::mpsc::channel::<Response>();
+
+        let scene = SceneDrawer::new(480.0);
         let proxy = EventLoopWithRx {
             event_loop: event_loop.create_proxy(),
             rx: std::sync::Mutex::new(rx),
+            scene: scene.clone(),
         };
         sender.send(proxy).unwrap();
 
         // TODO: supply width and height
-        let mut app = VelloApp::new(480.0 as _, 480.0 as _, tx);
+        let mut app = VelloApp::new(480.0 as _, 480.0 as _, tx, scene);
 
         // this blocks until event_loop exits
         event_loop.run_app(&mut app).unwrap();

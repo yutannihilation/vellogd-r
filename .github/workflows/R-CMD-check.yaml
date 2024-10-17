@@ -52,12 +52,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src/rust
-          prefix-key: "v1-rust"
+          prefix-key: "v2-rust"
 
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-results: 'never'
-          error-on: '"error"'
           build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
       
       - name: show install log

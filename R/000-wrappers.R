@@ -39,3 +39,8 @@ NULL
 }
 
 
+`do_tracing` <- function(`expr`) {
+  invisible(.Call(savvy_do_tracing__impl, `expr`))
+}
+
+

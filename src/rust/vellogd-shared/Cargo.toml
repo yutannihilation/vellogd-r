@@ -4,8 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-default = ["winit", "pollster"]
-no_winit = []
+default = []
+use_winit = ["winit", "pollster"]
 
 [dependencies]
 vello.workspace = true
