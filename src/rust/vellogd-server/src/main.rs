@@ -4,7 +4,7 @@ use ipc_channel::ipc::{IpcOneShotServer, IpcReceiver, IpcSender};
 use vello::Scene;
 use vellogd_shared::{
     protocol::{Request, Response},
-    winit_app::{calc_y_translate, create_event_loop, VelloApp},
+    winit_app::{calc_y_translate, create_event_loop, SceneDrawer, VelloApp},
 };
 
 // TODO: make this configurable
@@ -39,8 +39,8 @@ fn main() {
         std::thread::sleep(REFRESH_INTERVAL);
     });
 
-    let scene = Arc::new(Mutex::new(Scene::new()));
-    let scene_for_requests = scene.clone();
+    let scene = SceneDrawer::new(480.0);
+    let mut scene_for_requests = scene.clone();
 
     // Since the main thread will be occupied by event_loop, the server needs to
     // run in a spawned thread. rx waits for the event and forward it to
@@ -53,15 +53,7 @@ fn main() {
                 p1,
                 stroke_params,
             } => {
-                let line = vello::kurbo::Line::new(p0, p1);
-
-                scene_for_requests.lock().unwrap().stroke(
-                    &stroke_params.stroke,
-                    calc_y_translate(480.0),
-                    stroke_params.color,
-                    None,
-                    &line,
-                );
+                scene_for_requests.draw_line(p0, p1, stroke_params);
             }
             _ => proxy.send_event(event).unwrap(),
         }
