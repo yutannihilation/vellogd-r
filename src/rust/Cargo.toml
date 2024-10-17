@@ -7,9 +7,8 @@ edition.workspace = true
 crate-type = ["staticlib", "lib"]
 
 [features]
-default = ["use_winit"]
+default = []
 tracing = ["fastrace"]
-no_winit = ["vellogd-shared/no_winit"]
 use_winit = ["winit", "vellogd-shared/use_winit"]
 
 [dependencies]

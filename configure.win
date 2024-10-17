@@ -29,7 +29,7 @@ else
   CARGO_TARGET_DIR='$(CURDIR)/rust/target'
 fi
 
-FEATURES=
+FEATURES="--features use_winit"
 
 sed \
   -e "s/@TARGET@/x86_64-pc-windows-gnu/" \

@@ -1,13 +1,13 @@
-#[cfg(not(target_os = "macos"))]
+#[cfg(feature = "winit")]
 mod default;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(feature = "winit")]
 pub use default::VelloGraphicsDevice;
 
-#[cfg(target_os = "macos")]
-mod macos;
-#[cfg(target_os = "macos")]
-pub use macos::VelloGraphicsDevice;
+#[cfg(not(feature = "winit"))]
+mod no_winit;
+#[cfg(not(feature = "winit"))]
+pub use no_winit::VelloGraphicsDevice;
 
 mod with_server;
 

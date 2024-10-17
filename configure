@@ -40,8 +40,8 @@ else
   CARGO_TARGET_DIR='$(CURDIR)/rust/target'
 fi
 
-if [ "$(uname)" = "Darwin" ]; then
-  FEATURES="--no-default-features --features no_winit"
+if [ "$(uname)" != "Darwin" ]; then
+  FEATURES="--features use_winit"
 fi
 
 sed \

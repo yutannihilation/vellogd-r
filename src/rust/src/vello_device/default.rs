@@ -229,11 +229,12 @@ impl DeviceDriver for VelloGraphicsDevice {
     //     unsafe { R_NilValue }
     // }
 
-    fn size(&mut self, _: DevDesc) -> (f64, f64, f64, f64) {
+    fn size(&mut self, dd: DevDesc) -> (f64, f64, f64, f64) {
         add_tracing_point!();
 
-        let sizes = self.get_window_sizes().unwrap_or((0, 0));
-        (0.0, sizes.0 as _, 0.0, sizes.1 as _)
+        // let sizes = self.get_window_sizes().unwrap_or((0, 0));
+        // (0.0, sizes.0 as _, 0.0, sizes.1 as _)
+        (dd.left, dd.right, dd.bottom, dd.top)
     }
 
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {
