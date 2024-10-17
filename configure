@@ -40,7 +40,9 @@ else
   CARGO_TARGET_DIR='$(CURDIR)/rust/target'
 fi
 
-if [ "$(uname)" != "Darwin" ]; then
+if [ "$(uname)" = "Darwin" ]; then
+  FEATURES="-vvv"
+else
   FEATURES="--features use_winit"
 fi
 
