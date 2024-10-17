@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use super::xy_to_path;
 use super::WindowController;
 use crate::add_tracing_point;
@@ -10,20 +12,23 @@ use vellogd_shared::protocol::Response;
 use vellogd_shared::protocol::StrokeParams;
 use vellogd_shared::text_layouter::TextLayouter;
 use vellogd_shared::text_layouter::TextMetric;
+use vellogd_shared::winit_app::ACTIVE_WINDOW_SIZES;
 use vellogd_shared::winit_app::GLOBAL_OBJECTS;
 
 pub struct VelloGraphicsDevice {
     filename: String,
     layout: parley::Layout<peniko::Brush>,
-    height: f64, // TODO
 }
 
 impl VelloGraphicsDevice {
-    pub(crate) fn new(filename: &str, height: f64) -> savvy::Result<Self> {
+    pub(crate) fn new(filename: &str, width: f64, height: f64) -> savvy::Result<Self> {
+        ACTIVE_WINDOW_SIZES.0.store(width as u32, Ordering::Relaxed);
+        ACTIVE_WINDOW_SIZES
+            .1
+            .store(height as u32, Ordering::Relaxed);
         Ok(Self {
             filename: filename.into(),
             layout: parley::Layout::new(),
-            height,
         })
     }
 }
@@ -177,10 +182,12 @@ impl DeviceDriver for VelloGraphicsDevice {
             let lineheight = gc.lineheight as f32;
             self.build_layout(text, size, lineheight);
 
-            let width = self.layout.width() as f64;
-            let transform = vello::kurbo::Affine::translate((-(width * hadj), 0.0))
+            let layout_width = self.layout.width() as f64;
+            let window_height = ACTIVE_WINDOW_SIZES.1.load(Ordering::Relaxed) as f64;
+
+            let transform = vello::kurbo::Affine::translate((-(layout_width * hadj), 0.0))
                 .then_rotate(-angle.to_radians())
-                .then_translate((pos.0, self.height - pos.1).into()); // Y-axis is flipped
+                .then_translate((pos.0, window_height - pos.1).into()); // Y-axis is flipped
 
             for line in self.layout.lines() {
                 let vadj = line.metrics().ascent * 0.5;
@@ -229,12 +236,13 @@ impl DeviceDriver for VelloGraphicsDevice {
     //     unsafe { R_NilValue }
     // }
 
-    fn size(&mut self, dd: DevDesc) -> (f64, f64, f64, f64) {
+    fn size(&mut self, _: DevDesc) -> (f64, f64, f64, f64) {
         add_tracing_point!();
 
-        // let sizes = self.get_window_sizes().unwrap_or((0, 0));
-        // (0.0, sizes.0 as _, 0.0, sizes.1 as _)
-        (dd.left, dd.right, dd.bottom, dd.top)
+        let width = ACTIVE_WINDOW_SIZES.0.load(Ordering::Relaxed) as f64;
+        let height = ACTIVE_WINDOW_SIZES.1.load(Ordering::Relaxed) as f64;
+
+        (0.0, width, 0.0, height)
     }
 
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {

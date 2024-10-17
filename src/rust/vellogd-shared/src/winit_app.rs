@@ -5,7 +5,10 @@
 
 use std::{
     num::NonZeroUsize,
-    sync::{Arc, LazyLock, Mutex},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc, LazyLock, Mutex,
+    },
 };
 
 use vello::{
@@ -265,18 +268,17 @@ pub struct VelloApp<'a, T: AppResponseRelay> {
     layout: parley::Layout<peniko::Brush>,
     tx: T,
 
-    // Since R's graphics device is left-bottom origin, the Y value needs to be
-    // flipped
-    y_transform: vello::kurbo::Affine,
-
     window_title: String,
-    width: f32,
-    height: f32,
     needs_redraw: bool,
 }
 
 impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
     pub fn new(width: f32, height: f32, tx: T, scene: SceneDrawer) -> Self {
+        ACTIVE_WINDOW_SIZES.0.store(width as u32, Ordering::Relaxed);
+        ACTIVE_WINDOW_SIZES
+            .1
+            .store(height as u32, Ordering::Relaxed);
+
         Self {
             context: RenderContext::new(),
             renderers: vec![],
@@ -285,10 +287,7 @@ impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
             background_color: Color::WHITE_SMOKE,
             layout: parley::Layout::new(),
             tx,
-            y_transform: calc_y_translate(height),
             window_title: "vellogd".to_string(),
-            width,
-            height,
             needs_redraw: true,
         }
     }
@@ -301,11 +300,14 @@ impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
             return;
         };
 
+        let width = ACTIVE_WINDOW_SIZES.0.load(Ordering::Relaxed) as f32;
+        let height = ACTIVE_WINDOW_SIZES.1.load(Ordering::Relaxed) as f32;
+
         let window = cached_window.take().unwrap_or_else(|| {
             let this = &self;
             let attrs_basic = Window::default_attributes()
                 .with_title(&this.window_title)
-                .with_inner_size(winit::dpi::LogicalSize::new(this.width, this.height));
+                .with_inner_size(winit::dpi::LogicalSize::new(width, height));
             let attrs = add_platform_specific_attributes(attrs_basic);
 
             let window = event_loop
@@ -437,9 +439,11 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
             }
 
             WindowEvent::Resized(size) => {
-                self.width = size.width as _;
-                self.height = size.height as _;
-                self.y_transform = calc_y_translate(self.width);
+                ACTIVE_WINDOW_SIZES.0.store(size.width, Ordering::Relaxed);
+                ACTIVE_WINDOW_SIZES.1.store(size.height, Ordering::Relaxed);
+
+                // TODO: update y_transform
+
                 self.context
                     .resize_surface(&mut render_state.surface, size.width, size.height);
             }
@@ -534,10 +538,13 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
             } => {
                 self.build_layout(text, size, lineheight);
 
-                let width = self.layout.width();
-                let transform = vello::kurbo::Affine::translate((-(width * hadj) as f64, 0.0))
-                    .then_rotate(-angle as f64)
-                    .then_translate((pos.x, self.height as f64 - pos.y).into()); // Y-axis is flipped
+                let layout_width = self.layout.width();
+                let window_height = ACTIVE_WINDOW_SIZES.1.load(Ordering::Relaxed) as f64;
+
+                let transform =
+                    vello::kurbo::Affine::translate((-(layout_width * hadj) as f64, 0.0))
+                        .then_rotate(-angle as f64)
+                        .then_translate((pos.x, window_height - pos.y).into()); // Y-axis is flipped
 
                 for line in self.layout.lines() {
                     let vadj = line.metrics().ascent * 0.5;
@@ -560,11 +567,23 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
     }
 }
 
-pub fn calc_y_translate(h: f32) -> vello::kurbo::Affine {
-    vello::kurbo::Affine::FLIP_Y.then_translate(vello::kurbo::Vec2 { x: 0.0, y: h as _ })
+// Since R's graphics device is left-bottom origin, the Y value needs to be
+// flipped
+pub fn calc_y_translate(height: f32) -> vello::kurbo::Affine {
+    vello::kurbo::Affine::new([1.0, 0., 0., -1.0, 0., height as _])
 }
 
 const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16); // = 60fps
+
+const DEFAULT_SIZE: u32 = 480;
+
+// TODO: cache y_transform here?
+struct ActiveWindowStatues {
+    width: AtomicU32,
+    height: AtomicU32,
+}
+pub static ACTIVE_WINDOW_SIZES: LazyLock<(AtomicU32, AtomicU32)> =
+    LazyLock::new(|| (AtomicU32::new(DEFAULT_SIZE), AtomicU32::new(DEFAULT_SIZE)));
 
 pub struct GlobalObjects {
     pub event_loop: EventLoopProxy<Request>,
@@ -579,7 +598,10 @@ pub static GLOBAL_OBJECTS: LazyLock<GlobalObjects> = LazyLock::new(|| {
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
         let (tx, rx) = std::sync::mpsc::channel::<Response>();
 
-        let scene = SceneDrawer::new(480.0);
+        let width = ACTIVE_WINDOW_SIZES.0.load(Ordering::Relaxed) as f32;
+        let height = ACTIVE_WINDOW_SIZES.1.load(Ordering::Relaxed) as f32;
+
+        let scene = SceneDrawer::new(height);
         let proxy = GlobalObjects {
             event_loop: event_loop.create_proxy(),
             rx: std::sync::Mutex::new(rx),
@@ -587,8 +609,7 @@ pub static GLOBAL_OBJECTS: LazyLock<GlobalObjects> = LazyLock::new(|| {
         };
         sender.send(proxy).unwrap();
 
-        // TODO: supply width and height
-        let mut app = VelloApp::new(480.0 as _, 480.0 as _, tx, scene);
+        let mut app = VelloApp::new(width, height, tx, scene);
 
         // this blocks until event_loop exits
         event_loop.run_app(&mut app).unwrap();

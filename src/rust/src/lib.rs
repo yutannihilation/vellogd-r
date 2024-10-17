@@ -29,7 +29,7 @@ macro_rules! add_tracing_point {
 
 #[savvy]
 fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
-    let device_driver = VelloGraphicsDevice::new(filename, height)?;
+    let device_driver = VelloGraphicsDevice::new(filename, width, height)?;
 
     // TODO: the actual width and height is kept on the server's side.
     let device_descriptor = DeviceDescriptor::new(width, height);
