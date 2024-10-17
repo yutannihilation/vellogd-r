@@ -100,13 +100,6 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
         self.request_new_window().unwrap();
     }
 
-    fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
-        self.request_circle(center, r, gc).unwrap();
-    }
-
-    // TODO
-    // fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {}
-
     fn close(&mut self, _: DevDesc) {
         self.request_close_window().unwrap();
     }
@@ -114,19 +107,22 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     // TODO
     // fn deactivate(&mut self, _: DevDesc) {}
 
-    fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
-        self.request_line(from, to, gc).unwrap();
-    }
-
-    fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {
-        self.get_char_metric(c, gc)
-    }
-
     // TODO
     // fn mode(&mut self, mode: i32, _: DevDesc) {}
 
     fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
         self.request_new_page().unwrap();
+    }
+
+    // TODO
+    // fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {}
+
+    fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
+        self.request_circle(center, r, gc).unwrap();
+    }
+
+    fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
+        self.request_line(from, to, gc).unwrap();
     }
 
     fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
@@ -139,6 +135,18 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         self.request_rect(from, to, gc).unwrap();
+    }
+
+    fn text(
+        &mut self,
+        pos: (f64, f64),
+        text: &str,
+        angle: f64,
+        hadj: f64,
+        gc: R_GE_gcontext,
+        _: DevDesc,
+    ) {
+        self.request_text(pos, text, angle, hadj, gc).unwrap();
     }
 
     // TODO
@@ -176,20 +184,12 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
         (0.0, sizes.0 as _, 0.0, sizes.1 as _)
     }
 
-    fn text_width(&mut self, text: &str, gc: R_GE_gcontext, _: DevDesc) -> f64 {
-        self.get_text_width(text, gc)
+    fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {
+        self.get_char_metric(c, gc)
     }
 
-    fn text(
-        &mut self,
-        pos: (f64, f64),
-        text: &str,
-        angle: f64,
-        hadj: f64,
-        gc: R_GE_gcontext,
-        _: DevDesc,
-    ) {
-        self.request_text(pos, text, angle, hadj, gc).unwrap();
+    fn text_width(&mut self, text: &str, gc: R_GE_gcontext, _: DevDesc) -> f64 {
+        self.get_text_width(text, gc)
     }
 
     // TODO
