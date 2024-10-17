@@ -37,16 +37,30 @@ pub enum RenderState<'a> {
     Suspended(Option<Arc<Window>>),
 }
 
+pub struct SceneWithFlag {
+    pub scene: Scene,
+    pub needs_redraw: bool,
+}
+
+impl SceneWithFlag {
+    fn new() -> Self {
+        Self {
+            scene: Scene::new(),
+            needs_redraw: false,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct SceneDrawer {
-    inner: Arc<Mutex<Scene>>,
+    inner: Arc<Mutex<SceneWithFlag>>,
     y_transform: vello::kurbo::Affine,
 }
 
 impl SceneDrawer {
     pub fn new(height: f32) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(Scene::new())),
+            inner: Arc::new(Mutex::new(SceneWithFlag::new())),
             y_transform: calc_y_translate(height),
         }
     }
@@ -56,24 +70,25 @@ impl SceneDrawer {
     }
 
     pub fn reset(&mut self) {
-        self.inner.lock().unwrap().reset();
+        self.inner.lock().unwrap().scene.reset();
     }
 
-    pub fn scene(&self) -> std::sync::MutexGuard<'_, Scene> {
+    pub fn scene(&self) -> std::sync::MutexGuard<'_, SceneWithFlag> {
         self.inner.lock().unwrap()
     }
 
     pub fn draw_circle(
-        &mut self,
+        &self,
         center: kurbo::Point,
         radius: f64,
         fill_params: Option<FillParams>,
         stroke_params: Option<StrokeParams>,
     ) {
         let circle = vello::kurbo::Circle::new(center, radius);
+        let scene_with_flag = &mut self.inner.lock().unwrap();
 
         if let Some(fill_params) = fill_params {
-            self.inner.lock().unwrap().fill(
+            scene_with_flag.scene.fill(
                 peniko::Fill::NonZero,
                 self.y_transform,
                 fill_params.color,
@@ -83,7 +98,7 @@ impl SceneDrawer {
         }
 
         if let Some(stroke_params) = stroke_params {
-            self.inner.lock().unwrap().stroke(
+            scene_with_flag.scene.stroke(
                 &stroke_params.stroke,
                 self.y_transform,
                 stroke_params.color,
@@ -91,28 +106,36 @@ impl SceneDrawer {
                 &circle,
             );
         }
+
+        scene_with_flag.needs_redraw = true;
     }
 
     pub fn draw_line(&mut self, p0: kurbo::Point, p1: kurbo::Point, stroke_params: StrokeParams) {
         let line = vello::kurbo::Line::new(p0, p1);
+        let scene_with_flag = &mut self.inner.lock().unwrap();
 
-        self.inner.lock().unwrap().stroke(
+        scene_with_flag.scene.stroke(
             &stroke_params.stroke,
             self.y_transform,
             stroke_params.color,
             None,
             &line,
         );
+
+        scene_with_flag.needs_redraw = true;
     }
 
     pub fn draw_polyline(&mut self, path: kurbo::BezPath, stroke_params: StrokeParams) {
-        self.inner.lock().unwrap().stroke(
+        let scene_with_flag = &mut self.inner.lock().unwrap();
+        scene_with_flag.scene.stroke(
             &stroke_params.stroke,
             self.y_transform,
             stroke_params.color,
             None,
             &path,
         );
+
+        scene_with_flag.needs_redraw = true;
     }
 
     pub fn draw_polygon(
@@ -121,8 +144,9 @@ impl SceneDrawer {
         fill_params: Option<FillParams>,
         stroke_params: Option<StrokeParams>,
     ) {
+        let scene_with_flag = &mut self.inner.lock().unwrap();
         if let Some(fill_params) = fill_params {
-            self.inner.lock().unwrap().fill(
+            scene_with_flag.scene.fill(
                 peniko::Fill::NonZero,
                 self.y_transform,
                 fill_params.color,
@@ -132,7 +156,7 @@ impl SceneDrawer {
         }
 
         if let Some(stroke_params) = stroke_params {
-            self.inner.lock().unwrap().stroke(
+            scene_with_flag.scene.stroke(
                 &stroke_params.stroke,
                 self.y_transform,
                 stroke_params.color,
@@ -140,6 +164,8 @@ impl SceneDrawer {
                 &path,
             );
         }
+
+        scene_with_flag.needs_redraw = true;
     }
 
     pub fn draw_rect(
@@ -150,8 +176,9 @@ impl SceneDrawer {
         stroke_params: Option<StrokeParams>,
     ) {
         let rect = vello::kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y);
+        let scene_with_flag = &mut self.inner.lock().unwrap();
         if let Some(fill_params) = fill_params {
-            self.inner.lock().unwrap().fill(
+            scene_with_flag.scene.fill(
                 peniko::Fill::NonZero,
                 self.y_transform,
                 fill_params.color,
@@ -161,7 +188,7 @@ impl SceneDrawer {
         }
 
         if let Some(stroke_params) = stroke_params {
-            self.inner.lock().unwrap().stroke(
+            scene_with_flag.scene.stroke(
                 &stroke_params.stroke,
                 self.y_transform,
                 stroke_params.color,
@@ -169,6 +196,8 @@ impl SceneDrawer {
                 &rect,
             );
         }
+
+        scene_with_flag.needs_redraw = true;
     }
 
     pub fn draw_glyph(
@@ -178,6 +207,8 @@ impl SceneDrawer {
         transform: kurbo::Affine,
         vadj: f32,
     ) {
+        let scene_with_flag = &mut self.inner.lock().unwrap();
+
         let mut x = glyph_run.offset();
         let y = glyph_run.baseline() - vadj;
         let run = glyph_run.run();
@@ -200,9 +231,8 @@ impl SceneDrawer {
             .map(|coord| vello::skrifa::instance::NormalizedCoord::from_bits(*coord))
             .collect::<Vec<_>>();
 
-        self.inner
-            .lock()
-            .unwrap()
+        scene_with_flag
+            .scene
             .draw_glyphs(font)
             .brush(color)
             .transform(transform)
@@ -221,6 +251,8 @@ impl SceneDrawer {
                     }
                 }),
             );
+
+        scene_with_flag.needs_redraw = true;
     }
 }
 
@@ -428,7 +460,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                         .render_to_surface(
                             &device_handle.device,
                             &device_handle.queue,
-                            &self.scene.scene(),
+                            &self.scene.scene().scene, // TODO: looks a bit funny
                             &surface_texture,
                             &vello::RenderParams {
                                 base_color: self.background_color,
@@ -486,49 +518,6 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 let PhysicalSize { width, height } = render_state.window.inner_size();
                 self.tx.respond(Response::WindowSizes { width, height });
             }
-            Request::DrawCircle {
-                center,
-                radius,
-                fill_params,
-                stroke_params,
-            } => {
-                self.scene
-                    .draw_circle(center, radius, fill_params, stroke_params);
-                self.needs_redraw = true;
-            }
-            Request::DrawLine {
-                p0,
-                p1,
-                stroke_params,
-            } => {
-                self.scene.draw_line(p0, p1, stroke_params);
-                self.needs_redraw = true;
-            }
-            Request::DrawPolyline {
-                path,
-                stroke_params,
-            } => {
-                self.scene.draw_polyline(path, stroke_params);
-                self.needs_redraw = true;
-            }
-            Request::DrawPolygon {
-                path,
-                fill_params,
-                stroke_params,
-            } => {
-                self.scene.draw_polygon(path, fill_params, stroke_params);
-                self.needs_redraw = true;
-            }
-
-            Request::DrawRect {
-                p0,
-                p1,
-                fill_params,
-                stroke_params,
-            } => {
-                self.scene.draw_rect(p0, p1, fill_params, stroke_params);
-                self.needs_redraw = true;
-            }
 
             Request::DrawText {
                 pos,
@@ -561,6 +550,9 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
 
                 self.needs_redraw = true;
             }
+
+            // ignore other events
+            _ => {}
         };
     }
 }

@@ -2,8 +2,10 @@ use super::WindowController;
 use crate::graphics::DeviceDriver;
 use vellogd_shared::ffi::DevDesc;
 use vellogd_shared::ffi::R_GE_gcontext;
+use vellogd_shared::protocol::FillParams;
 use vellogd_shared::protocol::Request;
 use vellogd_shared::protocol::Response;
+use vellogd_shared::protocol::StrokeParams;
 use vellogd_shared::text_layouter::TextLayouter;
 use vellogd_shared::text_layouter::TextMetric;
 use vellogd_shared::winit_app::EVENT_LOOP;
@@ -59,9 +61,12 @@ impl DeviceDriver for VelloGraphicsDevice {
     }
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
-        match self.request_circle(center, r, gc) {
-            Ok(_) => {}
-            Err(e) => savvy::r_eprintln!("Failed to draw circle: {e}"),
+        let fill_params = FillParams::from_gc(gc);
+        let stroke_params = StrokeParams::from_gc(gc);
+        if fill_params.is_some() || stroke_params.is_some() {
+            EVENT_LOOP
+                .scene
+                .draw_circle(center.into(), r, fill_params, stroke_params);
         }
     }
 
