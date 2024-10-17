@@ -11,6 +11,9 @@ use vello_device::VelloGraphicsDeviceWithServer;
 #[cfg(debug_assertions)]
 mod debug_device;
 
+#[cfg(feature = "fastrace")]
+mod tracing;
+
 #[savvy]
 fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
     let device_driver = VelloGraphicsDevice::new(filename, height)?;
@@ -60,3 +63,21 @@ fn debuggd_inner() {
 
 #[cfg(not(debug_assertions))]
 fn debuggd_inner() {}
+
+#[savvy]
+fn do_tracing(expr: &str) -> savvy::Result<()> {
+    use fastrace::collector::Config;
+    use tracing::RConsoleReporter;
+
+    fastrace::set_reporter(RConsoleReporter, Config::default());
+
+    {
+        let root = fastrace::Span::root("root", fastrace::prelude::SpanContext::random());
+        let _guard = root.set_local_parent();
+
+        savvy::eval::eval_parse_text(expr)?;
+    }
+
+    fastrace::flush();
+    Ok(())
+}

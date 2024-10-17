@@ -49,11 +49,17 @@ SEXP savvy_debuggd__impl(void) {
     return handle_result(res);
 }
 
+SEXP savvy_do_tracing__impl(SEXP c_arg__expr) {
+    SEXP res = savvy_do_tracing__ffi(c_arg__expr);
+    return handle_result(res);
+}
+
 
 static const R_CallMethodDef CallEntries[] = {
     {"savvy_vellogd_impl__impl", (DL_FUNC) &savvy_vellogd_impl__impl, 3},
     {"savvy_vellogd_with_server_impl__impl", (DL_FUNC) &savvy_vellogd_with_server_impl__impl, 4},
     {"savvy_debuggd__impl", (DL_FUNC) &savvy_debuggd__impl, 0},
+    {"savvy_do_tracing__impl", (DL_FUNC) &savvy_do_tracing__impl, 1},
     {NULL, NULL, 0}
 };
 
