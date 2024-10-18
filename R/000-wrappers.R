@@ -29,6 +29,11 @@ NULL
 }
 
 
+`save_as_png` <- function(`filename`) {
+  invisible(.Call(savvy_save_as_png__impl, `filename`))
+}
+
+
 `vellogd_with_server_impl` <- function(`filename`, `width`, `height`, `server` = NULL) {
   invisible(.Call(savvy_vellogd_with_server_impl__impl, `filename`, `width`, `height`, `server`))
 }

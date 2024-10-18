@@ -64,4 +64,10 @@ pub trait WindowController {
     fn request_set_base_color(&self, color: u32) -> savvy::Result<()> {
         self.send_event(Request::SetBaseColor { color })
     }
+
+    fn request_save_as_png<T: ToString>(&self, filename: T) -> savvy::Result<()> {
+        self.send_event(Request::SaveAsPng {
+            filename: filename.to_string(),
+        })
+    }
 }

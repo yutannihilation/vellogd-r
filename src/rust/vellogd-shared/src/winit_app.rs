@@ -578,11 +578,91 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
 
                 self.needs_redraw.store(true, Ordering::Relaxed);
             }
+            Request::SaveAsPng { filename } => {
+                let surface = &render_state.surface;
+                let width = surface.config.width;
+                let height = surface.config.height;
+
+                let device_handle = &self.context.devices[surface.dev_id];
+
+                save_as_png(surface, width, height, device_handle, filename);
+            }
 
             // ignore other events
             _ => {}
         };
     }
+}
+
+fn save_as_png(
+    surface: &RenderSurface<'_>,
+    width: u32,
+    height: u32,
+    device_handle: &vello::util::DeviceHandle,
+    filename: String,
+) {
+    let surface_texture = surface
+        .surface
+        .get_current_texture()
+        .expect("failed to get surface texture");
+
+    let padded_byte_width = (width * 4).next_multiple_of(256);
+    let buffer_size = padded_byte_width as u64 * height as u64;
+    let buffer = device_handle
+        .device
+        .create_buffer(&vello::wgpu::BufferDescriptor {
+            label: Some("val"),
+            size: buffer_size,
+            usage: vello::wgpu::BufferUsages::MAP_READ | vello::wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+    let mut encoder =
+        device_handle
+            .device
+            .create_command_encoder(&vello::wgpu::CommandEncoderDescriptor {
+                label: Some("Copy out buffer"),
+            });
+    encoder.copy_texture_to_buffer(
+        surface_texture.texture.as_image_copy(),
+        vello::wgpu::ImageCopyBuffer {
+            buffer: &buffer,
+            layout: vello::wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(padded_byte_width),
+                rows_per_image: None,
+            },
+        },
+        vello::wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+    );
+    device_handle.queue.submit([encoder.finish()]);
+
+    let buf_slice = buffer.slice(..);
+
+    let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
+    buf_slice.map_async(vello::wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+    if let Some(recv_result) = vello::util::block_on_wgpu(&device_handle.device, receiver.receive())
+    {
+        // TODO: handle error
+        recv_result.unwrap();
+    }
+
+    let data = buf_slice.get_mapped_range();
+    let mut result_unpadded = Vec::<u8>::with_capacity((width * height * 4).try_into().unwrap());
+    for row in 0..height {
+        let start = (row * padded_byte_width).try_into().unwrap();
+        result_unpadded.extend(&data[start..start + (width * 4) as usize]);
+    }
+    let mut file = std::fs::File::create(&filename).unwrap();
+    let mut encoder = png::Encoder::new(&mut file, width, height);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header().unwrap();
+    writer.write_image_data(&result_unpadded).unwrap();
+    writer.finish().unwrap();
 }
 
 // Since R's graphics device is left-bottom origin, the Y value needs to be

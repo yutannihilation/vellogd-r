@@ -19,6 +19,9 @@ pub enum Request {
     RedrawWindow,
     CloseWindow,
     NewPage,
+    SaveAsPng {
+        filename: String,
+    },
     SetBaseColor {
         color: u32,
     },
