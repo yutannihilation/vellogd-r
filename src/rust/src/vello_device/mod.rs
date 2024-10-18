@@ -60,4 +60,8 @@ pub trait WindowController {
     fn request_new_page(&self) -> savvy::Result<()> {
         self.send_event(Request::NewPage)
     }
+
+    fn request_set_base_color(&self, color: u32) -> savvy::Result<()> {
+        self.send_event(Request::SetBaseColor { color })
+    }
 }

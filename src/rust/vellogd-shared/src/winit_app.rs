@@ -43,6 +43,9 @@ pub enum RenderState<'a> {
 #[derive(Clone)]
 pub struct SceneDrawer {
     inner: Arc<Mutex<Scene>>,
+    // This is a bit tricky. Scene doesn't need to know the window size, but,
+    // since R requires a flipped Y-axis, SceneDrawer needs to know how to flip,
+    // at least.
     y_transform: Arc<Mutex<vello::kurbo::Affine>>,
     needs_redraw: Arc<AtomicBool>,
 }
@@ -260,7 +263,7 @@ pub struct VelloApp<'a, T: AppResponseRelay> {
     width: Arc<AtomicU32>,
     height: Arc<AtomicU32>,
     y_transform: Arc<Mutex<vello::kurbo::Affine>>,
-    background_color: Color, // TODO: probably always the same value
+    base_color: Arc<AtomicU32>,
     layout: parley::Layout<peniko::Brush>,
     tx: T,
 
@@ -275,6 +278,7 @@ impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
         tx: T,
         scene: SceneDrawer,
         needs_redraw: Arc<AtomicBool>,
+        base_color: Arc<AtomicU32>,
     ) -> Self {
         Self {
             context: RenderContext::new(),
@@ -285,7 +289,7 @@ impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
             width,
             height,
             y_transform,
-            background_color: Color::WHITE_SMOKE,
+            base_color,
             layout: parley::Layout::new(),
             tx,
             window_title: "vellogd".to_string(),
@@ -473,6 +477,10 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                     .expect("failed to get surface texture");
 
                 if let Some(renderer) = self.renderers[surface.dev_id].as_mut() {
+                    let base_color = {
+                        let [r, g, b, a] = self.base_color.load(Ordering::Relaxed).to_ne_bytes();
+                        Color::rgba8(r, g, b, a)
+                    };
                     renderer
                         .render_to_surface(
                             &device_handle.device,
@@ -480,7 +488,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                             &self.scene.scene(),
                             &surface_texture,
                             &vello::RenderParams {
-                                base_color: self.background_color,
+                                base_color,
                                 width,
                                 height,
                                 antialiasing_method: AaConfig::Msaa16,
@@ -535,7 +543,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 let PhysicalSize { width, height } = render_state.window.inner_size();
                 self.tx.respond(Response::WindowSizes { width, height });
             }
-
+            Request::SetBaseColor { color } => self.base_color.store(color, Ordering::Relaxed),
             Request::DrawText {
                 pos,
                 text,
@@ -597,6 +605,7 @@ pub struct VelloAppProxy {
     pub width: Arc<AtomicU32>,
     pub height: Arc<AtomicU32>,
     y_transform: Arc<Mutex<vello::kurbo::Affine>>,
+    base_color: Arc<AtomicU32>,
 }
 
 impl VelloAppProxy {
@@ -608,6 +617,10 @@ impl VelloAppProxy {
 
     pub fn y_transform(&self) -> vello::kurbo::Affine {
         *self.y_transform.lock().unwrap()
+    }
+
+    pub fn set_base_color(&self, color: u32) {
+        self.base_color.store(color, Ordering::Relaxed);
     }
 }
 
@@ -627,6 +640,7 @@ pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
         let width = Arc::new(AtomicU32::new(0));
         let height = Arc::new(AtomicU32::new(0));
         let y_transform = Arc::new(Mutex::new(calc_y_translate(0.0)));
+        let base_color = Arc::new(AtomicU32::new(Color::WHITE_SMOKE.to_premul_u32()));
 
         let scene = SceneDrawer::new(y_transform.clone(), needs_redraw.clone());
         let proxy = VelloAppProxy {
@@ -636,10 +650,19 @@ pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
             width: width.clone(),
             height: height.clone(),
             y_transform: y_transform.clone(),
+            base_color: base_color.clone(),
         };
         sender.send(proxy).unwrap();
 
-        let mut app = VelloApp::new(width, height, y_transform, tx, scene, needs_redraw);
+        let mut app = VelloApp::new(
+            width,
+            height,
+            y_transform,
+            tx,
+            scene,
+            needs_redraw,
+            base_color,
+        );
 
         // this blocks until event_loop exits
         event_loop.run_app(&mut app).unwrap();

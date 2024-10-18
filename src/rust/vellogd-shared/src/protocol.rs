@@ -19,6 +19,9 @@ pub enum Request {
     RedrawWindow,
     CloseWindow,
     NewPage,
+    SetBaseColor {
+        color: u32,
+    },
     GetWindowSizes,
     DrawCircle {
         center: kurbo::Point,

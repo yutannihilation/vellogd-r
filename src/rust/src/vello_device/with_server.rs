@@ -122,9 +122,10 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     // TODO
     // fn mode(&mut self, mode: i32, _: DevDesc) {}
 
-    fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
+    fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
+        self.request_set_base_color(gc.fill).unwrap();
         self.request_new_page().unwrap();
     }
 

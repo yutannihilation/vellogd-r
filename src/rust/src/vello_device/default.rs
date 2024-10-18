@@ -82,9 +82,10 @@ impl DeviceDriver for VelloGraphicsDevice {
     // TODO
     // fn mode(&mut self, mode: i32, _: DevDesc) {}
 
-    fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
+    fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
+        VELLO_APP_PROXY.set_base_color(gc.fill);
         match self.request_new_page() {
             Ok(_) => {}
             Err(e) => savvy::r_eprintln!("Failed to create a new page: {e}"),

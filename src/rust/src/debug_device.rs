@@ -98,9 +98,10 @@ impl DeviceDriver for DebugGraphicsDevice {
         savvy::r_eprintln!("[mode] mode: {mode}");
     }
 
-    fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
+    fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
-        savvy::r_eprintln!("[new_page]");
+        let fill = gc.fill;
+        savvy::r_eprintln!("[new_page] fill: {fill:#08x}");
     }
 
     fn polygon(&mut self, x: &[f64], y: &[f64], _: R_GE_gcontext, _: DevDesc) {
