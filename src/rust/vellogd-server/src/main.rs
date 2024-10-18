@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ipc_channel::ipc::{IpcOneShotServer, IpcReceiver, IpcSender};
 use vellogd_shared::{
     protocol::{Request, Response},
@@ -130,6 +132,8 @@ fn main() {
     });
 
     // TODO: supply width and height
-    let mut app = VelloApp::new(480.0 as _, 480.0 as _, tx, scene);
+    let width = Arc::new(480.into());
+    let height = Arc::new(480.into());
+    let mut app = VelloApp::new(width, height, tx, scene);
     event_loop.run_app(&mut app).unwrap();
 }

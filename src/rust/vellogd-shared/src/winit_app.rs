@@ -264,7 +264,9 @@ pub struct VelloApp<'a, T: AppResponseRelay> {
     renderers: Vec<Option<Renderer>>,
     state: RenderState<'a>,
     scene: SceneDrawer,
-    background_color: Color,
+    width: Arc<AtomicU32>,
+    height: Arc<AtomicU32>,
+    background_color: Color, // TODO: probably always the same value
     layout: parley::Layout<peniko::Brush>,
     tx: T,
 
@@ -273,17 +275,14 @@ pub struct VelloApp<'a, T: AppResponseRelay> {
 }
 
 impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
-    pub fn new(width: f32, height: f32, tx: T, scene: SceneDrawer) -> Self {
-        ACTIVE_WINDOW_SIZES.0.store(width as u32, Ordering::Relaxed);
-        ACTIVE_WINDOW_SIZES
-            .1
-            .store(height as u32, Ordering::Relaxed);
-
+    pub fn new(width: Arc<AtomicU32>, height: Arc<AtomicU32>, tx: T, scene: SceneDrawer) -> Self {
         Self {
             context: RenderContext::new(),
             renderers: vec![],
             state: RenderState::Suspended(None),
             scene,
+            width,
+            height,
             background_color: Color::WHITE_SMOKE,
             layout: parley::Layout::new(),
             tx,
@@ -577,20 +576,21 @@ const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(1
 
 const DEFAULT_SIZE: u32 = 480;
 
-// TODO: cache y_transform here?
-struct ActiveWindowStatues {
-    width: AtomicU32,
-    height: AtomicU32,
-}
 pub static ACTIVE_WINDOW_SIZES: LazyLock<(AtomicU32, AtomicU32)> =
     LazyLock::new(|| (AtomicU32::new(DEFAULT_SIZE), AtomicU32::new(DEFAULT_SIZE)));
 
+// Hold the communication channel between VelloApp and the shared statuses.
 pub struct VelloAppProxy {
     pub tx: EventLoopProxy<Request>,
     pub rx: std::sync::Mutex<std::sync::mpsc::Receiver<Response>>,
     pub scene: SceneDrawer,
+    pub width: Arc<AtomicU32>,
+    pub height: Arc<AtomicU32>,
+    // TODO
+    // pub y_transform: Arc<Mutex<vello::kurbo::Affine>>,
 }
 
+// TODO: change this to OnceCell and create init function that takes width and height
 pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
     let (sender, receiver) = std::sync::mpsc::channel();
     let _ = std::thread::spawn(move || {
@@ -598,14 +598,17 @@ pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
         let (tx, rx) = std::sync::mpsc::channel::<Response>();
 
-        let width = ACTIVE_WINDOW_SIZES.0.load(Ordering::Relaxed) as f32;
-        let height = ACTIVE_WINDOW_SIZES.1.load(Ordering::Relaxed) as f32;
+        let width = Arc::new(AtomicU32::new(0));
+        let height = Arc::new(AtomicU32::new(0));
 
-        let scene = SceneDrawer::new(height);
+        // TODO: SceneDrawer should not hold height
+        let scene = SceneDrawer::new(480.0);
         let proxy = VelloAppProxy {
             tx: event_loop.create_proxy(),
             rx: std::sync::Mutex::new(rx),
             scene: scene.clone(),
+            width: width.clone(),
+            height: height.clone(),
         };
         sender.send(proxy).unwrap();
 
