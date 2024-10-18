@@ -40,6 +40,8 @@ fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
     Ok(())
 }
 
+// Currently, this is just for debugging purposes. But, in future, this can be
+// used for headless usages.
 #[savvy]
 fn save_as_png(filename: &str) -> savvy::Result<()> {
     VELLO_APP_PROXY
@@ -47,7 +49,7 @@ fn save_as_png(filename: &str) -> savvy::Result<()> {
         .send_event(vellogd_shared::protocol::Request::SaveAsPng {
             filename: filename.into(),
         })
-        .map_err(|_| "foo".into())
+        .map_err(|_| "failed to request to write out as PNG".into())
 }
 
 #[savvy]
