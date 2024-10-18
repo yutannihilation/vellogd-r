@@ -274,6 +274,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     fn size(&mut self, _: DevDesc) -> (f64, f64, f64, f64) {
         add_tracing_point!();
 
+        // TODO: cache result? (for example, for 1 second)
+
         let sizes = self.get_window_sizes().unwrap_or((0, 0));
         (0.0, sizes.0 as _, 0.0, sizes.1 as _)
     }
