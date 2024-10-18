@@ -7,7 +7,6 @@ use graphics::DeviceDescriptor;
 use graphics::DeviceDriver;
 use vello_device::VelloGraphicsDevice;
 use vello_device::VelloGraphicsDeviceWithServer;
-use vellogd_shared::winit_app::VELLO_APP_PROXY;
 
 #[cfg(debug_assertions)]
 mod debug_device;
@@ -44,12 +43,22 @@ fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
 // used for headless usages.
 #[savvy]
 fn save_as_png(filename: &str) -> savvy::Result<()> {
-    VELLO_APP_PROXY
-        .tx
-        .send_event(vellogd_shared::protocol::Request::SaveAsPng {
-            filename: filename.into(),
-        })
-        .map_err(|_| "failed to request to write out as PNG".into())
+    #[cfg(feature = "use_winit")]
+    {
+        use vellogd_shared::winit_app::VELLO_APP_PROXY;
+
+        VELLO_APP_PROXY
+            .tx
+            .send_event(vellogd_shared::protocol::Request::SaveAsPng {
+                filename: filename.into(),
+            })
+            .map_err(|_| "failed to request to write out as PNG".into())
+    }
+
+    #[cfg(not(feature = "use_winit"))]
+    {
+        Ok(())
+    }
 }
 
 #[savvy]
