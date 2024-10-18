@@ -40,35 +40,23 @@ pub enum RenderState<'a> {
     Suspended(Option<Arc<Window>>),
 }
 
-pub struct SceneWithFlag {
-    pub scene: Scene,
-}
-
-impl SceneWithFlag {
-    fn new() -> Self {
-        Self {
-            scene: Scene::new(),
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct SceneDrawer {
-    inner: Arc<Mutex<SceneWithFlag>>,
+    inner: Arc<Mutex<Scene>>,
 }
 
 impl SceneDrawer {
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(SceneWithFlag::new())),
+            inner: Arc::new(Mutex::new(Scene::new())),
         }
     }
 
     pub fn reset(&mut self) {
-        self.inner.lock().unwrap().scene.reset();
+        self.inner.lock().unwrap().reset();
     }
 
-    pub fn scene(&self) -> std::sync::MutexGuard<'_, SceneWithFlag> {
+    pub fn scene(&self) -> std::sync::MutexGuard<'_, Scene> {
         self.inner.lock().unwrap()
     }
 
@@ -80,10 +68,10 @@ impl SceneDrawer {
         stroke_params: Option<StrokeParams>,
     ) {
         let circle = vello::kurbo::Circle::new(center, radius);
-        let scene_with_flag = &mut self.inner.lock().unwrap();
+        let scene = &mut self.inner.lock().unwrap();
 
         if let Some(fill_params) = fill_params {
-            scene_with_flag.scene.fill(
+            scene.fill(
                 peniko::Fill::NonZero,
                 VELLO_APP_PROXY.y_transform(),
                 fill_params.color,
@@ -93,7 +81,7 @@ impl SceneDrawer {
         }
 
         if let Some(stroke_params) = stroke_params {
-            scene_with_flag.scene.stroke(
+            scene.stroke(
                 &stroke_params.stroke,
                 VELLO_APP_PROXY.y_transform(),
                 stroke_params.color,
@@ -107,9 +95,9 @@ impl SceneDrawer {
 
     pub fn draw_line(&self, p0: kurbo::Point, p1: kurbo::Point, stroke_params: StrokeParams) {
         let line = vello::kurbo::Line::new(p0, p1);
-        let scene_with_flag = &mut self.inner.lock().unwrap();
+        let scene = &mut self.inner.lock().unwrap();
 
-        scene_with_flag.scene.stroke(
+        scene.stroke(
             &stroke_params.stroke,
             VELLO_APP_PROXY.y_transform(),
             stroke_params.color,
@@ -121,8 +109,8 @@ impl SceneDrawer {
     }
 
     pub fn draw_polyline(&self, path: kurbo::BezPath, stroke_params: StrokeParams) {
-        let scene_with_flag = &mut self.inner.lock().unwrap();
-        scene_with_flag.scene.stroke(
+        let scene = &mut self.inner.lock().unwrap();
+        scene.stroke(
             &stroke_params.stroke,
             VELLO_APP_PROXY.y_transform(),
             stroke_params.color,
@@ -139,9 +127,9 @@ impl SceneDrawer {
         fill_params: Option<FillParams>,
         stroke_params: Option<StrokeParams>,
     ) {
-        let scene_with_flag = &mut self.inner.lock().unwrap();
+        let scene = &mut self.inner.lock().unwrap();
         if let Some(fill_params) = fill_params {
-            scene_with_flag.scene.fill(
+            scene.fill(
                 peniko::Fill::NonZero,
                 VELLO_APP_PROXY.y_transform(),
                 fill_params.color,
@@ -151,7 +139,7 @@ impl SceneDrawer {
         }
 
         if let Some(stroke_params) = stroke_params {
-            scene_with_flag.scene.stroke(
+            scene.stroke(
                 &stroke_params.stroke,
                 VELLO_APP_PROXY.y_transform(),
                 stroke_params.color,
@@ -171,9 +159,9 @@ impl SceneDrawer {
         stroke_params: Option<StrokeParams>,
     ) {
         let rect = vello::kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y);
-        let scene_with_flag = &mut self.inner.lock().unwrap();
+        let scene = &mut self.inner.lock().unwrap();
         if let Some(fill_params) = fill_params {
-            scene_with_flag.scene.fill(
+            scene.fill(
                 peniko::Fill::NonZero,
                 VELLO_APP_PROXY.y_transform(),
                 fill_params.color,
@@ -183,7 +171,7 @@ impl SceneDrawer {
         }
 
         if let Some(stroke_params) = stroke_params {
-            scene_with_flag.scene.stroke(
+            scene.stroke(
                 &stroke_params.stroke,
                 VELLO_APP_PROXY.y_transform(),
                 stroke_params.color,
@@ -202,7 +190,7 @@ impl SceneDrawer {
         transform: kurbo::Affine,
         vadj: f32,
     ) {
-        let scene_with_flag = &mut self.inner.lock().unwrap();
+        let scene = &mut self.inner.lock().unwrap();
 
         let mut x = glyph_run.offset();
         let y = glyph_run.baseline() - vadj;
@@ -226,8 +214,7 @@ impl SceneDrawer {
             .map(|coord| vello::skrifa::instance::NormalizedCoord::from_bits(*coord))
             .collect::<Vec<_>>();
 
-        scene_with_flag
-            .scene
+        scene
             .draw_glyphs(font)
             .brush(color)
             .transform(transform)
@@ -462,7 +449,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                         .render_to_surface(
                             &device_handle.device,
                             &device_handle.queue,
-                            &self.scene.scene().scene, // TODO: looks a bit funny
+                            &self.scene.scene(),
                             &surface_texture,
                             &vello::RenderParams {
                                 base_color: self.background_color,
@@ -474,7 +461,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                         .expect("failed to render");
 
                     // surface is now up-to-date!
-                    VELLO_APP_PROXY.needs_redraw.store(false, Ordering::Relaxed);
+                    self.needs_redraw.store(false, Ordering::Relaxed);
                 }
 
                 surface_texture.present();
@@ -505,7 +492,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 // TODO
             }
             Request::RedrawWindow => {
-                if VELLO_APP_PROXY.needs_redraw.load(Ordering::Relaxed) {
+                if self.needs_redraw.load(Ordering::Relaxed) {
                     render_state.window.request_redraw();
                 }
             }
@@ -514,7 +501,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
             }
             Request::NewPage => {
                 self.scene.reset();
-                VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
+                self.needs_redraw.store(true, Ordering::Relaxed);
             }
             Request::GetWindowSizes => {
                 let PhysicalSize { width, height } = render_state.window.inner_size();
@@ -553,7 +540,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                     }
                 }
 
-                VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
+                self.needs_redraw.store(true, Ordering::Relaxed);
             }
 
             // ignore other events
@@ -565,7 +552,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
 // Since R's graphics device is left-bottom origin, the Y value needs to be
 // flipped
 pub fn calc_y_translate(height: f32) -> vello::kurbo::Affine {
-    vello::kurbo::Affine::new([1.0, 0., 0., -1.0, 0., height as _])
+    vello::kurbo::Affine::new([1.0, 0., 0., -1.0, 0., height as _]) // = FLIP_Y.then_translate((0.0, height))
 }
 
 const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16); // = 60fps
