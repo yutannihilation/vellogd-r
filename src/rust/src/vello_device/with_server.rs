@@ -26,15 +26,23 @@ impl Drop for VelloGraphicsDeviceWithServer {
 }
 
 impl VelloGraphicsDeviceWithServer {
-    pub(crate) fn new(filename: &str, server: Option<&str>) -> savvy::Result<Self> {
+    pub(crate) fn new(
+        filename: &str,
+        server: Option<&str>,
+        width: f64,
+        height: f64,
+    ) -> savvy::Result<Self> {
         // server -> controller
         let (rx_server, rx_server_name) = IpcOneShotServer::<Response>::new().unwrap();
 
         let server_process = if let Some(server_bin) = server {
             // spawn a server process
             let res = std::process::Command::new(server_bin)
-                .arg(rx_server_name)
-                // .stdout(std::process::Stdio::piped())
+                .args([
+                    rx_server_name,
+                    (width as u32).to_string(),
+                    (height as u32).to_string(),
+                ])
                 .spawn();
 
             match res {

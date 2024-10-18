@@ -46,7 +46,7 @@ fn vellogd_with_server_impl(
     height: f64,
     server: Option<&str>,
 ) -> savvy::Result<()> {
-    let device_driver = VelloGraphicsDeviceWithServer::new(filename, server)?;
+    let device_driver = VelloGraphicsDeviceWithServer::new(filename, server, width, height)?;
 
     // TODO: the actual width and height is kept on the server's side.
     let device_descriptor = DeviceDescriptor::new(width, height);
