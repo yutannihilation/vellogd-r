@@ -82,9 +82,10 @@ impl DeviceDriver for VelloGraphicsDevice {
     // TODO
     // fn mode(&mut self, mode: i32, _: DevDesc) {}
 
-    fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
+    fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
+        VELLO_APP_PROXY.set_base_color(gc.fill);
         match self.request_new_page() {
             Ok(_) => {}
             Err(e) => savvy::r_eprintln!("Failed to create a new page: {e}"),
@@ -232,13 +233,11 @@ impl DeviceDriver for VelloGraphicsDevice {
     //     unsafe { R_NilValue }
     // }
 
-    fn size(&mut self, _: DevDesc) -> (f64, f64, f64, f64) {
+    fn size(&mut self, width: &mut f64, height: &mut f64, _: DevDesc) {
         add_tracing_point!();
 
-        let width = VELLO_APP_PROXY.width.load(Ordering::Relaxed) as f64;
-        let height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
-
-        (0.0, width, 0.0, height)
+        *width = VELLO_APP_PROXY.width.load(Ordering::Relaxed) as f64;
+        *height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
     }
 
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {

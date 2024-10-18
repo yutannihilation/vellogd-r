@@ -39,6 +39,11 @@ SEXP savvy_vellogd_impl__impl(SEXP c_arg__filename, SEXP c_arg__width, SEXP c_ar
     return handle_result(res);
 }
 
+SEXP savvy_save_as_png__impl(SEXP c_arg__filename) {
+    SEXP res = savvy_save_as_png__ffi(c_arg__filename);
+    return handle_result(res);
+}
+
 SEXP savvy_vellogd_with_server_impl__impl(SEXP c_arg__filename, SEXP c_arg__width, SEXP c_arg__height, SEXP c_arg__server) {
     SEXP res = savvy_vellogd_with_server_impl__ffi(c_arg__filename, c_arg__width, c_arg__height, c_arg__server);
     return handle_result(res);
@@ -57,6 +62,7 @@ SEXP savvy_do_tracing__impl(SEXP c_arg__expr) {
 
 static const R_CallMethodDef CallEntries[] = {
     {"savvy_vellogd_impl__impl", (DL_FUNC) &savvy_vellogd_impl__impl, 3},
+    {"savvy_save_as_png__impl", (DL_FUNC) &savvy_save_as_png__impl, 1},
     {"savvy_vellogd_with_server_impl__impl", (DL_FUNC) &savvy_vellogd_with_server_impl__impl, 4},
     {"savvy_debuggd__impl", (DL_FUNC) &savvy_debuggd__impl, 0},
     {"savvy_do_tracing__impl", (DL_FUNC) &savvy_do_tracing__impl, 1},

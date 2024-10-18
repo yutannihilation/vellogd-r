@@ -2178,10 +2178,12 @@ dependencies = [
 name = "vellogd-shared"
 version = "0.1.0"
 dependencies = [
+ "futures-intrusive",
  "ipc-channel",
  "kurbo",
  "parley",
  "peniko",
+ "png",
  "pollster",
  "serde",
  "vello",

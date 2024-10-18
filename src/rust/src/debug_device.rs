@@ -98,9 +98,10 @@ impl DeviceDriver for DebugGraphicsDevice {
         savvy::r_eprintln!("[mode] mode: {mode}");
     }
 
-    fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
+    fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
-        savvy::r_eprintln!("[new_page]");
+        let fill = gc.fill;
+        savvy::r_eprintln!("[new_page] fill: {fill:#08x}");
     }
 
     fn polygon(&mut self, x: &[f64], y: &[f64], _: R_GE_gcontext, _: DevDesc) {
@@ -152,11 +153,12 @@ impl DeviceDriver for DebugGraphicsDevice {
         unsafe { R_NilValue }
     }
 
-    fn size(&mut self, dd: DevDesc) -> (f64, f64, f64, f64) {
+    fn size(&mut self, width: &mut f64, height: &mut f64, dd: DevDesc) {
         add_tracing_point!();
         savvy::r_eprintln!("[size]");
 
-        (dd.left, dd.right, dd.bottom, dd.top)
+        *width = dd.right;
+        *height = dd.top;
     }
 
     fn text_width(&mut self, text: &str, gc: R_GE_gcontext, dd: DevDesc) -> f64 {

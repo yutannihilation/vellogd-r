@@ -39,6 +39,28 @@ fn vellogd_impl(filename: &str, width: f64, height: f64) -> savvy::Result<()> {
     Ok(())
 }
 
+// Currently, this is just for debugging purposes. But, in future, this can be
+// used for headless usages.
+#[savvy]
+fn save_as_png(filename: &str) -> savvy::Result<()> {
+    #[cfg(feature = "use_winit")]
+    {
+        use vellogd_shared::winit_app::VELLO_APP_PROXY;
+
+        VELLO_APP_PROXY
+            .tx
+            .send_event(vellogd_shared::protocol::Request::SaveAsPng {
+                filename: filename.into(),
+            })
+            .map_err(|_| "failed to request to write out as PNG".into())
+    }
+
+    #[cfg(not(feature = "use_winit"))]
+    {
+        Ok(())
+    }
+}
+
 #[savvy]
 fn vellogd_with_server_impl(
     filename: &str,

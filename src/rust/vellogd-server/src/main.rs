@@ -167,6 +167,17 @@ fn main() {
         }
     });
 
-    let mut app = VelloApp::new(width, height, y_transform, tx, scene, needs_redraw);
+    // This is not used for server; the base color is set via Request::SetBaseColor
+    let base_color = Arc::new(AtomicU32::new(0));
+
+    let mut app = VelloApp::new(
+        width,
+        height,
+        y_transform,
+        tx,
+        scene,
+        needs_redraw,
+        base_color,
+    );
     event_loop.run_app(&mut app).unwrap();
 }

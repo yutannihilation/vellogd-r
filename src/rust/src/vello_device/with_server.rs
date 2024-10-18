@@ -122,9 +122,10 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     // TODO
     // fn mode(&mut self, mode: i32, _: DevDesc) {}
 
-    fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
+    fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
+        self.request_set_base_color(gc.fill).unwrap();
         self.request_new_page().unwrap();
     }
 
@@ -271,13 +272,14 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     //     unsafe { R_NilValue }
     // }
 
-    fn size(&mut self, _: DevDesc) -> (f64, f64, f64, f64) {
+    fn size(&mut self, width: &mut f64, height: &mut f64, _: DevDesc) {
         add_tracing_point!();
 
         // TODO: cache result? (for example, for 1 second)
 
         let sizes = self.get_window_sizes().unwrap_or((0, 0));
-        (0.0, sizes.0 as _, 0.0, sizes.1 as _)
+        *width = sizes.0 as f64;
+        *height = sizes.1 as f64;
     }
 
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {

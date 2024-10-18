@@ -213,8 +213,9 @@ pub trait DeviceDriver: std::marker::Sized {
     ///     <https://github.com/wch/r-source/blob/8ebcb33a9f70e729109b1adf60edd5a3b22d3c6f/src/include/R_ext/GraphicsDevice.h#L508-L527>
     /// [`cbm_Size()` in the cairo device]:
     ///     <https://github.com/wch/r-source/blob/8ebcb33a9f70e729109b1adf60edd5a3b22d3c6f/src/library/grDevices/src/cairo/cairoBM.c#L73-L83>
-    fn size(&mut self, dd: DevDesc) -> (f64, f64, f64, f64) {
-        (dd.left, dd.right, dd.bottom, dd.top)
+    fn size(&mut self, width: &mut f64, height: &mut f64, dd: DevDesc) {
+        *width = dd.right;
+        *height = dd.top;
     }
 
     /// A callback function that returns the width of the given string in the
@@ -521,11 +522,11 @@ pub trait DeviceDriver: std::marker::Sized {
             dd: pDevDesc,
         ) {
             let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
-            let sizes = data.size(*dd);
-            *left = sizes.0;
-            *right = sizes.1;
-            *bottom = sizes.2;
-            *top = sizes.3;
+            *left = 0.0;
+            *bottom = 0.0;
+            let right = right.as_mut().unwrap();
+            let top = top.as_mut().unwrap();
+            data.size(right, top, *dd);
         }
 
         unsafe extern "C" fn device_driver_text_width<T: DeviceDriver>(

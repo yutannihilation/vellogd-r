@@ -63,8 +63,8 @@ pub type R_GE_linejoin = c_int;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct R_GE_gcontext {
-    pub col: c_int,
-    pub fill: c_int,
+    pub col: c_uint,  // uint (u32) is easiler to use on Rust's side
+    pub fill: c_uint, // uint (u32) is easiler to use on Rust's side
     pub gamma: f64,
     pub lwd: f64,
     pub lty: c_int,
