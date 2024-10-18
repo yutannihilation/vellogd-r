@@ -13,7 +13,7 @@ use vellogd_shared::protocol::StrokeParams;
 use vellogd_shared::text_layouter::TextLayouter;
 use vellogd_shared::text_layouter::TextMetric;
 use vellogd_shared::winit_app::ACTIVE_WINDOW_SIZES;
-use vellogd_shared::winit_app::GLOBAL_OBJECTS;
+use vellogd_shared::winit_app::VELLO_APP_PROXY;
 
 pub struct VelloGraphicsDevice {
     filename: String,
@@ -35,14 +35,14 @@ impl VelloGraphicsDevice {
 
 impl WindowController for VelloGraphicsDevice {
     fn send_event(&self, event: Request) -> savvy::Result<()> {
-        GLOBAL_OBJECTS
-            .event_loop
+        VELLO_APP_PROXY
+            .tx
             .send_event(event)
             .map_err(|e| format!("Failed to send event {e:?}").into())
     }
 
     fn recv_response(&self) -> savvy::Result<Response> {
-        GLOBAL_OBJECTS
+        VELLO_APP_PROXY
             .rx
             .lock()
             .unwrap()
@@ -104,7 +104,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            GLOBAL_OBJECTS
+            VELLO_APP_PROXY
                 .scene
                 .draw_circle(center.into(), r, fill_params, stroke_params);
         }
@@ -114,7 +114,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         add_tracing_point!();
 
         if let Some(stroke_params) = StrokeParams::from_gc(gc) {
-            GLOBAL_OBJECTS
+            VELLO_APP_PROXY
                 .scene
                 .draw_line(from.into(), to.into(), stroke_params);
         }
@@ -126,7 +126,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            GLOBAL_OBJECTS
+            VELLO_APP_PROXY
                 .scene
                 .draw_polygon(xy_to_path(x, y, true), fill_params, stroke_params);
         }
@@ -137,7 +137,7 @@ impl DeviceDriver for VelloGraphicsDevice {
 
         let stroke_params = StrokeParams::from_gc(gc);
         if let Some(stroke_params) = stroke_params {
-            GLOBAL_OBJECTS
+            VELLO_APP_PROXY
                 .scene
                 .draw_polyline(xy_to_path(x, y, false), stroke_params);
         }
@@ -149,7 +149,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            GLOBAL_OBJECTS
+            VELLO_APP_PROXY
                 .scene
                 .draw_rect(from.into(), to.into(), fill_params, stroke_params);
         }
@@ -198,7 +198,7 @@ impl DeviceDriver for VelloGraphicsDevice {
                     };
 
                     // TODO: do not lock per glyph
-                    GLOBAL_OBJECTS
+                    VELLO_APP_PROXY
                         .scene
                         .draw_glyph(glyph_run, color, transform, vadj);
                 }

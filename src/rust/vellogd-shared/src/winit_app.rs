@@ -585,13 +585,13 @@ struct ActiveWindowStatues {
 pub static ACTIVE_WINDOW_SIZES: LazyLock<(AtomicU32, AtomicU32)> =
     LazyLock::new(|| (AtomicU32::new(DEFAULT_SIZE), AtomicU32::new(DEFAULT_SIZE)));
 
-pub struct GlobalObjects {
-    pub event_loop: EventLoopProxy<Request>,
+pub struct VelloAppProxy {
+    pub tx: EventLoopProxy<Request>,
     pub rx: std::sync::Mutex<std::sync::mpsc::Receiver<Response>>,
     pub scene: SceneDrawer,
 }
 
-pub static GLOBAL_OBJECTS: LazyLock<GlobalObjects> = LazyLock::new(|| {
+pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
     let (sender, receiver) = std::sync::mpsc::channel();
     let _ = std::thread::spawn(move || {
         let event_loop = create_event_loop(true);
@@ -602,8 +602,8 @@ pub static GLOBAL_OBJECTS: LazyLock<GlobalObjects> = LazyLock::new(|| {
         let height = ACTIVE_WINDOW_SIZES.1.load(Ordering::Relaxed) as f32;
 
         let scene = SceneDrawer::new(height);
-        let proxy = GlobalObjects {
-            event_loop: event_loop.create_proxy(),
+        let proxy = VelloAppProxy {
+            tx: event_loop.create_proxy(),
             rx: std::sync::Mutex::new(rx),
             scene: scene.clone(),
         };
@@ -616,7 +616,7 @@ pub static GLOBAL_OBJECTS: LazyLock<GlobalObjects> = LazyLock::new(|| {
     });
 
     let event_loop = receiver.recv().unwrap();
-    let event_loop_for_refresh = event_loop.event_loop.clone();
+    let event_loop_for_refresh = event_loop.tx.clone();
 
     // TODO: stop refreshing when no window
     std::thread::spawn(move || loop {
