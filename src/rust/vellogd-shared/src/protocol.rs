@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FillParams {
     pub color: peniko::Color,
+    pub use_nonzero_rule: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -158,11 +159,18 @@ impl StrokeParams {
 
 impl FillParams {
     pub fn from_gc(gc: R_GE_gcontext) -> Option<Self> {
+        Self::from_gc_with_flag(gc, true)
+    }
+
+    pub fn from_gc_with_flag(gc: R_GE_gcontext, use_nonzero_rule: bool) -> Option<Self> {
         if gc.fill == 0 {
             return None;
         }
         let [r, g, b, a] = gc.fill.to_ne_bytes();
         let color = peniko::Color::rgba8(r, g, b, a);
-        Some(Self { color })
+        Some(Self {
+            color,
+            use_nonzero_rule,
+        })
     }
 }

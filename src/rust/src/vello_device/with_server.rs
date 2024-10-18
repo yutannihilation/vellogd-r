@@ -176,6 +176,27 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
         }
     }
 
+    fn path(
+        &mut self,
+        x: &[f64],
+        y: &[f64],
+        nper: &[i32],
+        winding: bool,
+        gc: R_GE_gcontext,
+        _: DevDesc,
+    ) {
+        let fill_params = FillParams::from_gc_with_flag(gc, winding);
+        let stroke_params = StrokeParams::from_gc(gc);
+        if fill_params.is_some() || stroke_params.is_some() {
+            self.send_event(Request::DrawPolygon {
+                path: xy_to_path(x, y, true),
+                fill_params,
+                stroke_params,
+            })
+            .unwrap();
+        }
+    }
+
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
@@ -241,18 +262,6 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
             .unwrap();
         }
     }
-
-    // TODO
-    // fn path(
-    //     &mut self,
-    //     x: &[f64],
-    //     y: &[f64],
-    //     nper: &[i32],
-    //     winding: bool,
-    //     gc: R_GE_gcontext,
-    //     dd: DevDesc,
-    // ) {
-    // }
 
     // TODO
     // fn raster<T: AsRef<[u32]>>(
