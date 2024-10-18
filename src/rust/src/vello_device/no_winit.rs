@@ -3,7 +3,7 @@ use crate::graphics::DeviceDriver;
 pub struct VelloGraphicsDevice {}
 
 impl VelloGraphicsDevice {
-    pub(crate) fn new(filename: &str, height: f64) -> savvy::Result<Self> {
+    pub(crate) fn new(filename: &str, _width: f64, _height: f64) -> savvy::Result<Self> {
         Err("This method is not supported on macOS".into())
     }
 }
