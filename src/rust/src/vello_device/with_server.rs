@@ -5,7 +5,7 @@ use vellogd_shared::{
     text_layouter::{TextLayouter, TextMetric},
 };
 
-use crate::graphics::DeviceDriver;
+use crate::{add_tracing_point, graphics::DeviceDriver};
 
 use super::{xy_to_path, WindowController};
 
@@ -105,10 +105,14 @@ impl TextLayouter for VelloGraphicsDeviceWithServer {
 
 impl DeviceDriver for VelloGraphicsDeviceWithServer {
     fn activate(&mut self, _: DevDesc) {
+        add_tracing_point!();
+
         self.request_new_window().unwrap();
     }
 
     fn close(&mut self, _: DevDesc) {
+        add_tracing_point!();
+
         self.request_close_window().unwrap();
     }
 
@@ -119,6 +123,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     // fn mode(&mut self, mode: i32, _: DevDesc) {}
 
     fn new_page(&mut self, _: R_GE_gcontext, _: DevDesc) {
+        add_tracing_point!();
+
         self.request_new_page().unwrap();
     }
 
@@ -126,6 +132,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     // fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {}
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
+        add_tracing_point!();
+
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
@@ -140,6 +148,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     }
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
+        add_tracing_point!();
+
         if let Some(stroke_params) = StrokeParams::from_gc(gc) {
             self.send_event(Request::DrawLine {
                 p0: from.into(),
@@ -151,6 +161,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     }
 
     fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
+        add_tracing_point!();
+
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
@@ -164,6 +176,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     }
 
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
+        add_tracing_point!();
+
         let stroke_params = StrokeParams::from_gc(gc);
         if let Some(stroke_params) = stroke_params {
             self.send_event(Request::DrawPolyline {
@@ -175,6 +189,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
+        add_tracing_point!();
+
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
@@ -197,6 +213,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
+        add_tracing_point!();
+
         let [r, g, b, a] = gc.col.to_ne_bytes();
         let color = peniko::Color::rgba8(r, g, b, a);
         let family = unsafe {
@@ -254,15 +272,21 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     // }
 
     fn size(&mut self, _: DevDesc) -> (f64, f64, f64, f64) {
+        add_tracing_point!();
+
         let sizes = self.get_window_sizes().unwrap_or((0, 0));
         (0.0, sizes.0 as _, 0.0, sizes.1 as _)
     }
 
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {
+        add_tracing_point!();
+
         self.get_char_metric(c, gc)
     }
 
     fn text_width(&mut self, text: &str, gc: R_GE_gcontext, _: DevDesc) -> f64 {
+        add_tracing_point!();
+
         self.get_text_width(text, gc)
     }
 
