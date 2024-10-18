@@ -299,8 +299,8 @@ impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
             return;
         };
 
-        let width = ACTIVE_WINDOW_SIZES.0.load(Ordering::Relaxed) as f32;
-        let height = ACTIVE_WINDOW_SIZES.1.load(Ordering::Relaxed) as f32;
+        let width = self.width.load(Ordering::Relaxed) as f32;
+        let height = self.height.load(Ordering::Relaxed) as f32;
 
         let window = cached_window.take().unwrap_or_else(|| {
             let this = &self;
@@ -438,8 +438,8 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
             }
 
             WindowEvent::Resized(size) => {
-                ACTIVE_WINDOW_SIZES.0.store(size.width, Ordering::Relaxed);
-                ACTIVE_WINDOW_SIZES.1.store(size.height, Ordering::Relaxed);
+                self.width.store(size.width, Ordering::Relaxed);
+                self.height.store(size.height, Ordering::Relaxed);
 
                 // TODO: update y_transform
 
@@ -538,7 +538,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 self.build_layout(text, size, lineheight);
 
                 let layout_width = self.layout.width();
-                let window_height = ACTIVE_WINDOW_SIZES.1.load(Ordering::Relaxed) as f64;
+                let window_height = self.height.load(Ordering::Relaxed) as f64;
 
                 let transform =
                     vello::kurbo::Affine::translate((-(layout_width * hadj) as f64, 0.0))
@@ -576,18 +576,26 @@ const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(1
 
 const DEFAULT_SIZE: u32 = 480;
 
-pub static ACTIVE_WINDOW_SIZES: LazyLock<(AtomicU32, AtomicU32)> =
-    LazyLock::new(|| (AtomicU32::new(DEFAULT_SIZE), AtomicU32::new(DEFAULT_SIZE)));
-
 // Hold the communication channel between VelloApp and the shared statuses.
 pub struct VelloAppProxy {
     pub tx: EventLoopProxy<Request>,
     pub rx: std::sync::Mutex<std::sync::mpsc::Receiver<Response>>,
     pub scene: SceneDrawer,
+    // Note: these fields are intentionally not bundled as a struct; if it's a
+    // struct, it would need `Mutex`, but we want to read the values without
+    // lock (probably doesn't affect much on the performance, though).
     pub width: Arc<AtomicU32>,
     pub height: Arc<AtomicU32>,
     // TODO
     // pub y_transform: Arc<Mutex<vello::kurbo::Affine>>,
+}
+
+impl VelloAppProxy {
+    pub fn set_size(&self, width: u32, height: u32) {
+        self.width.store(width, Ordering::Relaxed);
+        self.height.store(height, Ordering::Relaxed);
+        // TODO: update width and height here
+    }
 }
 
 // TODO: change this to OnceCell and create init function that takes width and height

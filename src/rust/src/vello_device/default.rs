@@ -12,7 +12,6 @@ use vellogd_shared::protocol::Response;
 use vellogd_shared::protocol::StrokeParams;
 use vellogd_shared::text_layouter::TextLayouter;
 use vellogd_shared::text_layouter::TextMetric;
-use vellogd_shared::winit_app::ACTIVE_WINDOW_SIZES;
 use vellogd_shared::winit_app::VELLO_APP_PROXY;
 
 pub struct VelloGraphicsDevice {
@@ -22,10 +21,7 @@ pub struct VelloGraphicsDevice {
 
 impl VelloGraphicsDevice {
     pub(crate) fn new(filename: &str, width: f64, height: f64) -> savvy::Result<Self> {
-        ACTIVE_WINDOW_SIZES.0.store(width as u32, Ordering::Relaxed);
-        ACTIVE_WINDOW_SIZES
-            .1
-            .store(height as u32, Ordering::Relaxed);
+        VELLO_APP_PROXY.set_size(width as u32, height as u32);
         Ok(Self {
             filename: filename.into(),
             layout: parley::Layout::new(),
@@ -183,7 +179,7 @@ impl DeviceDriver for VelloGraphicsDevice {
             self.build_layout(text, size, lineheight);
 
             let layout_width = self.layout.width() as f64;
-            let window_height = ACTIVE_WINDOW_SIZES.1.load(Ordering::Relaxed) as f64;
+            let window_height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
 
             let transform = vello::kurbo::Affine::translate((-(layout_width * hadj), 0.0))
                 .then_rotate(-angle.to_radians())
@@ -239,8 +235,8 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn size(&mut self, _: DevDesc) -> (f64, f64, f64, f64) {
         add_tracing_point!();
 
-        let width = ACTIVE_WINDOW_SIZES.0.load(Ordering::Relaxed) as f64;
-        let height = ACTIVE_WINDOW_SIZES.1.load(Ordering::Relaxed) as f64;
+        let width = VELLO_APP_PROXY.width.load(Ordering::Relaxed) as f64;
+        let height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
 
         (0.0, width, 0.0, height)
     }
