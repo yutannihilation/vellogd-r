@@ -131,9 +131,10 @@ fn main() {
         }
     });
 
+    let needs_redraw = Arc::new(false.into());
     // TODO: supply width and height
     let width = Arc::new(480.into());
     let height = Arc::new(480.into());
-    let mut app = VelloApp::new(width, height, tx, scene);
+    let mut app = VelloApp::new(width, height, tx, scene, needs_redraw);
     event_loop.run_app(&mut app).unwrap();
 }

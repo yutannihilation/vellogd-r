@@ -6,7 +6,7 @@
 use std::{
     num::NonZeroUsize,
     sync::{
-        atomic::{AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
         Arc, LazyLock, Mutex,
     },
 };
@@ -42,14 +42,12 @@ pub enum RenderState<'a> {
 
 pub struct SceneWithFlag {
     pub scene: Scene,
-    pub needs_redraw: bool,
 }
 
 impl SceneWithFlag {
     fn new() -> Self {
         Self {
             scene: Scene::new(),
-            needs_redraw: false,
         }
     }
 }
@@ -104,7 +102,7 @@ impl SceneDrawer {
             );
         }
 
-        scene_with_flag.needs_redraw = true;
+        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     pub fn draw_line(&self, p0: kurbo::Point, p1: kurbo::Point, stroke_params: StrokeParams) {
@@ -119,7 +117,7 @@ impl SceneDrawer {
             &line,
         );
 
-        scene_with_flag.needs_redraw = true;
+        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     pub fn draw_polyline(&self, path: kurbo::BezPath, stroke_params: StrokeParams) {
@@ -132,7 +130,7 @@ impl SceneDrawer {
             &path,
         );
 
-        scene_with_flag.needs_redraw = true;
+        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     pub fn draw_polygon(
@@ -162,7 +160,7 @@ impl SceneDrawer {
             );
         }
 
-        scene_with_flag.needs_redraw = true;
+        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     pub fn draw_rect(
@@ -194,7 +192,7 @@ impl SceneDrawer {
             );
         }
 
-        scene_with_flag.needs_redraw = true;
+        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     pub fn draw_glyph(
@@ -249,7 +247,7 @@ impl SceneDrawer {
                 }),
             );
 
-        scene_with_flag.needs_redraw = true;
+        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 }
 
@@ -258,6 +256,7 @@ pub struct VelloApp<'a, T: AppResponseRelay> {
     renderers: Vec<Option<Renderer>>,
     state: RenderState<'a>,
     scene: SceneDrawer,
+    needs_redraw: Arc<AtomicBool>,
     width: Arc<AtomicU32>,
     height: Arc<AtomicU32>,
     background_color: Color, // TODO: probably always the same value
@@ -265,23 +264,28 @@ pub struct VelloApp<'a, T: AppResponseRelay> {
     tx: T,
 
     window_title: String,
-    needs_redraw: bool,
 }
 
 impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
-    pub fn new(width: Arc<AtomicU32>, height: Arc<AtomicU32>, tx: T, scene: SceneDrawer) -> Self {
+    pub fn new(
+        width: Arc<AtomicU32>,
+        height: Arc<AtomicU32>,
+        tx: T,
+        scene: SceneDrawer,
+        needs_redraw: Arc<AtomicBool>,
+    ) -> Self {
         Self {
             context: RenderContext::new(),
             renderers: vec![],
             state: RenderState::Suspended(None),
             scene,
+            needs_redraw,
             width,
             height,
             background_color: Color::WHITE_SMOKE,
             layout: parley::Layout::new(),
             tx,
             window_title: "vellogd".to_string(),
-            needs_redraw: true,
         }
     }
 
@@ -469,8 +473,8 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                         )
                         .expect("failed to render");
 
-                    // surface is up-to-date
-                    self.needs_redraw = false;
+                    // surface is now up-to-date!
+                    VELLO_APP_PROXY.needs_redraw.store(false, Ordering::Relaxed);
                 }
 
                 surface_texture.present();
@@ -501,10 +505,8 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 // TODO
             }
             Request::RedrawWindow => {
-                if let Ok(s) = self.scene.inner.try_lock() {
-                    if s.needs_redraw {
-                        render_state.window.request_redraw();
-                    }
+                if VELLO_APP_PROXY.needs_redraw.load(Ordering::Relaxed) {
+                    render_state.window.request_redraw();
                 }
             }
             Request::CloseWindow => {
@@ -512,7 +514,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
             }
             Request::NewPage => {
                 self.scene.reset();
-                self.needs_redraw = true;
+                VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
             }
             Request::GetWindowSizes => {
                 let PhysicalSize { width, height } = render_state.window.inner_size();
@@ -551,7 +553,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                     }
                 }
 
-                self.needs_redraw = true;
+                VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
             }
 
             // ignore other events
@@ -568,13 +570,13 @@ pub fn calc_y_translate(height: f32) -> vello::kurbo::Affine {
 
 const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16); // = 60fps
 
-const DEFAULT_SIZE: u32 = 480;
-
 // Hold the communication channel between VelloApp and the shared statuses.
 pub struct VelloAppProxy {
     pub tx: EventLoopProxy<Request>,
     pub rx: std::sync::Mutex<std::sync::mpsc::Receiver<Response>>,
+
     pub scene: SceneDrawer,
+    pub needs_redraw: Arc<AtomicBool>,
     // Note: these fields are intentionally not bundled as a struct; if it's a
     // struct, it would need `Mutex`, but we want to read the values without
     // lock (probably doesn't affect much on the performance, though).
@@ -602,6 +604,7 @@ pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
         let (tx, rx) = std::sync::mpsc::channel::<Response>();
 
+        let needs_redraw = Arc::new(AtomicBool::new(false));
         // Note: 0 is a dummy value and should be overwritten soon after the
         // creation. Ideally, VELLO_APP_PROXY should be OnceLock so that the
         // init function can initialize this with the actual sizes, but LazyLock
@@ -616,13 +619,14 @@ pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
             tx: event_loop.create_proxy(),
             rx: std::sync::Mutex::new(rx),
             scene: scene.clone(),
+            needs_redraw: needs_redraw.clone(),
             width: width.clone(),
             height: height.clone(),
             y_transform,
         };
         sender.send(proxy).unwrap();
 
-        let mut app = VelloApp::new(width, height, tx, scene);
+        let mut app = VelloApp::new(width, height, tx, scene, needs_redraw);
 
         // this blocks until event_loop exits
         event_loop.run_app(&mut app).unwrap();
