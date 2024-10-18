@@ -43,12 +43,19 @@ pub enum RenderState<'a> {
 #[derive(Clone)]
 pub struct SceneDrawer {
     inner: Arc<Mutex<Scene>>,
+    y_transform: Arc<Mutex<vello::kurbo::Affine>>,
+    needs_redraw: Arc<AtomicBool>,
 }
 
 impl SceneDrawer {
-    pub fn new() -> Self {
+    pub fn new(
+        y_transform: Arc<Mutex<vello::kurbo::Affine>>,
+        needs_redraw: Arc<AtomicBool>,
+    ) -> Self {
         Self {
             inner: Arc::new(Mutex::new(Scene::new())),
+            y_transform,
+            needs_redraw,
         }
     }
 
@@ -66,10 +73,10 @@ impl SceneDrawer {
         radius: f64,
         fill_params: Option<FillParams>,
         stroke_params: Option<StrokeParams>,
-        y_transform: vello::kurbo::Affine,
     ) {
         let circle = vello::kurbo::Circle::new(center, radius);
         let scene = &mut self.inner.lock().unwrap();
+        let y_transform = *self.y_transform.lock().unwrap();
 
         if let Some(fill_params) = fill_params {
             scene.fill(
@@ -84,23 +91,20 @@ impl SceneDrawer {
         if let Some(stroke_params) = stroke_params {
             scene.stroke(
                 &stroke_params.stroke,
-                VELLO_APP_PROXY.y_transform(),
+                y_transform,
                 stroke_params.color,
                 None,
                 &circle,
             );
         }
+
+        self.needs_redraw.store(true, Ordering::Relaxed);
     }
 
-    pub fn draw_line(
-        &self,
-        p0: kurbo::Point,
-        p1: kurbo::Point,
-        stroke_params: StrokeParams,
-        y_transform: vello::kurbo::Affine,
-    ) {
+    pub fn draw_line(&self, p0: kurbo::Point, p1: kurbo::Point, stroke_params: StrokeParams) {
         let line = vello::kurbo::Line::new(p0, p1);
         let scene = &mut self.inner.lock().unwrap();
+        let y_transform = *self.y_transform.lock().unwrap();
 
         scene.stroke(
             &stroke_params.stroke,
@@ -109,16 +113,13 @@ impl SceneDrawer {
             None,
             &line,
         );
+
+        self.needs_redraw.store(true, Ordering::Relaxed);
     }
 
-    pub fn draw_polyline(
-        &self,
-        path: kurbo::BezPath,
-        stroke_params: StrokeParams,
-
-        y_transform: vello::kurbo::Affine,
-    ) {
+    pub fn draw_polyline(&self, path: kurbo::BezPath, stroke_params: StrokeParams) {
         let scene = &mut self.inner.lock().unwrap();
+        let y_transform = *self.y_transform.lock().unwrap();
         scene.stroke(
             &stroke_params.stroke,
             y_transform,
@@ -126,6 +127,8 @@ impl SceneDrawer {
             None,
             &path,
         );
+
+        self.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     pub fn draw_polygon(
@@ -133,9 +136,9 @@ impl SceneDrawer {
         path: kurbo::BezPath,
         fill_params: Option<FillParams>,
         stroke_params: Option<StrokeParams>,
-        y_transform: vello::kurbo::Affine,
     ) {
         let scene = &mut self.inner.lock().unwrap();
+        let y_transform = *self.y_transform.lock().unwrap();
         if let Some(fill_params) = fill_params {
             scene.fill(
                 peniko::Fill::NonZero,
@@ -149,12 +152,14 @@ impl SceneDrawer {
         if let Some(stroke_params) = stroke_params {
             scene.stroke(
                 &stroke_params.stroke,
-                VELLO_APP_PROXY.y_transform(),
+                y_transform,
                 stroke_params.color,
                 None,
                 &path,
             );
         }
+
+        self.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     pub fn draw_rect(
@@ -163,10 +168,10 @@ impl SceneDrawer {
         p1: kurbo::Point,
         fill_params: Option<FillParams>,
         stroke_params: Option<StrokeParams>,
-        y_transform: vello::kurbo::Affine,
     ) {
         let rect = vello::kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y);
         let scene = &mut self.inner.lock().unwrap();
+        let y_transform = *self.y_transform.lock().unwrap();
         if let Some(fill_params) = fill_params {
             scene.fill(
                 peniko::Fill::NonZero,
@@ -186,6 +191,8 @@ impl SceneDrawer {
                 &rect,
             );
         }
+
+        self.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     pub fn draw_glyph(
@@ -238,6 +245,9 @@ impl SceneDrawer {
                     }
                 }),
             );
+
+        // TODO: can this be done one time per text, not per glyph?
+        self.needs_redraw.store(true, Ordering::Relaxed);
     }
 }
 
@@ -581,7 +591,6 @@ pub struct VelloAppProxy {
     pub rx: std::sync::Mutex<std::sync::mpsc::Receiver<Response>>,
 
     pub scene: SceneDrawer,
-    pub needs_redraw: Arc<AtomicBool>,
     // Note: these fields are intentionally not bundled as a struct; if it's a
     // struct, it would need `Mutex`, but we want to read the values without
     // lock (probably doesn't affect much on the performance, though).
@@ -619,12 +628,11 @@ pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
         let height = Arc::new(AtomicU32::new(0));
         let y_transform = Arc::new(Mutex::new(calc_y_translate(0.0)));
 
-        let scene = SceneDrawer::new();
+        let scene = SceneDrawer::new(y_transform.clone(), needs_redraw.clone());
         let proxy = VelloAppProxy {
             tx: event_loop.create_proxy(),
             rx: std::sync::Mutex::new(rx),
             scene: scene.clone(),
-            needs_redraw: needs_redraw.clone(),
             width: width.clone(),
             height: height.clone(),
             y_transform: y_transform.clone(),

@@ -100,29 +100,20 @@ impl DeviceDriver for VelloGraphicsDevice {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            VELLO_APP_PROXY.scene.draw_circle(
-                center.into(),
-                r,
-                fill_params,
-                stroke_params,
-                VELLO_APP_PROXY.y_transform(),
-            );
+            VELLO_APP_PROXY
+                .scene
+                .draw_circle(center.into(), r, fill_params, stroke_params);
         }
-        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
         if let Some(stroke_params) = StrokeParams::from_gc(gc) {
-            VELLO_APP_PROXY.scene.draw_line(
-                from.into(),
-                to.into(),
-                stroke_params,
-                VELLO_APP_PROXY.y_transform(),
-            );
+            VELLO_APP_PROXY
+                .scene
+                .draw_line(from.into(), to.into(), stroke_params);
         }
-        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
@@ -131,14 +122,10 @@ impl DeviceDriver for VelloGraphicsDevice {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            VELLO_APP_PROXY.scene.draw_polygon(
-                xy_to_path(x, y, true),
-                fill_params,
-                stroke_params,
-                VELLO_APP_PROXY.y_transform(),
-            );
+            VELLO_APP_PROXY
+                .scene
+                .draw_polygon(xy_to_path(x, y, true), fill_params, stroke_params);
         }
-        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
@@ -146,13 +133,10 @@ impl DeviceDriver for VelloGraphicsDevice {
 
         let stroke_params = StrokeParams::from_gc(gc);
         if let Some(stroke_params) = stroke_params {
-            VELLO_APP_PROXY.scene.draw_polyline(
-                xy_to_path(x, y, false),
-                stroke_params,
-                VELLO_APP_PROXY.y_transform(),
-            );
+            VELLO_APP_PROXY
+                .scene
+                .draw_polyline(xy_to_path(x, y, false), stroke_params);
         }
-        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
@@ -161,15 +145,10 @@ impl DeviceDriver for VelloGraphicsDevice {
         let fill_params = FillParams::from_gc(gc);
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
-            VELLO_APP_PROXY.scene.draw_rect(
-                from.into(),
-                to.into(),
-                fill_params,
-                stroke_params,
-                VELLO_APP_PROXY.y_transform(),
-            );
+            VELLO_APP_PROXY
+                .scene
+                .draw_rect(from.into(), to.into(), fill_params, stroke_params);
         }
-        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     fn text(
@@ -221,7 +200,6 @@ impl DeviceDriver for VelloGraphicsDevice {
                 }
             }
         }
-        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     // TODO

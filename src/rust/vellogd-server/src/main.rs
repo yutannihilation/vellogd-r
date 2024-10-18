@@ -1,5 +1,5 @@
 use std::sync::{
-    atomic::{AtomicBool, AtomicU32, Ordering},
+    atomic::{AtomicBool, AtomicU32},
     Arc, Mutex,
 };
 
@@ -14,16 +14,9 @@ const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(1
 
 struct SceneRequestHandler {
     pub scene: SceneDrawer,
-    pub needs_redraw: Arc<AtomicBool>,
-    // TODO: width and height are also needed?
-    y_transform: Arc<Mutex<vello::kurbo::Affine>>,
 }
 
 impl SceneRequestHandler {
-    pub fn y_transform(&self) -> vello::kurbo::Affine {
-        *self.y_transform.lock().unwrap()
-    }
-
     fn handle_event(&self, event: Request) {
         match event {
             Request::DrawCircle {
@@ -32,40 +25,28 @@ impl SceneRequestHandler {
                 fill_params,
                 stroke_params,
             } => {
-                self.scene.draw_circle(
-                    center,
-                    radius,
-                    fill_params,
-                    stroke_params,
-                    self.y_transform(),
-                );
-                self.needs_redraw.store(true, Ordering::Relaxed);
+                self.scene
+                    .draw_circle(center, radius, fill_params, stroke_params);
             }
             Request::DrawLine {
                 p0,
                 p1,
                 stroke_params,
             } => {
-                self.scene
-                    .draw_line(p0, p1, stroke_params, self.y_transform());
-                self.needs_redraw.store(true, Ordering::Relaxed);
+                self.scene.draw_line(p0, p1, stroke_params);
             }
             Request::DrawPolygon {
                 path,
                 fill_params,
                 stroke_params,
             } => {
-                self.scene
-                    .draw_polygon(path, fill_params, stroke_params, self.y_transform());
-                self.needs_redraw.store(true, Ordering::Relaxed);
+                self.scene.draw_polygon(path, fill_params, stroke_params);
             }
             Request::DrawPolyline {
                 path,
                 stroke_params,
             } => {
-                self.scene
-                    .draw_polyline(path, stroke_params, self.y_transform());
-                self.needs_redraw.store(true, Ordering::Relaxed);
+                self.scene.draw_polyline(path, stroke_params);
             }
             Request::DrawRect {
                 p0,
@@ -73,9 +54,7 @@ impl SceneRequestHandler {
                 fill_params,
                 stroke_params,
             } => {
-                self.scene
-                    .draw_rect(p0, p1, fill_params, stroke_params, self.y_transform());
-                self.needs_redraw.store(true, Ordering::Relaxed);
+                self.scene.draw_rect(p0, p1, fill_params, stroke_params);
             }
             Request::DrawText {
                 pos,
@@ -165,14 +144,11 @@ fn main() {
         std::thread::sleep(REFRESH_INTERVAL);
     });
 
-    let scene = SceneDrawer::new();
-
     let needs_redraw = Arc::new(AtomicBool::new(false));
+    let scene = SceneDrawer::new(y_transform.clone(), needs_redraw.clone());
 
     let request_handler = SceneRequestHandler {
         scene: scene.clone(),
-        needs_redraw: needs_redraw.clone(),
-        y_transform: y_transform.clone(),
     };
 
     // Since the main thread will be occupied by event_loop, the server needs to
