@@ -233,13 +233,11 @@ impl DeviceDriver for VelloGraphicsDevice {
     //     unsafe { R_NilValue }
     // }
 
-    fn size(&mut self, _: DevDesc) -> (f64, f64, f64, f64) {
+    fn size(&mut self, width: &mut f64, height: &mut f64, _: DevDesc) {
         add_tracing_point!();
 
-        let width = VELLO_APP_PROXY.width.load(Ordering::Relaxed) as f64;
-        let height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
-
-        (0.0, width, 0.0, height)
+        *width = VELLO_APP_PROXY.width.load(Ordering::Relaxed) as f64;
+        *height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
     }
 
     fn char_metric(&mut self, c: char, gc: R_GE_gcontext, _: DevDesc) -> TextMetric {

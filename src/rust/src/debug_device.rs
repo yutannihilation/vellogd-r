@@ -153,11 +153,12 @@ impl DeviceDriver for DebugGraphicsDevice {
         unsafe { R_NilValue }
     }
 
-    fn size(&mut self, dd: DevDesc) -> (f64, f64, f64, f64) {
+    fn size(&mut self, width: &mut f64, height: &mut f64, dd: DevDesc) {
         add_tracing_point!();
         savvy::r_eprintln!("[size]");
 
-        (dd.left, dd.right, dd.bottom, dd.top)
+        *width = dd.right;
+        *height = dd.top;
     }
 
     fn text_width(&mut self, text: &str, gc: R_GE_gcontext, dd: DevDesc) -> f64 {
