@@ -37,6 +37,34 @@ fn xy_to_path(x: &[f64], y: &[f64], close: bool) -> kurbo::BezPath {
     path
 }
 
+fn xy_to_path_with_hole(x: &[f64], y: &[f64], nper: &[i32]) -> kurbo::BezPath {
+    let mut path = kurbo::BezPath::new();
+
+    let x_iter = x.iter();
+    let y_iter = y.iter();
+    let mut points = x_iter.zip(y_iter);
+
+    for n in nper {
+        if let Some(first) = points.next() {
+            path.move_to(kurbo::Point::new(*first.0, *first.1));
+        } else {
+            break;
+        }
+
+        let n_rest = *n as usize - 1;
+        for _ in 0..n_rest {
+            if let Some((x, y)) = points.next() {
+                path.line_to(kurbo::Point::new(*x, *y));
+            } else {
+                break;
+            }
+        }
+        path.close_path();
+    }
+
+    path
+}
+
 pub trait WindowController {
     fn send_event(&self, event: Request) -> savvy::Result<()>;
     fn recv_response(&self) -> savvy::Result<Response>;

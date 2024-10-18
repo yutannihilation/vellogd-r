@@ -145,13 +145,12 @@ impl SceneDrawer {
         let scene = &mut self.inner.lock().unwrap();
         let y_transform = *self.y_transform.lock().unwrap();
         if let Some(fill_params) = fill_params {
-            scene.fill(
-                peniko::Fill::NonZero,
-                y_transform,
-                fill_params.color,
-                None,
-                &path,
-            );
+            let style = if fill_params.use_nonzero_rule {
+                peniko::Fill::NonZero
+            } else {
+                peniko::Fill::EvenOdd
+            };
+            scene.fill(style, y_transform, fill_params.color, None, &path);
         }
 
         if let Some(stroke_params) = stroke_params {

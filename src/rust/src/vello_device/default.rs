@@ -4,6 +4,7 @@ use super::xy_to_path;
 use super::WindowController;
 use crate::add_tracing_point;
 use crate::graphics::DeviceDriver;
+use crate::vello_device::xy_to_path_with_hole;
 use vellogd_shared::ffi::DevDesc;
 use vellogd_shared::ffi::R_GE_gcontext;
 use vellogd_shared::protocol::FillParams;
@@ -129,6 +130,28 @@ impl DeviceDriver for VelloGraphicsDevice {
         }
     }
 
+    fn path(
+        &mut self,
+        x: &[f64],
+        y: &[f64],
+        nper: &[i32],
+        winding: bool,
+        gc: R_GE_gcontext,
+        _: DevDesc,
+    ) {
+        add_tracing_point!();
+
+        let fill_params = FillParams::from_gc_with_flag(gc, winding);
+        let stroke_params = StrokeParams::from_gc(gc);
+        if fill_params.is_some() || stroke_params.is_some() {
+            VELLO_APP_PROXY.scene.draw_polygon(
+                xy_to_path_with_hole(x, y, nper),
+                fill_params,
+                stroke_params,
+            );
+        }
+    }
+
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
@@ -202,18 +225,6 @@ impl DeviceDriver for VelloGraphicsDevice {
             }
         }
     }
-
-    // TODO
-    // fn path(
-    //     &mut self,
-    //     x: &[f64],
-    //     y: &[f64],
-    //     nper: &[i32],
-    //     winding: bool,
-    //     gc: R_GE_gcontext,
-    //     dd: DevDesc,
-    // ) {
-    // }
 
     // TODO
     // fn raster<T: AsRef<[u32]>>(
