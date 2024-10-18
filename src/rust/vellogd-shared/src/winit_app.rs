@@ -57,19 +57,13 @@ impl SceneWithFlag {
 #[derive(Clone)]
 pub struct SceneDrawer {
     inner: Arc<Mutex<SceneWithFlag>>,
-    y_transform: vello::kurbo::Affine,
 }
 
 impl SceneDrawer {
-    pub fn new(height: f32) -> Self {
+    pub fn new() -> Self {
         Self {
             inner: Arc::new(Mutex::new(SceneWithFlag::new())),
-            y_transform: calc_y_translate(height),
         }
-    }
-
-    pub fn set_y_translate(&mut self, height: f32) {
-        self.y_transform = calc_y_translate(height);
     }
 
     pub fn reset(&mut self) {
@@ -93,7 +87,7 @@ impl SceneDrawer {
         if let Some(fill_params) = fill_params {
             scene_with_flag.scene.fill(
                 peniko::Fill::NonZero,
-                self.y_transform,
+                VELLO_APP_PROXY.y_transform(),
                 fill_params.color,
                 None,
                 &circle,
@@ -103,7 +97,7 @@ impl SceneDrawer {
         if let Some(stroke_params) = stroke_params {
             scene_with_flag.scene.stroke(
                 &stroke_params.stroke,
-                self.y_transform,
+                VELLO_APP_PROXY.y_transform(),
                 stroke_params.color,
                 None,
                 &circle,
@@ -119,7 +113,7 @@ impl SceneDrawer {
 
         scene_with_flag.scene.stroke(
             &stroke_params.stroke,
-            self.y_transform,
+            VELLO_APP_PROXY.y_transform(),
             stroke_params.color,
             None,
             &line,
@@ -132,7 +126,7 @@ impl SceneDrawer {
         let scene_with_flag = &mut self.inner.lock().unwrap();
         scene_with_flag.scene.stroke(
             &stroke_params.stroke,
-            self.y_transform,
+            VELLO_APP_PROXY.y_transform(),
             stroke_params.color,
             None,
             &path,
@@ -151,7 +145,7 @@ impl SceneDrawer {
         if let Some(fill_params) = fill_params {
             scene_with_flag.scene.fill(
                 peniko::Fill::NonZero,
-                self.y_transform,
+                VELLO_APP_PROXY.y_transform(),
                 fill_params.color,
                 None,
                 &path,
@@ -161,7 +155,7 @@ impl SceneDrawer {
         if let Some(stroke_params) = stroke_params {
             scene_with_flag.scene.stroke(
                 &stroke_params.stroke,
-                self.y_transform,
+                VELLO_APP_PROXY.y_transform(),
                 stroke_params.color,
                 None,
                 &path,
@@ -183,7 +177,7 @@ impl SceneDrawer {
         if let Some(fill_params) = fill_params {
             scene_with_flag.scene.fill(
                 peniko::Fill::NonZero,
-                self.y_transform,
+                VELLO_APP_PROXY.y_transform(),
                 fill_params.color,
                 None,
                 &rect,
@@ -193,7 +187,7 @@ impl SceneDrawer {
         if let Some(stroke_params) = stroke_params {
             scene_with_flag.scene.stroke(
                 &stroke_params.stroke,
-                self.y_transform,
+                VELLO_APP_PROXY.y_transform(),
                 stroke_params.color,
                 None,
                 &rect,
@@ -586,19 +580,21 @@ pub struct VelloAppProxy {
     // lock (probably doesn't affect much on the performance, though).
     pub width: Arc<AtomicU32>,
     pub height: Arc<AtomicU32>,
-    // TODO
-    // pub y_transform: Arc<Mutex<vello::kurbo::Affine>>,
+    y_transform: Arc<Mutex<vello::kurbo::Affine>>,
 }
 
 impl VelloAppProxy {
     pub fn set_size(&self, width: u32, height: u32) {
         self.width.store(width, Ordering::Relaxed);
         self.height.store(height, Ordering::Relaxed);
-        // TODO: update width and height here
+        *self.y_transform.lock().unwrap() = calc_y_translate(height as f32);
+    }
+
+    pub fn y_transform(&self) -> vello::kurbo::Affine {
+        *self.y_transform.lock().unwrap()
     }
 }
 
-// TODO: change this to OnceCell and create init function that takes width and height
 pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
     let (sender, receiver) = std::sync::mpsc::channel();
     let _ = std::thread::spawn(move || {
@@ -606,17 +602,23 @@ pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
         let (tx, rx) = std::sync::mpsc::channel::<Response>();
 
+        // Note: 0 is a dummy value and should be overwritten soon after the
+        // creation. Ideally, VELLO_APP_PROXY should be OnceLock so that the
+        // init function can initialize this with the actual sizes, but LazyLock
+        // is far better at ergonomics; I want to avoid every-time Option
+        // handling, but this might be a tradeoff...
         let width = Arc::new(AtomicU32::new(0));
         let height = Arc::new(AtomicU32::new(0));
+        let y_transform = Arc::new(Mutex::new(calc_y_translate(0.0)));
 
-        // TODO: SceneDrawer should not hold height
-        let scene = SceneDrawer::new(480.0);
+        let scene = SceneDrawer::new();
         let proxy = VelloAppProxy {
             tx: event_loop.create_proxy(),
             rx: std::sync::Mutex::new(rx),
             scene: scene.clone(),
             width: width.clone(),
             height: height.clone(),
+            y_transform,
         };
         sender.send(proxy).unwrap();
 

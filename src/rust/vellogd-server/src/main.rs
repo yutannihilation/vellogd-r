@@ -112,7 +112,7 @@ fn main() {
         std::thread::sleep(REFRESH_INTERVAL);
     });
 
-    let scene = SceneDrawer::new(480.0);
+    let scene = SceneDrawer::new();
     let mut scene_drawer = scene.clone();
 
     // Since the main thread will be occupied by event_loop, the server needs to
