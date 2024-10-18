@@ -66,6 +66,7 @@ impl SceneDrawer {
         radius: f64,
         fill_params: Option<FillParams>,
         stroke_params: Option<StrokeParams>,
+        y_transform: vello::kurbo::Affine,
     ) {
         let circle = vello::kurbo::Circle::new(center, radius);
         let scene = &mut self.inner.lock().unwrap();
@@ -73,7 +74,7 @@ impl SceneDrawer {
         if let Some(fill_params) = fill_params {
             scene.fill(
                 peniko::Fill::NonZero,
-                VELLO_APP_PROXY.y_transform(),
+                y_transform,
                 fill_params.color,
                 None,
                 &circle,
@@ -89,36 +90,42 @@ impl SceneDrawer {
                 &circle,
             );
         }
-
-        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
-    pub fn draw_line(&self, p0: kurbo::Point, p1: kurbo::Point, stroke_params: StrokeParams) {
+    pub fn draw_line(
+        &self,
+        p0: kurbo::Point,
+        p1: kurbo::Point,
+        stroke_params: StrokeParams,
+        y_transform: vello::kurbo::Affine,
+    ) {
         let line = vello::kurbo::Line::new(p0, p1);
         let scene = &mut self.inner.lock().unwrap();
 
         scene.stroke(
             &stroke_params.stroke,
-            VELLO_APP_PROXY.y_transform(),
+            y_transform,
             stroke_params.color,
             None,
             &line,
         );
-
-        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
-    pub fn draw_polyline(&self, path: kurbo::BezPath, stroke_params: StrokeParams) {
+    pub fn draw_polyline(
+        &self,
+        path: kurbo::BezPath,
+        stroke_params: StrokeParams,
+
+        y_transform: vello::kurbo::Affine,
+    ) {
         let scene = &mut self.inner.lock().unwrap();
         scene.stroke(
             &stroke_params.stroke,
-            VELLO_APP_PROXY.y_transform(),
+            y_transform,
             stroke_params.color,
             None,
             &path,
         );
-
-        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     pub fn draw_polygon(
@@ -126,12 +133,13 @@ impl SceneDrawer {
         path: kurbo::BezPath,
         fill_params: Option<FillParams>,
         stroke_params: Option<StrokeParams>,
+        y_transform: vello::kurbo::Affine,
     ) {
         let scene = &mut self.inner.lock().unwrap();
         if let Some(fill_params) = fill_params {
             scene.fill(
                 peniko::Fill::NonZero,
-                VELLO_APP_PROXY.y_transform(),
+                y_transform,
                 fill_params.color,
                 None,
                 &path,
@@ -147,8 +155,6 @@ impl SceneDrawer {
                 &path,
             );
         }
-
-        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     pub fn draw_rect(
@@ -157,13 +163,14 @@ impl SceneDrawer {
         p1: kurbo::Point,
         fill_params: Option<FillParams>,
         stroke_params: Option<StrokeParams>,
+        y_transform: vello::kurbo::Affine,
     ) {
         let rect = vello::kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y);
         let scene = &mut self.inner.lock().unwrap();
         if let Some(fill_params) = fill_params {
             scene.fill(
                 peniko::Fill::NonZero,
-                VELLO_APP_PROXY.y_transform(),
+                y_transform,
                 fill_params.color,
                 None,
                 &rect,
@@ -173,14 +180,12 @@ impl SceneDrawer {
         if let Some(stroke_params) = stroke_params {
             scene.stroke(
                 &stroke_params.stroke,
-                VELLO_APP_PROXY.y_transform(),
+                y_transform,
                 stroke_params.color,
                 None,
                 &rect,
             );
         }
-
-        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     pub fn draw_glyph(
@@ -233,8 +238,6 @@ impl SceneDrawer {
                     }
                 }),
             );
-
-        VELLO_APP_PROXY.needs_redraw.store(true, Ordering::Relaxed);
     }
 }
 
@@ -246,6 +249,7 @@ pub struct VelloApp<'a, T: AppResponseRelay> {
     needs_redraw: Arc<AtomicBool>,
     width: Arc<AtomicU32>,
     height: Arc<AtomicU32>,
+    y_transform: Arc<Mutex<vello::kurbo::Affine>>,
     background_color: Color, // TODO: probably always the same value
     layout: parley::Layout<peniko::Brush>,
     tx: T,
@@ -257,6 +261,7 @@ impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
     pub fn new(
         width: Arc<AtomicU32>,
         height: Arc<AtomicU32>,
+        y_transform: Arc<Mutex<vello::kurbo::Affine>>,
         tx: T,
         scene: SceneDrawer,
         needs_redraw: Arc<AtomicBool>,
@@ -269,11 +274,22 @@ impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
             needs_redraw,
             width,
             height,
+            y_transform,
             background_color: Color::WHITE_SMOKE,
             layout: parley::Layout::new(),
             tx,
             window_title: "vellogd".to_string(),
         }
+    }
+
+    pub fn set_size(&self, width: u32, height: u32) {
+        self.width.store(width, Ordering::Relaxed);
+        self.height.store(height, Ordering::Relaxed);
+        *self.y_transform.lock().unwrap() = calc_y_translate(height as f32);
+    }
+
+    pub fn y_transform(&self) -> vello::kurbo::Affine {
+        *self.y_transform.lock().unwrap()
     }
 
     pub fn create_new_window(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
@@ -423,10 +439,12 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
             }
 
             WindowEvent::Resized(size) => {
-                self.width.store(size.width, Ordering::Relaxed);
-                self.height.store(size.height, Ordering::Relaxed);
-
-                // TODO: update y_transform
+                // TODO: borrow checker doesn't allow self.set_size(), so inlined the code here.
+                {
+                    self.width.store(size.width, Ordering::Relaxed);
+                    self.height.store(size.height, Ordering::Relaxed);
+                    *self.y_transform.lock().unwrap() = calc_y_translate(size.height as f32);
+                };
 
                 self.context
                     .resize_surface(&mut render_state.surface, size.width, size.height);
@@ -609,11 +627,11 @@ pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
             needs_redraw: needs_redraw.clone(),
             width: width.clone(),
             height: height.clone(),
-            y_transform,
+            y_transform: y_transform.clone(),
         };
         sender.send(proxy).unwrap();
 
-        let mut app = VelloApp::new(width, height, tx, scene, needs_redraw);
+        let mut app = VelloApp::new(width, height, y_transform, tx, scene, needs_redraw);
 
         // this blocks until event_loop exits
         event_loop.run_app(&mut app).unwrap();
