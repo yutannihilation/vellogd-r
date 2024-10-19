@@ -13,6 +13,7 @@ use std::{
     },
 };
 
+use peniko::BlendMode;
 use vello::{
     peniko::Color,
     util::{RenderContext, RenderSurface},
@@ -287,6 +288,23 @@ impl SceneDrawer {
 
         // TODO: can this be done one time per text, not per glyph?
         self.needs_redraw.store(true, Ordering::Relaxed);
+    }
+
+    pub fn push_clip(&self, p0: kurbo::Point, p1: kurbo::Point) {
+        let scene = &mut self.inner.lock().unwrap();
+        // R's graphics device always replaces the clipping strategy (really?)
+        scene.pop_layer();
+        scene.push_layer(
+            peniko::Mix::Clip,
+            1.0,
+            kurbo::Affine::IDENTITY,
+            &kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y),
+        );
+    }
+
+    pub fn pop_clip(&self) {
+        let scene = &mut self.inner.lock().unwrap();
+        scene.pop_layer();
     }
 }
 

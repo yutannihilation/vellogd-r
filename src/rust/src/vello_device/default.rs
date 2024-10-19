@@ -1,12 +1,10 @@
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 
 use super::xy_to_path;
 use super::WindowController;
 use crate::add_tracing_point;
 use crate::graphics::DeviceDriver;
 use crate::vello_device::xy_to_path_with_hole;
-use peniko::Blob;
 use vellogd_shared::ffi::DevDesc;
 use vellogd_shared::ffi::R_GE_gcontext;
 use vellogd_shared::protocol::FillParams;
@@ -96,8 +94,16 @@ impl DeviceDriver for VelloGraphicsDevice {
         }
     }
 
-    // TODO
-    // fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {}
+    fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {
+        let window_width = VELLO_APP_PROXY.width.load(Ordering::Relaxed) as f64;
+        let window_height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
+
+        if from.0 <= 0.0 && from.1 <= 0.0 && to.0 >= window_width && to.1 >= window_height {
+            VELLO_APP_PROXY.scene.pop_clip();
+        } else {
+            VELLO_APP_PROXY.scene.push_clip(from.into(), to.into());
+        }
+    }
 
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();

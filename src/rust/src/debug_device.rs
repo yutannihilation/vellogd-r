@@ -56,9 +56,14 @@ impl DeviceDriver for DebugGraphicsDevice {
         );
     }
 
-    fn clip(&mut self, from: (f64, f64), to: (f64, f64), _: DevDesc) {
+    fn clip(&mut self, from: (f64, f64), to: (f64, f64), dd: DevDesc) {
         add_tracing_point!();
         savvy::r_eprintln!("[clip] from: {from:?}, to: {to:?}");
+        if from.0 <= 0.0 && from.1 <= 0.0 && to.0 >= dd.right && to.1 >= dd.top {
+            savvy::r_eprintln!("[clip] pop");
+        } else {
+            savvy::r_eprintln!("[clip] push");
+        }
     }
 
     fn close(&mut self, _: DevDesc) {
