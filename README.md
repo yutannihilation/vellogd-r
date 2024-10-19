@@ -91,7 +91,7 @@ cf. <https://github.com/r-devel/r-svn/blob/main/src/include/R_ext/GraphicsDevice
 | `polygon`         | ✅ | Draw [`kurbo::BezPath`]. |
 | `path`            | ✅ | Draw [`kurbo::BezPath`]. |
 | `polyline`        | ✅ | Draw [`kurbo::BezPath`]. |
-| `raster`          | ✅ | |
+| `raster`          | ✅ | TODO: server version, non-interpolated version |
 | `metricInfo`      | ✅ | |
 | `strWidth`        | ✅ | |
 | `text`            | ✅ | (Partially supported) |
