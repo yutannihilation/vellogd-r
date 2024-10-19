@@ -80,7 +80,7 @@ cf. <https://github.com/r-devel/r-svn/blob/main/src/include/R_ext/GraphicsDevice
 | `close`           | ✅ |  |
 | `newPage`         | ✅ |  |
 | `size`            | ✅ |  |
-| `mode`            | ✅ |  |
+| `mode`            | ✅ | TODO: server side |
 | `newFrameConfirm` | ✅ | Do nothing |
 | `holdflush`       |    | |
 | `locator`         |    | |
@@ -97,7 +97,7 @@ cf. <https://github.com/r-devel/r-svn/blob/main/src/include/R_ext/GraphicsDevice
 | `text`            | ✅ | (Partially supported) |
 | `textUTF8`        | ✅ | (Partially supported) |
 | `glyph`           |    | |
-| `clip`            |    | [`vello::Scene::push_layer()`](https://docs.rs/vello/latest/vello/struct.Scene.html#method.push_layer) seems to handle this. |
+| `clip`            | ✅ | TODO: server version, can I hide the clipping rectangle? |
 | `cap`             |    | |
 | `eventHelper`     |    | |
 | `setPattern`      |    | |
