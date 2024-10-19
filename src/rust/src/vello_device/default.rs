@@ -81,8 +81,15 @@ impl DeviceDriver for VelloGraphicsDevice {
     // TODO
     // fn deactivate(&mut self, _: DevDesc) {}
 
-    // TODO
-    // fn mode(&mut self, mode: i32, _: DevDesc) {}
+    // GraphicsDevice.h says:
+    //
+    //     device_Mode is called whenever the graphics engine
+    //     starts drawing (mode=1) or stops drawing (mode=0)
+    fn mode(&mut self, mode: i32, _: DevDesc) {
+        VELLO_APP_PROXY
+            .stop_rendering
+            .store(mode == 1, Ordering::Relaxed);
+    }
 
     fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
