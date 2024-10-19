@@ -15,6 +15,7 @@ use vellogd_shared::protocol::Response;
 use vellogd_shared::protocol::StrokeParams;
 use vellogd_shared::text_layouter::TextLayouter;
 use vellogd_shared::text_layouter::TextMetric;
+use vellogd_shared::winit_app::convert_to_image;
 use vellogd_shared::winit_app::VELLO_APP_PROXY;
 
 pub struct VelloGraphicsDevice {
@@ -243,46 +244,31 @@ impl DeviceDriver for VelloGraphicsDevice {
 
         let alpha = gc.col.to_ne_bytes()[3];
 
-        // Note: I'm hoping to use no copy here. However, this raster might
-        //    be drawn after the raster() Graphics API call. There's no
-        //    guarantee that this still exists on R's memory at the time.
-        //    So, this needs to be kept on Rust's memory.
-        // let raster_owned = raster.to_vec();
-        let width = pixels.0 as usize;
-        let extended_width = width + 1;
-        let height = pixels.1 as usize;
-        let extended_height = height + 1;
-        let mut raster_owned = Vec::with_capacity(extended_width * extended_height);
-        for (i, row) in raster.chunks(width * 4).enumerate() {
-            raster_owned.extend_from_slice(row);
-            // copy the last pixel
-            let last_pixel = &row[(width * 4 - 4)..(width * 4)];
-            raster_owned.extend_from_slice(last_pixel);
-            // fill the last line
-            if i == height - 1 {
-                raster_owned.extend_from_slice(row);
-                raster_owned.extend_from_slice(last_pixel);
-            }
+        let scale = (size.0 / pixels.0 as f64, size.1 / pixels.1 as f64);
+
+        // when the pixel is small enough, it's not a problem, but if it's
+        // large, this needs a tweak.
+        let with_extended_edge = scale.0 > 1.0 || scale.1 > 1.0;
+
+        #[cfg(debug_assertions)]
+        {
+            savvy::r_eprintln!("with_extended_edge : {with_extended_edge}");
         }
 
-        let raster_blob = peniko::Blob::new(Arc::new(raster_owned));
-        let image = peniko::Image {
-            data: raster_blob,
-            format: peniko::Format::Rgba8,
-            width: extended_width as _,
-            height: extended_height as _,
-            extend: peniko::Extend::Pad,
+        let image = convert_to_image(
+            raster,
+            pixels.0 as usize,
+            pixels.1 as usize,
             alpha,
-        };
-
-        let scale = (size.0 / pixels.0 as f64, size.1 / pixels.1 as f64);
+            with_extended_edge,
+        );
 
         let window_height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
         let pos = (pos.0, window_height - (pos.1 + size.1)); // change to top-left corner
 
         VELLO_APP_PROXY
             .scene
-            .draw_raster(&image, scale, pos.into(), angle);
+            .draw_raster(&image, scale, pos.into(), angle, with_extended_edge);
     }
 
     // TODO
