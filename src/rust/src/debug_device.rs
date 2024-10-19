@@ -24,7 +24,15 @@ fn text_related_params(gc: R_GE_gcontext) -> String {
     format!("fill: {:08x}", gc.fill)
 }
 
-pub struct DebugGraphicsDevice {}
+pub struct DebugGraphicsDevice {
+    n_clip: i32,
+}
+
+impl DebugGraphicsDevice {
+    pub fn new() -> Self {
+        Self { n_clip: 0 }
+    }
+}
 
 fn take3<T: std::fmt::Debug>(x: &[T]) -> String {
     if x.len() < 3 {
@@ -60,9 +68,11 @@ impl DeviceDriver for DebugGraphicsDevice {
         add_tracing_point!();
         savvy::r_eprintln!("[clip] from: {from:?}, to: {to:?}");
         if from.0 <= 0.0 && from.1 <= 0.0 && to.0 >= dd.right && to.1 >= dd.top {
-            savvy::r_eprintln!("[clip] pop");
+            self.n_clip = (self.n_clip - 1).max(0);
+            savvy::r_eprintln!("[clip] pop (n_clip: {})", self.n_clip);
         } else {
-            savvy::r_eprintln!("[clip] push");
+            self.n_clip += 1;
+            savvy::r_eprintln!("[clip] push (n_clip: {})", self.n_clip);
         }
     }
 

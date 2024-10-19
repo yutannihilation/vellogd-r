@@ -82,7 +82,7 @@ fn vellogd_with_server_impl(
 fn debuggd() -> savvy::Result<()> {
     #[cfg(debug_assertions)]
     {
-        let device_driver = debug_device::DebugGraphicsDevice {};
+        let device_driver = debug_device::DebugGraphicsDevice::new();
 
         // TODO: the actual width and height is kept on the server's side.
         let device_descriptor = DeviceDescriptor::new(480.0, 480.0);
