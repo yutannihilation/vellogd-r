@@ -318,7 +318,7 @@ pub fn convert_to_image(
                 raster_owned.extend_from_slice(last_pixel);
             }
         }
-        (raster_owned, extended_width as u32, extended_width as u32)
+        (raster_owned, extended_width as u32, extended_height as u32)
     };
 
     let raster_blob = peniko::Blob::new(Arc::new(raster_owned));
