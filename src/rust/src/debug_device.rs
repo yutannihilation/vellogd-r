@@ -134,17 +134,23 @@ impl DeviceDriver for DebugGraphicsDevice {
 
     fn raster(
         &mut self,
-        _raster: peniko::Blob<u8>,
-        _w: usize,
-        _pos: (f64, f64),
-        _size: (f64, f64),
+        _raster: &[u8],
+        pixels: (u32, u32),
+        pos: (f64, f64), // bottom left corner
+        size: (f64, f64),
         _angle: f64,
-        _interpolate: bool,
-        _: R_GE_gcontext,
+        _interpolate: bool, // ?
+        _gc: R_GE_gcontext,
         _: DevDesc,
     ) {
         add_tracing_point!();
-        savvy::r_eprintln!("[raster]");
+
+        savvy::r_eprintln!(
+            "[raster] 
+        pixels: {pixels:?}
+        pos: {pos:?} 
+        size: {size:?}"
+        );
     }
 
     fn capture(&mut self, _: DevDesc) -> savvy::ffi::SEXP {

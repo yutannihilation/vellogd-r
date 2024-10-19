@@ -1,7 +1,6 @@
-use peniko::Blob;
 use savvy::ffi::SEXP;
+use std::ffi::CString;
 use std::slice;
-use std::{ffi::CString, sync::Arc};
 use vellogd_shared::{
     ffi::{
         pDevDesc, pGEcontext, DevDesc, GEaddDevice2, GEcreateDevDesc, GEinitDisplayList,
@@ -175,7 +174,7 @@ pub trait DeviceDriver: std::marker::Sized {
     /// image.
     fn raster(
         &mut self,
-        raster: *mut u8,
+        raster: &[u8],
         pixels: (u32, u32),
         pos: (f64, f64),
         size: (f64, f64),
@@ -494,9 +493,12 @@ pub trait DeviceDriver: std::marker::Sized {
             let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
 
             // convert u32 to u8.
-            let w = (w * 4) as u32;
-            let h = h as u32;
-            let raster = unsafe { std::mem::transmute::<*mut c_uint, *mut u8>(raster) };
+            let raster = unsafe {
+                std::slice::from_raw_parts(
+                    std::mem::transmute::<*mut c_uint, *mut u8>(raster),
+                    (w * h * 4) as _, // u32 contains 4 u8s, so multiply by 4
+                )
+            };
 
             data.raster(
                 raster,

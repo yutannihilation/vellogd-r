@@ -228,10 +228,9 @@ impl DeviceDriver for VelloGraphicsDevice {
         }
     }
 
-    // TODO
     fn raster(
         &mut self,
-        raster: *mut u8,
+        raster: &[u8],
         pixels: (u32, u32),
         pos: (f64, f64), // bottom left corner
         size: (f64, f64),
@@ -240,17 +239,17 @@ impl DeviceDriver for VelloGraphicsDevice {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
+        add_tracing_point!();
+
         let alpha = gc.col.to_ne_bytes()[3];
-        let raster_bytes =
-            unsafe { std::slice::from_raw_parts(raster, (pixels.0 * pixels.1) as _) };
 
         // Note: I'm hoping to use no copy here. However, this raster might
         //    be drawn after the raster() Graphics API call. There's no
         //    guarantee that this still exists on R's memory at the time.
         //    So, this needs to be kept on Rust's memory.
-        let raster_bytes_owned = raster_bytes.to_vec();
+        let raster_owned = raster.to_vec();
 
-        let raster_blob = peniko::Blob::new(Arc::new(raster_bytes_owned));
+        let raster_blob = peniko::Blob::new(Arc::new(raster_owned));
         let image = peniko::Image {
             data: raster_blob,
             format: peniko::Format::Rgba8,
@@ -259,15 +258,15 @@ impl DeviceDriver for VelloGraphicsDevice {
             extend: peniko::Extend::Pad,
             alpha,
         };
-        VELLO_APP_PROXY.scene.draw_raster(
-            image,
-            (
-                pos.0,
-                pos.1 + size.1, // top-left corner
-            ),
-            size,
-            angle,
-        );
+
+        let scale = (size.0 / pixels.0 as f64, size.1 / pixels.1 as f64);
+
+        let window_height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
+        let pos = (pos.0, window_height - (pos.1 + size.1)); // change to top-left corner
+
+        VELLO_APP_PROXY
+            .scene
+            .draw_raster(&image, scale, pos.into(), angle);
     }
 
     // TODO

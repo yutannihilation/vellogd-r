@@ -201,14 +201,17 @@ impl SceneDrawer {
 
     pub fn draw_raster(
         &self,
-        image: peniko::Image,
-        pos: kurbo::Point, // top left corner
-        size: (f64, f64),
+        image: &peniko::Image,
+        scale: (f64, f64),
+        pos: kurbo::Vec2, // top left corner
         angle: f64,
     ) {
-        vello::kurbo::Affine::translate(pos.into())
-            .then_rotate(-angle.to_radians())
-            .then_translate((pos.0, window_height - pos.1).into()); // Y-axis is flipped
+        let transform = kurbo::Affine::scale_non_uniform(scale.0, scale.1)
+            .then_translate(pos)
+            .then_rotate(-angle.to_radians());
+        let scene = &mut self.inner.lock().unwrap();
+        scene.draw_image(image, transform);
+        self.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     pub fn draw_glyph(
