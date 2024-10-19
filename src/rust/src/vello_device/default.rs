@@ -1,10 +1,12 @@
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 use super::xy_to_path;
 use super::WindowController;
 use crate::add_tracing_point;
 use crate::graphics::DeviceDriver;
 use crate::vello_device::xy_to_path_with_hole;
+use peniko::Blob;
 use vellogd_shared::ffi::DevDesc;
 use vellogd_shared::ffi::R_GE_gcontext;
 use vellogd_shared::protocol::FillParams;
@@ -227,17 +229,46 @@ impl DeviceDriver for VelloGraphicsDevice {
     }
 
     // TODO
-    // fn raster<T: AsRef<[u32]>>(
-    //     &mut self,
-    //     raster: crate::graphics::Raster<T>,
-    //     pos: (f64, f64),
-    //     size: (f64, f64),
-    //     angle: f64,
-    //     interpolate: bool,
-    //     gc: R_GE_gcontext,
-    //     _: DevDesc,
-    // ) {
-    // }
+    fn raster(
+        &mut self,
+        raster: *mut u8,
+        pixels: (u32, u32),
+        pos: (f64, f64), // bottom left corner
+        size: (f64, f64),
+        angle: f64,
+        _interpolate: bool, // ?
+        gc: R_GE_gcontext,
+        _: DevDesc,
+    ) {
+        let alpha = gc.col.to_ne_bytes()[3];
+        let raster_bytes =
+            unsafe { std::slice::from_raw_parts(raster, (pixels.0 * pixels.1) as _) };
+
+        // Note: I'm hoping to use no copy here. However, this raster might
+        //    be drawn after the raster() Graphics API call. There's no
+        //    guarantee that this still exists on R's memory at the time.
+        //    So, this needs to be kept on Rust's memory.
+        let raster_bytes_owned = raster_bytes.to_vec();
+
+        let raster_blob = peniko::Blob::new(Arc::new(raster_bytes_owned));
+        let image = peniko::Image {
+            data: raster_blob,
+            format: peniko::Format::Rgba8,
+            width: pixels.0,
+            height: pixels.1,
+            extend: peniko::Extend::Pad,
+            alpha,
+        };
+        VELLO_APP_PROXY.scene.draw_raster(
+            image,
+            (
+                pos.0,
+                pos.1 + size.1, // top-left corner
+            ),
+            size,
+            angle,
+        );
+    }
 
     // TODO
     // fn capture(&mut self, _: DevDesc) -> savvy::ffi::SEXP {

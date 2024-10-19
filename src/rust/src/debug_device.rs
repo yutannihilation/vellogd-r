@@ -132,9 +132,10 @@ impl DeviceDriver for DebugGraphicsDevice {
         savvy::r_eprintln!("[path] nper: {nper:?}");
     }
 
-    fn raster<T: AsRef<[u32]>>(
+    fn raster(
         &mut self,
-        _raster: crate::graphics::Raster<T>,
+        _raster: peniko::Blob<u8>,
+        _w: usize,
         _pos: (f64, f64),
         _size: (f64, f64),
         _angle: f64,

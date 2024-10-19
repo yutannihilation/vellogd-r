@@ -1,6 +1,7 @@
+use peniko::Blob;
 use savvy::ffi::SEXP;
-use std::ffi::CString;
 use std::slice;
+use std::{ffi::CString, sync::Arc};
 use vellogd_shared::{
     ffi::{
         pDevDesc, pGEcontext, DevDesc, GEaddDevice2, GEcreateDevDesc, GEinitDisplayList,
@@ -10,7 +11,7 @@ use vellogd_shared::{
     text_layouter::TextMetric,
 };
 
-use super::{device_descriptor::*, Raster};
+use super::device_descriptor::*;
 
 /// The underlying C structure `DevDesc` has two fields related to clipping:
 ///
@@ -172,9 +173,10 @@ pub trait DeviceDriver: std::marker::Sized {
     /// with positive rotation anticlockwise from the positive x-axis.
     /// `interpolate` is whether to apply the linear interpolation on the raster
     /// image.
-    fn raster<T: AsRef<[u32]>>(
+    fn raster(
         &mut self,
-        raster: Raster<T>,
+        raster: *mut u8,
+        pixels: (u32, u32),
         pos: (f64, f64),
         size: (f64, f64),
         angle: f64,
@@ -478,8 +480,8 @@ pub trait DeviceDriver: std::marker::Sized {
 
         unsafe extern "C" fn device_driver_raster<T: DeviceDriver>(
             raster: *mut c_uint,
-            w: c_int,
-            h: c_int,
+            w: c_uint,
+            h: c_uint,
             x: f64,
             y: f64,
             width: f64,
@@ -490,13 +492,15 @@ pub trait DeviceDriver: std::marker::Sized {
             dd: pDevDesc,
         ) {
             let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
-            let raster = slice::from_raw_parts(raster, (w * h) as _);
 
-            data.raster::<&[u32]>(
-                Raster {
-                    pixels: raster,
-                    width: w as _,
-                },
+            // convert u32 to u8.
+            let w = (w * 4) as u32;
+            let h = h as u32;
+            let raster = unsafe { std::mem::transmute::<*mut c_uint, *mut u8>(raster) };
+
+            data.raster(
+                raster,
+                (w, h),
                 (x, y),
                 (width, height),
                 rot,

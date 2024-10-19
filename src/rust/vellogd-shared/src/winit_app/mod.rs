@@ -199,6 +199,18 @@ impl SceneDrawer {
         self.needs_redraw.store(true, Ordering::Relaxed);
     }
 
+    pub fn draw_raster(
+        &self,
+        image: peniko::Image,
+        pos: kurbo::Point, // top left corner
+        size: (f64, f64),
+        angle: f64,
+    ) {
+        vello::kurbo::Affine::translate(pos.into())
+            .then_rotate(-angle.to_radians())
+            .then_translate((pos.0, window_height - pos.1).into()); // Y-axis is flipped
+    }
+
     pub fn draw_glyph(
         &self,
         glyph_run: parley::GlyphRun<peniko::Brush>,

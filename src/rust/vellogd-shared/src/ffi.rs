@@ -159,9 +159,9 @@ pub struct _DevDesc {
     >,
     pub raster: Option<
         unsafe extern "C" fn(
-            raster: *mut ::std::os::raw::c_uint,
-            w: c_int,
-            h: c_int,
+            raster: *mut c_uint,
+            w: c_uint,
+            h: c_uint,
             x: f64,
             y: f64,
             width: f64,
