@@ -209,8 +209,20 @@ impl SceneDrawer {
         let transform = kurbo::Affine::scale_non_uniform(scale.0, scale.1)
             .then_translate(pos)
             .then_rotate(-angle.to_radians());
+        let brush_transform = kurbo::Affine::translate((0.5, 0.5));
         let scene = &mut self.inner.lock().unwrap();
-        scene.draw_image(image, transform);
+        scene.fill(
+            peniko::Fill::NonZero,
+            transform,
+            image,
+            Some(brush_transform),
+            &kurbo::Rect::new(
+                0.0,
+                0.0,
+                (image.width + 1) as f64,
+                (image.height + 1) as f64,
+            ),
+        );
         self.needs_redraw.store(true, Ordering::Relaxed);
     }
 

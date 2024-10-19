@@ -235,7 +235,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         pos: (f64, f64), // bottom left corner
         size: (f64, f64),
         angle: f64,
-        _interpolate: bool, // ?
+        _interpolate: bool, // TODO
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
@@ -247,14 +247,30 @@ impl DeviceDriver for VelloGraphicsDevice {
         //    be drawn after the raster() Graphics API call. There's no
         //    guarantee that this still exists on R's memory at the time.
         //    So, this needs to be kept on Rust's memory.
-        let raster_owned = raster.to_vec();
+        // let raster_owned = raster.to_vec();
+        let width = pixels.0 as usize;
+        let extended_width = width + 1;
+        let height = pixels.1 as usize;
+        let extended_height = height + 1;
+        let mut raster_owned = Vec::with_capacity(extended_width * extended_height);
+        for (i, row) in raster.chunks(width * 4).enumerate() {
+            raster_owned.extend_from_slice(row);
+            // copy the last pixel
+            let last_pixel = &row[(width * 4 - 4)..(width * 4)];
+            raster_owned.extend_from_slice(last_pixel);
+            // fill the last line
+            if i == height - 1 {
+                raster_owned.extend_from_slice(row);
+                raster_owned.extend_from_slice(last_pixel);
+            }
+        }
 
         let raster_blob = peniko::Blob::new(Arc::new(raster_owned));
         let image = peniko::Image {
             data: raster_blob,
             format: peniko::Format::Rgba8,
-            width: pixels.0,
-            height: pixels.1,
+            width: extended_width as _,
+            height: extended_height as _,
             extend: peniko::Extend::Pad,
             alpha,
         };
