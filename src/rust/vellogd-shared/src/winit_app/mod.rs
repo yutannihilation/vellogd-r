@@ -705,6 +705,10 @@ pub struct VelloAppProxy {
     pub height: Arc<AtomicU32>,
     y_transform: Arc<Mutex<vello::kurbo::Affine>>,
     base_color: Arc<AtomicU32>,
+
+    // To be called by mode() API so that the device can stop rendering when it
+    // is actively written.
+    pub stop_rendering: Arc<AtomicBool>,
 }
 
 impl VelloAppProxy {
@@ -741,6 +745,8 @@ pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
         let y_transform = Arc::new(Mutex::new(calc_y_translate(0.0)));
         let base_color = Arc::new(AtomicU32::new(Color::WHITE_SMOKE.to_premul_u32()));
 
+        let is_drawing = Arc::new(AtomicBool::new(false));
+
         let scene = SceneDrawer::new(y_transform.clone(), needs_redraw.clone());
         let proxy = VelloAppProxy {
             tx: event_loop.create_proxy(),
@@ -750,6 +756,7 @@ pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
             height: height.clone(),
             y_transform: y_transform.clone(),
             base_color: base_color.clone(),
+            stop_rendering: is_drawing.clone(),
         };
         sender.send(proxy).unwrap();
 
@@ -770,11 +777,16 @@ pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
     let event_loop = receiver.recv().unwrap();
     let event_loop_for_refresh = event_loop.tx.clone();
 
+    let stop_rendering = event_loop.stop_rendering.clone();
+
     // TODO: stop refreshing when no window
     std::thread::spawn(move || loop {
-        event_loop_for_refresh
-            .send_event(Request::RedrawWindow)
-            .unwrap();
+        // Skip refreshing the window if the R session is drawing into it.
+        if !stop_rendering.load(Ordering::Relaxed) {
+            event_loop_for_refresh
+                .send_event(Request::RedrawWindow)
+                .unwrap();
+        }
         std::thread::sleep(REFRESH_INTERVAL);
     });
 
