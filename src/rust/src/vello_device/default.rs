@@ -1,10 +1,12 @@
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 use super::xy_to_path;
 use super::WindowController;
 use crate::add_tracing_point;
 use crate::graphics::DeviceDriver;
 use crate::vello_device::xy_to_path_with_hole;
+use peniko::Blob;
 use vellogd_shared::ffi::DevDesc;
 use vellogd_shared::ffi::R_GE_gcontext;
 use vellogd_shared::protocol::FillParams;
@@ -13,6 +15,7 @@ use vellogd_shared::protocol::Response;
 use vellogd_shared::protocol::StrokeParams;
 use vellogd_shared::text_layouter::TextLayouter;
 use vellogd_shared::text_layouter::TextMetric;
+use vellogd_shared::winit_app::convert_to_image;
 use vellogd_shared::winit_app::VELLO_APP_PROXY;
 
 pub struct VelloGraphicsDevice {
@@ -226,18 +229,47 @@ impl DeviceDriver for VelloGraphicsDevice {
         }
     }
 
-    // TODO
-    // fn raster<T: AsRef<[u32]>>(
-    //     &mut self,
-    //     raster: crate::graphics::Raster<T>,
-    //     pos: (f64, f64),
-    //     size: (f64, f64),
-    //     angle: f64,
-    //     interpolate: bool,
-    //     gc: R_GE_gcontext,
-    //     _: DevDesc,
-    // ) {
-    // }
+    fn raster(
+        &mut self,
+        raster: &[u8],
+        pixels: (u32, u32),
+        pos: (f64, f64), // bottom left corner
+        size: (f64, f64),
+        angle: f64,
+        _interpolate: bool, // TODO
+        gc: R_GE_gcontext,
+        _: DevDesc,
+    ) {
+        add_tracing_point!();
+
+        let alpha = gc.col.to_ne_bytes()[3];
+
+        let scale = (size.0 / pixels.0 as f64, size.1 / pixels.1 as f64);
+
+        // when the pixel is small enough, it's not a problem, but if it's
+        // large, this needs a tweak.
+        let with_extended_edge = scale.0 > 1.0 || scale.1 > 1.0;
+
+        #[cfg(debug_assertions)]
+        {
+            savvy::r_eprintln!("with_extended_edge : {with_extended_edge}");
+        }
+
+        let image = convert_to_image(
+            raster,
+            pixels.0 as usize,
+            pixels.1 as usize,
+            alpha,
+            with_extended_edge,
+        );
+
+        let window_height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
+        let pos = (pos.0, window_height - (pos.1 + size.1)); // change to top-left corner
+
+        VELLO_APP_PROXY
+            .scene
+            .draw_raster(&image, scale, pos.into(), angle, with_extended_edge);
+    }
 
     // TODO
     // fn capture(&mut self, _: DevDesc) -> savvy::ffi::SEXP {

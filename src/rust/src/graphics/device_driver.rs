@@ -10,7 +10,7 @@ use vellogd_shared::{
     text_layouter::TextMetric,
 };
 
-use super::{device_descriptor::*, Raster};
+use super::device_descriptor::*;
 
 /// The underlying C structure `DevDesc` has two fields related to clipping:
 ///
@@ -172,9 +172,10 @@ pub trait DeviceDriver: std::marker::Sized {
     /// with positive rotation anticlockwise from the positive x-axis.
     /// `interpolate` is whether to apply the linear interpolation on the raster
     /// image.
-    fn raster<T: AsRef<[u32]>>(
+    fn raster(
         &mut self,
-        raster: Raster<T>,
+        raster: &[u8],
+        pixels: (u32, u32),
         pos: (f64, f64),
         size: (f64, f64),
         angle: f64,
@@ -478,8 +479,8 @@ pub trait DeviceDriver: std::marker::Sized {
 
         unsafe extern "C" fn device_driver_raster<T: DeviceDriver>(
             raster: *mut c_uint,
-            w: c_int,
-            h: c_int,
+            w: c_uint,
+            h: c_uint,
             x: f64,
             y: f64,
             width: f64,
@@ -490,13 +491,18 @@ pub trait DeviceDriver: std::marker::Sized {
             dd: pDevDesc,
         ) {
             let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
-            let raster = slice::from_raw_parts(raster, (w * h) as _);
 
-            data.raster::<&[u32]>(
-                Raster {
-                    pixels: raster,
-                    width: w as _,
-                },
+            // convert u32 to u8.
+            let raster = unsafe {
+                std::slice::from_raw_parts(
+                    std::mem::transmute::<*mut c_uint, *mut u8>(raster),
+                    (w * h * 4) as _, // u32 contains 4 u8s, so multiply by 4
+                )
+            };
+
+            data.raster(
+                raster,
+                (w, h),
                 (x, y),
                 (width, height),
                 rot,
