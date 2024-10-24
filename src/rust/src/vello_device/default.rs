@@ -40,12 +40,8 @@ impl WindowController for VelloGraphicsDevice {
     }
 
     fn recv_response(&self) -> savvy::Result<Response> {
-        VELLO_APP_PROXY
-            .rx
-            .lock()
-            .unwrap()
-            .recv()
-            .map_err(|e| e.to_string().into())
+        let receiver = VELLO_APP_PROXY.rx.lock().map_err(|e| e.to_string())?;
+        receiver.recv().map_err(|e| e.to_string().into())
     }
 }
 

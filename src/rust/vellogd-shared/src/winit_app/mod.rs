@@ -13,7 +13,6 @@ use std::{
     },
 };
 
-use peniko::BlendMode;
 use vello::{
     peniko::Color,
     util::{RenderContext, RenderSurface},
