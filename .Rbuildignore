@@ -5,3 +5,5 @@
 ^src/rust/target$
 ^\.github$
 ^LICENSE\.md$
+
+^src/rust/.vscode$
