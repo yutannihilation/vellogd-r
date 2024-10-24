@@ -209,31 +209,13 @@ impl SceneDrawer {
         scale: (f64, f64),
         pos: kurbo::Vec2, // top left corner
         angle: f64,
-        with_extended_edge: bool,
     ) {
         let transform = kurbo::Affine::scale_non_uniform(scale.0, scale.1)
             .then_translate(pos)
             .then_rotate(-angle.to_radians());
         let scene = &mut self.inner.lock().unwrap();
 
-        let (brush_transform, width, height) = if with_extended_edge {
-            // draw largely and clip the edge
-            (
-                Some(kurbo::Affine::translate((0.5, 0.5))),
-                image.width as f64 - 1.0,
-                image.height as f64 - 1.0,
-            )
-        } else {
-            (None, image.width as f64, image.height as f64)
-        };
-
-        scene.fill(
-            peniko::Fill::NonZero,
-            transform,
-            image,
-            brush_transform,
-            &kurbo::Rect::new(0.0, 0.0, width, height),
-        );
+        scene.draw_image(image, transform);
 
         self.needs_redraw.store(true, Ordering::Relaxed);
     }
@@ -317,39 +299,13 @@ impl SceneDrawer {
 //    be drawn after the raster() Graphics API call. There's no
 //    guarantee that this still exists on R's memory at the time.
 //    So, this needs to be kept on Rust's memory.
-pub fn convert_to_image(
-    raster: &[u8],
-    width: usize,
-    height: usize,
-    alpha: u8,
-    with_extended_edge: bool,
-) -> peniko::Image {
-    let (raster_owned, width, height) = if !with_extended_edge {
-        (raster.to_vec(), width as u32, height as u32)
-    } else {
-        let extended_width = width + 1;
-        let extended_height = height + 1;
-        let mut raster_owned = Vec::with_capacity(extended_width * extended_height);
-        for (i, row) in raster.chunks(width * 4).enumerate() {
-            raster_owned.extend_from_slice(row);
-            // copy the last pixel
-            let last_pixel = &row[(width * 4 - 4)..(width * 4)];
-            raster_owned.extend_from_slice(last_pixel);
-            // fill the last line
-            if i == height - 1 {
-                raster_owned.extend_from_slice(row);
-                raster_owned.extend_from_slice(last_pixel);
-            }
-        }
-        (raster_owned, extended_width as u32, extended_height as u32)
-    };
-
-    let raster_blob = peniko::Blob::new(Arc::new(raster_owned));
+pub fn convert_to_image(raster: &[u8], width: usize, height: usize, alpha: u8) -> peniko::Image {
+    let raster_blob = peniko::Blob::new(Arc::new(raster.to_vec()));
     peniko::Image {
         data: raster_blob,
         format: peniko::Format::Rgba8,
-        width,
-        height,
+        width: width as u32,
+        height: height as u32,
         extend: peniko::Extend::Pad,
         alpha,
     }
