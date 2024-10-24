@@ -21,7 +21,13 @@ fn line_related_params(gc: R_GE_gcontext) -> String {
 
 #[cfg(debug_assertions)]
 fn text_related_params(gc: R_GE_gcontext) -> String {
-    format!("fill: {:08x}", gc.fill)
+    let family = unsafe {
+        std::ffi::CStr::from_ptr(gc.fontfamily.as_ptr())
+            .to_str()
+            .unwrap_or("(empty)")
+    }
+    .to_string();
+    format!("color: {:08x}, family: {family}", gc.col)
 }
 
 pub struct DebugGraphicsDevice {
