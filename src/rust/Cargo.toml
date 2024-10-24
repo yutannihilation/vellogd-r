@@ -2,7 +2,6 @@
 name = "vellogd"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
 
 [lib]
 crate-type = ["staticlib", "lib"]
@@ -33,7 +32,6 @@ resolver = "2"
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.82"
 
 [workspace.dependencies]
 vellogd-shared = { path = "./vellogd-shared", default-features = false }
