@@ -291,13 +291,16 @@ impl SceneDrawer {
 
     pub fn push_clip(&self, p0: kurbo::Point, p1: kurbo::Point) {
         let scene = &mut self.inner.lock().unwrap();
+        let y_transform = *self.y_transform.lock().unwrap();
+
         // R's graphics device always replaces the clipping strategy (really?)
         scene.pop_layer();
+
         scene.push_layer(
             peniko::Mix::Clip,
             1.0,
-            kurbo::Affine::IDENTITY,
-            &kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y),
+            y_transform,
+            &kurbo::Rect::new(p0.x, p0.y, p1.y, p1.y),
         );
     }
 
