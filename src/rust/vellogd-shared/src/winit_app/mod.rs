@@ -243,12 +243,11 @@ impl SceneDrawer {
         glyph_run: parley::GlyphRun<peniko::Brush>,
         color: peniko::Color,
         transform: kurbo::Affine,
-        vadj: f32,
     ) {
         let scene = &mut self.inner.lock().unwrap();
 
         let mut x = glyph_run.offset();
-        let y = glyph_run.baseline() - vadj;
+        let y = 0.0;
         let run = glyph_run.run();
 
         let font = run.font();
@@ -279,12 +278,12 @@ impl SceneDrawer {
                 peniko::Fill::NonZero,
                 glyph_run.glyphs().map(|g| {
                     let gx = x + g.x;
-                    let gy = y - g.y;
+                    let gy = y + g.y;
                     x += g.advance;
                     vello::Glyph {
                         id: g.id as _,
                         x: gx,
-                        y: -gy, // Y-axis is flipped
+                        y: gy,
                     }
                 }),
             );
@@ -661,20 +660,22 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 let layout_width = self.layout.width();
                 let window_height = self.height.load(Ordering::Relaxed) as f64;
 
-                let transform =
-                    vello::kurbo::Affine::translate((-(layout_width * hadj) as f64, 0.0))
-                        .then_rotate(-angle as f64)
-                        .then_translate((pos.x, window_height - pos.y).into()); // Y-axis is flipped
-
                 for line in self.layout.lines() {
-                    let vadj = line.metrics().ascent * 0.5;
+                    let line_metrics = line.metrics();
+                    let transform = vello::kurbo::Affine::translate((
+                        -(layout_width * hadj) as f64,
+                        (line_metrics.baseline - line_metrics.line_height) as f64, // TODO: is this correct?
+                    ))
+                    .then_rotate(-angle as f64)
+                    .then_translate((pos.x, window_height - pos.y).into()); // Y-axis is flipped
+
                     for item in line.items() {
                         // ignore inline box
                         let parley::PositionedLayoutItem::GlyphRun(glyph_run) = item else {
                             continue;
                         };
 
-                        self.scene.draw_glyph(glyph_run, color, transform, vadj);
+                        self.scene.draw_glyph(glyph_run, color, transform);
                     }
                 }
 

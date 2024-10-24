@@ -207,33 +207,31 @@ impl DeviceDriver for VelloGraphicsDevice {
         //         .unwrap_or("Arial")
         // }
         // .to_string();
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
-        if fill_params.is_some() || stroke_params.is_some() {
-            let size = (gc.cex * gc.ps) as f32;
-            let lineheight = gc.lineheight as f32;
-            self.build_layout(text, size, lineheight);
+        let size = (gc.cex * gc.ps) as f32;
+        let lineheight = gc.lineheight as f32;
+        self.build_layout(text, size, lineheight);
 
-            let layout_width = self.layout.width() as f64;
-            let window_height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
+        let layout_width = self.layout.width() as f64;
+        let window_height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
 
-            let transform = vello::kurbo::Affine::translate((-(layout_width * hadj), 0.0))
-                .then_rotate(-angle.to_radians())
-                .then_translate((pos.0, window_height - pos.1).into()); // Y-axis is flipped
+        for line in self.layout.lines() {
+            let line_metrics = line.metrics();
+            let transform = vello::kurbo::Affine::translate((
+                -(layout_width * hadj),
+                (line_metrics.baseline - line_metrics.line_height) as f64, // TODO: is this correct?
+            ))
+            .then_rotate(-angle.to_radians())
+            .then_translate((pos.0, window_height - pos.1).into()); // Y-axis is flipped
 
-            for line in self.layout.lines() {
-                let vadj = line.metrics().ascent * 0.5;
-                for item in line.items() {
-                    // ignore inline box
-                    let parley::PositionedLayoutItem::GlyphRun(glyph_run) = item else {
-                        continue;
-                    };
+            for item in line.items() {
+                // ignore inline box
+                let parley::PositionedLayoutItem::GlyphRun(glyph_run) = item else {
+                    continue;
+                };
 
-                    // TODO: do not lock per glyph
-                    VELLO_APP_PROXY
-                        .scene
-                        .draw_glyph(glyph_run, color, transform, vadj);
-                }
+                VELLO_APP_PROXY
+                    .scene
+                    .draw_glyph(glyph_run, color, transform);
             }
         }
     }
