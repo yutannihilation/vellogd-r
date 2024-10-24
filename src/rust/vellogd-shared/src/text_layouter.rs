@@ -19,7 +19,7 @@ pub trait TextLayouter {
         &mut self,
         text: impl AsRef<str>,
         // TODO
-        // family: String,
+        family: impl AsRef<str>,
         // face: i32,
         size: f32,
         lineheight: f32,
@@ -33,7 +33,10 @@ pub trait TextLayouter {
         // TODO: should scale be configurable?
         layout_builder.push_default(parley::StyleProperty::FontSize(size));
         layout_builder.push_default(parley::StyleProperty::LineHeight(lineheight));
-        layout_builder.push_default(parley::GenericFamily::SansSerif); // TODO: specify family
+
+        let family = parley::FontFamily::parse(family.as_ref())
+            .unwrap_or(parley::GenericFamily::SansSerif.into());
+        layout_builder.push_default(family);
 
         // TODO: use build_into() to reuse a Layout?
         let layout = self.layout_mut();
@@ -46,28 +49,26 @@ pub trait TextLayouter {
     }
 
     fn get_text_width<T: AsRef<str>>(&mut self, text: T, gc: R_GE_gcontext) -> f64 {
-        // TODO
-        // let family = unsafe {
-        //     CStr::from_ptr(gc.fontfamily.as_ptr())
-        //         .to_str()
-        //         .unwrap_or("Arial")
-        // }
-        // .to_string();
+        let family = unsafe {
+            std::ffi::CStr::from_ptr(gc.fontfamily.as_ptr())
+                .to_str()
+                .unwrap_or("Arial")
+        }
+        .to_string();
         let size = gc.cex * gc.ps;
-        self.build_layout(text, size as _, gc.lineheight as _);
+        self.build_layout(text, &family, size as _, gc.lineheight as _);
         self.layout_ref().width() as _
     }
 
     fn get_char_metric(&mut self, c: char, gc: R_GE_gcontext) -> TextMetric {
-        // TODO
-        // let _family = unsafe {
-        //     CStr::from_ptr(gc.fontfamily.as_ptr())
-        //         .to_str()
-        //         .unwrap_or("Arial")
-        // }
-        // .to_string();
+        let family = unsafe {
+            std::ffi::CStr::from_ptr(gc.fontfamily.as_ptr())
+                .to_str()
+                .unwrap_or("Arial")
+        }
+        .to_string();
         let size = gc.cex * gc.ps;
-        self.build_layout(c.to_string(), size as _, gc.lineheight as _);
+        self.build_layout(c.to_string(), &family, size as _, gc.lineheight as _);
         let layout_ref = self.layout_ref();
         let line = layout_ref.lines().next();
         match line {
