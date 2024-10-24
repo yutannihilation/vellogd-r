@@ -48,6 +48,10 @@ pub struct SceneDrawer {
     // This is a bit tricky. Scene doesn't need to know the window size, but,
     // since R requires a flipped Y-axis, SceneDrawer needs to know how to flip,
     // at least.
+    //
+    // One more tricky thing is that, this cannot be specified as the transform
+    // of the layer. The positions definitely need to be flipped, but, the drawn
+    // items (e.g. glyph) are not.
     y_transform: Arc<Mutex<vello::kurbo::Affine>>,
     needs_redraw: Arc<AtomicBool>,
 }
