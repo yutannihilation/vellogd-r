@@ -4,9 +4,14 @@
 
 use std::os::raw::{c_char, c_int, c_uint, c_void};
 
+// redefine necessary symbols. If this gets too many, probably I should use
+// savvy-ffi
 pub type SEXP = *mut c_void;
+pub type R_xlen_t = isize;
 extern "C" {
     pub static mut R_NilValue: SEXP;
+    pub fn SET_VECTOR_ELT(x: SEXP, i: R_xlen_t, v: SEXP) -> SEXP;
+    pub fn Rf_ScalarInteger(arg1: c_int) -> SEXP;
 }
 
 // TODO: do not include GE version
@@ -59,6 +64,26 @@ pub const R_GE_linejoin_GE_ROUND_JOIN: R_GE_linejoin = 1;
 pub const R_GE_linejoin_GE_MITRE_JOIN: R_GE_linejoin = 2;
 pub const R_GE_linejoin_GE_BEVEL_JOIN: R_GE_linejoin = 3;
 pub type R_GE_linejoin = c_int;
+
+// capabilities
+pub const R_GE_capability_semiTransparency: isize = 0;
+pub const R_GE_capability_transparentBackground: isize = 1;
+pub const R_GE_capability_rasterImage: isize = 2;
+pub const R_GE_capability_capture: isize = 3;
+pub const R_GE_capability_locator: isize = 4;
+pub const R_GE_capability_events: isize = 5;
+pub const R_GE_capability_patterns: isize = 6;
+pub const R_GE_capability_clippingPaths: isize = 7;
+pub const R_GE_capability_masks: isize = 8;
+pub const R_GE_capability_compositing: isize = 9;
+pub const R_GE_capability_transformations: isize = 10;
+pub const R_GE_capability_paths: isize = 11;
+pub const R_GE_capability_glyphs: isize = 12;
+
+// style
+pub const R_GE_text_style_normal: u32 = 1;
+pub const R_GE_text_style_italic: u32 = 2;
+pub const R_GE_text_style_oblique: u32 = 3;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

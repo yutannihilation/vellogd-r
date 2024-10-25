@@ -4,10 +4,10 @@ use std::slice;
 use vellogd_shared::{
     ffi::{
         pDevDesc, pGEcontext, DevDesc, GEaddDevice2, GEcreateDevDesc, GEinitDisplayList,
-        R_CheckDeviceAvailable, R_EmptyEnv, R_GE_checkVersionOrDie, R_GE_definitions,
-        R_GE_gcontext, R_GE_glyphFontFamily, R_GE_glyphFontFile, R_GE_glyphFontIndex,
-        R_GE_glyphFontStyle, R_GE_glyphFontWeight, R_GE_version, R_NilValue, Rboolean,
-        Rboolean_FALSE, Rboolean_TRUE,
+        R_CheckDeviceAvailable, R_EmptyEnv, R_GE_capability_glyphs, R_GE_checkVersionOrDie,
+        R_GE_definitions, R_GE_gcontext, R_GE_glyphFontFamily, R_GE_glyphFontFile,
+        R_GE_glyphFontIndex, R_GE_glyphFontStyle, R_GE_glyphFontWeight, R_GE_version, R_NilValue,
+        Rboolean, Rboolean_FALSE, Rboolean_TRUE, Rf_ScalarInteger, SET_VECTOR_ELT,
     },
     text_layouter::TextMetric,
 };
@@ -296,6 +296,11 @@ pub trait DeviceDriver: std::marker::Sized {
     // but compiler throws erors. It should be ok to use
     // i32 here.
     fn eventHelper(&mut self, dd: DevDesc, code: i32) {}
+
+    fn capabilities(cap: SEXP) -> SEXP {
+        unsafe { SET_VECTOR_ELT(cap, R_GE_capability_glyphs, Rf_ScalarInteger(1)) };
+        cap
+    }
 
     /// Create a [Device].
     fn create_device<T: DeviceDriver>(
@@ -674,6 +679,10 @@ pub trait DeviceDriver: std::marker::Sized {
             // data.releaseMask(ref_, *dd);
         }
 
+        unsafe extern "C" fn device_driver_capabilities<T: DeviceDriver>(cap: SEXP) -> SEXP {
+            <T>::capabilities(cap)
+        }
+
         unsafe extern "C" fn device_driver_glyph<T: DeviceDriver>(
             n: c_int,
             glyphs: *mut c_int,
@@ -922,7 +931,7 @@ pub trait DeviceDriver: std::marker::Sized {
             (*p_dev_desc).setMask = Some(device_driver_setMask::<T>);
             (*p_dev_desc).releaseMask = Some(device_driver_releaseMask::<T>);
 
-            (*p_dev_desc).deviceVersion = R_GE_definitions as _;
+            (*p_dev_desc).deviceVersion = R_GE_version as _;
 
             (*p_dev_desc).deviceClip = match <T>::CLIPPING_STRATEGY {
                 ClippingStrategy::Device => Rboolean_TRUE,
@@ -937,7 +946,7 @@ pub trait DeviceDriver: std::marker::Sized {
             (*p_dev_desc).fill = None;
             (*p_dev_desc).fillStroke = None;
 
-            (*p_dev_desc).capabilities = None;
+            (*p_dev_desc).capabilities = Some(device_driver_capabilities::<T>);
 
             (*p_dev_desc).glyph = Some(device_driver_glyph::<T>);
         } // unsafe ends here
