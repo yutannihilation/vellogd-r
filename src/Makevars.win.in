@@ -1,9 +1,7 @@
 TARGET = @TARGET@
 
-# catch DEBUG envvar, which is passed from pkgbuild::compile_dll()
 PROFILE = @PROFILE@
-TRACING = $(subst x,,$(subst truex,--features tracing,$(DEBUG)x))
-FEATURES = @FEATURES@ $(TRACING)
+FEATURES = @FEATURES@
 
 TARGET_DIR = @CARGO_TARGET_DIR@
 LIBDIR = $(TARGET_DIR)/$(TARGET)/$(subst dev,debug,$(PROFILE))
