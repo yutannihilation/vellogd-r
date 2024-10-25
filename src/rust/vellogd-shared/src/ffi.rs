@@ -296,4 +296,10 @@ extern "C" {
     pub fn GEcreateDevDesc(dev: pDevDesc) -> pGEDevDesc;
     pub fn GEinitDisplayList(dd: pGEDevDesc);
     pub fn GEaddDevice2(arg1: pGEDevDesc, arg2: *const c_char);
+
+    pub fn R_GE_glyphFontFile(glyphFont: SEXP) -> *const c_char;
+    pub fn R_GE_glyphFontIndex(glyphFont: SEXP) -> c_int;
+    pub fn R_GE_glyphFontFamily(glyphFont: SEXP) -> *const c_char;
+    pub fn R_GE_glyphFontWeight(glyphFont: SEXP) -> f64;
+    pub fn R_GE_glyphFontStyle(glyphFont: SEXP) -> c_int;
 }

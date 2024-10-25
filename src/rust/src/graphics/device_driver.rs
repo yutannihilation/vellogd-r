@@ -5,7 +5,9 @@ use vellogd_shared::{
     ffi::{
         pDevDesc, pGEcontext, DevDesc, GEaddDevice2, GEcreateDevDesc, GEinitDisplayList,
         R_CheckDeviceAvailable, R_EmptyEnv, R_GE_checkVersionOrDie, R_GE_definitions,
-        R_GE_gcontext, R_GE_version, R_NilValue, Rboolean, Rboolean_FALSE, Rboolean_TRUE,
+        R_GE_gcontext, R_GE_glyphFontFamily, R_GE_glyphFontFile, R_GE_glyphFontIndex,
+        R_GE_glyphFontStyle, R_GE_glyphFontWeight, R_GE_version, R_NilValue, Rboolean,
+        Rboolean_FALSE, Rboolean_TRUE,
     },
     text_layouter::TextMetric,
 };
@@ -249,6 +251,19 @@ pub trait DeviceDriver: std::marker::Sized {
         hadj: f64,
         gc: R_GE_gcontext,
         dd: DevDesc,
+    ) {
+    }
+
+    fn glyph(
+        &mut self,
+        glyphs: &[char],
+        x: &[f64],
+        y: &[f64],
+        fontfile: &str,
+        index: i32,
+        family: &str,
+        weight: f64,
+        style: i32,
     ) {
     }
 
@@ -659,6 +674,47 @@ pub trait DeviceDriver: std::marker::Sized {
             // data.releaseMask(ref_, *dd);
         }
 
+        unsafe extern "C" fn device_driver_glyph<T: DeviceDriver>(
+            n: c_int,
+            glyphs: *mut c_int,
+            x: *mut f64,
+            y: *mut f64,
+            font: SEXP,
+            size: f64,
+            colour: c_int,
+            rot: f64,
+            dd: pDevDesc,
+        ) {
+            let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
+            let glyphs = slice::from_raw_parts(glyphs, n as _);
+
+            // TODO: if any of the glyph is out of the range, do nothing.
+            if glyphs
+                .iter()
+                .any(|i| i.is_negative() || char::from_u32(*i as u32).is_none())
+            {
+                savvy::r_eprintln!("Invalid glyph");
+                return;
+            }
+
+            let glyphs = std::mem::transmute::<&[i32], &[char]>(glyphs);
+
+            let x = slice::from_raw_parts(x, n as _);
+            let y = slice::from_raw_parts(y, n as _);
+
+            let fontfile = std::ffi::CStr::from_ptr(R_GE_glyphFontFile(font))
+                .to_str()
+                .unwrap_or_default();
+            let index = R_GE_glyphFontIndex(font);
+            let family = std::ffi::CStr::from_ptr(R_GE_glyphFontFamily(font))
+                .to_str()
+                .unwrap_or_default();
+            let weight = R_GE_glyphFontWeight(font);
+            let style = R_GE_glyphFontStyle(font);
+
+            data.glyph(glyphs, x, y, fontfile, index, family, weight, style);
+        }
+
         //
         // ************* defining the wrapper functions ends here ****************
         //
@@ -882,6 +938,8 @@ pub trait DeviceDriver: std::marker::Sized {
             (*p_dev_desc).fillStroke = None;
 
             (*p_dev_desc).capabilities = None;
+
+            (*p_dev_desc).glyph = Some(device_driver_glyph::<T>);
         } // unsafe ends here
 
         let device_name = CString::new(device_name).unwrap();

@@ -211,6 +211,32 @@ impl DeviceDriver for DebugGraphicsDevice {
         savvy::r_eprintln!("[text] text: {text}");
     }
 
+    fn glyph(
+        &mut self,
+        glyphs: &[char],
+        x: &[f64],
+        y: &[f64],
+        fontfile: &str,
+        index: i32,
+        family: &str,
+        weight: f64,
+        style: i32,
+    ) {
+        add_tracing_point!();
+        savvy::r_eprintln!(
+            "[glyph]
+glyphs: {glyphs:?}
+x: {x:?}
+y: {y:?}
+fontfile: {fontfile}
+index: {index}
+family: {family}
+weight: {weight}
+style: {style}
+"
+        );
+    }
+
     fn on_exit(&mut self, _: DevDesc) {
         add_tracing_point!();
         savvy::r_eprintln!("[on_exit]");
