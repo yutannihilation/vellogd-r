@@ -276,7 +276,7 @@ pub struct _DevDesc {
     pub glyph: Option<
         unsafe extern "C" fn(
             n: c_int,
-            glyphs: *mut c_int,
+            glyphs: *mut c_uint,
             x: *mut f64,
             y: *mut f64,
             font: SEXP,

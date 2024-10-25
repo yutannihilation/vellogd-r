@@ -136,7 +136,7 @@ fn main() {
     });
 
     let needs_redraw = Arc::new(AtomicBool::new(false));
-    let scene = SceneDrawer::new(y_transform.clone(), needs_redraw.clone());
+    let scene = SceneDrawer::new(y_transform.clone(), height.clone(), needs_redraw.clone());
 
     let request_handler = SceneRequestHandler {
         scene: scene.clone(),

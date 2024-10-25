@@ -28,7 +28,7 @@ use winit::{
 
 use crate::{
     protocol::{AppResponseRelay, FillParams, Request, Response, StrokeParams},
-    text_layouter::TextLayouter,
+    text_layouter::{fontface_to_weight_and_style, TextLayouter},
 };
 
 pub struct ActiveRenderState<'a> {
@@ -53,17 +53,20 @@ pub struct SceneDrawer {
     // of the layer. The positions definitely need to be flipped, but, the drawn
     // items (e.g. glyph) are not.
     y_transform: Arc<Mutex<vello::kurbo::Affine>>,
+    window_height: Arc<AtomicU32>,
     needs_redraw: Arc<AtomicBool>,
 }
 
 impl SceneDrawer {
     pub fn new(
         y_transform: Arc<Mutex<vello::kurbo::Affine>>,
+        window_height: Arc<AtomicU32>,
         needs_redraw: Arc<AtomicBool>,
     ) -> Self {
         Self {
             inner: Arc::new(Mutex::new(Scene::new())),
             y_transform,
+            window_height,
             needs_redraw,
         }
     }
@@ -288,7 +291,51 @@ impl SceneDrawer {
                 }),
             );
 
-        // TODO: can this be done one time per text, not per glyph?
+        self.needs_redraw.store(true, Ordering::Relaxed);
+    }
+
+    pub fn draw_glyph_raw(
+        &self,
+        glyph_ids: &[u32],
+        x: &[f64],
+        y: &[f64],
+        fontfile: &str,
+        index: u32,
+        family: &str,
+        weight: parley::FontWeight,
+        style: parley::FontStyle,
+        angle: f64,
+        size: f32,
+        color: peniko::Color,
+    ) {
+        let scene = &mut self.inner.lock().unwrap();
+        let p = std::fs::canonicalize(fontfile).unwrap();
+        let font = match std::fs::read(p) {
+            Ok(data) => parley::Font::new(data.into(), index),
+            Err(_) => todo!(),
+        };
+
+        let window_height = self.window_height.load(Ordering::Relaxed) as f32;
+
+        let glyphs = x
+            .iter()
+            .zip(y)
+            .zip(glyph_ids)
+            .map(|((x, y), id)| vello::Glyph {
+                id: *id,
+                x: *x as f32,
+                y: window_height - *y as f32,
+            });
+
+        let transform = kurbo::Affine::rotate(-angle);
+
+        scene
+            .draw_glyphs(&font)
+            .brush(color)
+            .transform(transform)
+            .font_size(size)
+            .draw(peniko::Fill::NonZero, glyphs);
+
         self.needs_redraw.store(true, Ordering::Relaxed);
     }
 
@@ -656,7 +703,8 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 angle,
                 hadj,
             } => {
-                self.build_layout(text, &family, face, size, lineheight);
+                let (weight, style) = fontface_to_weight_and_style(face);
+                self.build_layout(text, &family, weight, style, size, lineheight);
 
                 let layout_width = self.layout.width();
                 let window_height = self.height.load(Ordering::Relaxed) as f64;
@@ -755,7 +803,7 @@ pub static VELLO_APP_PROXY: LazyLock<VelloAppProxy> = LazyLock::new(|| {
 
         let is_drawing = Arc::new(AtomicBool::new(false));
 
-        let scene = SceneDrawer::new(y_transform.clone(), needs_redraw.clone());
+        let scene = SceneDrawer::new(y_transform.clone(), height.clone(), needs_redraw.clone());
         let proxy = VelloAppProxy {
             tx: event_loop.create_proxy(),
             rx: std::sync::Mutex::new(rx),

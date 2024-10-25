@@ -215,7 +215,7 @@ impl DeviceDriver for DebugGraphicsDevice {
 
     fn glyph(
         &mut self,
-        glyphs: &[char],
+        glyphs: &[u32],
         x: &[f64],
         y: &[f64],
         fontfile: &str,

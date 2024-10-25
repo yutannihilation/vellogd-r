@@ -262,7 +262,7 @@ pub trait DeviceDriver: std::marker::Sized {
     /// cf. https://www.stat.auckland.ac.nz/~paul/Reports/Typography/glyphs/glyphs.html
     fn glyph(
         &mut self,
-        glyphs: &[char],
+        glyphs: &[u32],
         x: &[f64],
         y: &[f64],
         fontfile: &str,
@@ -760,7 +760,7 @@ pub trait DeviceDriver: std::marker::Sized {
 
         unsafe extern "C" fn device_driver_glyph<T: DeviceDriver>(
             n: c_int,
-            glyphs: *mut c_int,
+            glyphs: *mut c_uint,
             x: *mut f64,
             y: *mut f64,
             font: SEXP,
@@ -771,17 +771,6 @@ pub trait DeviceDriver: std::marker::Sized {
         ) {
             let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
             let glyphs = slice::from_raw_parts(glyphs, n as _);
-
-            // TODO: if any of the glyph is out of the range, do nothing.
-            if glyphs
-                .iter()
-                .any(|i| i.is_negative() || char::from_u32(*i as u32).is_none())
-            {
-                savvy::r_eprintln!("Invalid glyph");
-                return;
-            }
-
-            let glyphs = std::mem::transmute::<&[i32], &[char]>(glyphs);
 
             let x = slice::from_raw_parts(x, n as _);
             let y = slice::from_raw_parts(y, n as _);
