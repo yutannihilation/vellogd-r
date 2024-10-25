@@ -339,7 +339,7 @@ impl SceneDrawer {
             peniko::Mix::Clip,
             1.0,
             y_transform,
-            &kurbo::Rect::new(p0.x, p0.y, p1.y, p1.y),
+            &kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y),
         );
     }
 
