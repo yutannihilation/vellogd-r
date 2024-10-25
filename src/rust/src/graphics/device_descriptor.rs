@@ -33,48 +33,6 @@ const FONTSIZE: f64 = POINTSIZE;
 const WIDTH_INCH: f64 = 7.0;
 const HEIGH_INCH: f64 = 7.0;
 
-#[allow(dead_code)]
-pub(crate) enum CanHAdjOption {
-    NotSupported = 0,
-    FixedAdjustment = 1,
-    VariableAdjustment = 2,
-}
-
-pub enum DevCapTransparency {
-    Unset = 0,
-    No = 1,
-    Yes = 2,
-}
-
-pub enum DevCapTransparentBg {
-    Unset = 0,
-    No = 1,
-    Fully = 2,
-    Semi = 3,
-}
-
-#[allow(dead_code)]
-pub(crate) enum DevCapRaster {
-    Unset = 0,
-    No = 1,
-    Yes = 2,
-    ExceptForMissingValues = 3,
-}
-
-#[allow(dead_code)]
-pub(crate) enum DevCapCapture {
-    Unset = 0,
-    No = 1,
-    Yes = 2,
-}
-
-#[allow(dead_code)]
-pub(crate) enum DevCapLocator {
-    Unset = 0,
-    No = 1,
-    Yes = 2,
-}
-
 /// A builder of [libR_sys::DevDesc].
 ///
 // # Design notes (which feels a bit too internal to be exposed as an official document)

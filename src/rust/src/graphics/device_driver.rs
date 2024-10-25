@@ -17,41 +17,6 @@ use vellogd_shared::{
 
 use super::device_descriptor::*;
 
-/// The underlying C structure `DevDesc` has two fields related to clipping:
-///
-/// - `canClip`
-/// - `deviceClip` (available on R >= 4.1)
-///
-/// `canClip` indicates whether the device has clipping functionality at all. If
-/// not, the graphic engine kindly clips before sending the drawing operations
-/// to the device. But, this isn't very ideal in some points. Especially, it's
-/// bad that the engine will omit "any text that does not appear to be wholly
-/// inside the clipping region," according to [the R Internals]. So, the device
-/// should implement `clip()` and set `canClip` to `true` if possible.
-///
-/// Even when `canClip` is `true`, the engine does clip to protect the device
-/// from large values by default. But, for efficiency, the device can take all
-/// the responsibility of clipping. That is `deviceClip`, which was introduced
-/// in R 4.1. If this is set to `true`, the engine will perform no clipping at
-/// all. For more details, please refer to [the offical announcement blog post].
-///
-/// So, in short, a graphic device can choose either of the following:
-///
-/// - clipping without the help of the graphic engine (`Device`)
-/// - clipping with the help of the graphic engine (`DeviceAndEngine`)
-/// - no clipping at all (`Engine`)
-///
-/// [the R Internals]:
-///     https://cran.r-project.org/doc/manuals/r-release/R-ints.html#Handling-text
-/// [the announcement blog post]:
-///     https://developer.r-project.org/Blog/public/2020/06/08/improvements-to-clipping-in-the-r-graphics-engine/
-#[allow(dead_code)]
-pub enum ClippingStrategy {
-    Device,
-    DeviceAndEngine,
-    Engine,
-}
-
 /// A graphic device implementation.
 ///
 /// # Safety
@@ -62,35 +27,6 @@ pub enum ClippingStrategy {
 /// functions.
 #[allow(non_snake_case, unused_variables, clippy::too_many_arguments)]
 pub trait DeviceDriver: std::marker::Sized {
-    /// Whether the device accepts the drawing operation of a raster. By
-    /// default, the default implementation, which just ignores the raster,
-    /// is used so this can be left `true`. If there's a necessity to
-    /// explicitly refuse the operation, this can be set `false`.
-    const USE_RASTER: bool = true;
-
-    /// Whether the device accepts a capturing operation. By default, the
-    /// default implementation, which just returns an empty capture, is used so
-    /// this can be left `true`. If there's a necessity to explicitly refuse the
-    /// operation, this can be set `false`.
-    const USE_CAPTURE: bool = true;
-
-    /// Whether the device has a locator capability, i.e.,
-    /// reading the position of the graphics cursor when the mouse button is pressed.
-    /// It works with X11, windows and quartz devices.
-    const USE_LOCATOR: bool = true;
-
-    /// Whether the device maintains a plot history. This corresponds to
-    /// `displayListOn` in the underlying [DevDesc].
-    const USE_PLOT_HISTORY: bool = false;
-
-    /// To what extent the device takes the responsibility of clipping. See
-    /// [ClippingStrategy] for the details.
-    const CLIPPING_STRATEGY: ClippingStrategy = ClippingStrategy::Device;
-
-    /// Set this to `false` if the implemented `strWidth()` and `text()` only
-    /// accept ASCII text.
-    const ACCEPT_UTF8_TEXT: bool = true;
-
     /// A callback function to setup the device when the device is activated.
     fn activate(&mut self, dd: DevDesc) {}
 
@@ -605,7 +541,6 @@ pub trait DeviceDriver: std::marker::Sized {
 
         unsafe extern "C" fn device_driver_capture<T: DeviceDriver>(dd: pDevDesc) -> SEXP {
             let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
-            // TODO: convert the output more nicely
             data.capture(*dd)
         }
 
@@ -858,15 +793,12 @@ pub trait DeviceDriver: std::marker::Sized {
             // and actually it seems this parameter is never used.
             (*p_dev_desc).gamma = 1.0;
 
-            (*p_dev_desc).canClip = match <T>::CLIPPING_STRATEGY {
-                ClippingStrategy::Engine => Rboolean_FALSE,
-                _ => Rboolean_TRUE,
-            };
+            (*p_dev_desc).canClip = Rboolean_TRUE;
 
             // As described above, gamma is not supported.
             (*p_dev_desc).canChangeGamma = Rboolean_FALSE;
 
-            (*p_dev_desc).canHAdj = CanHAdjOption::VariableAdjustment as _;
+            (*p_dev_desc).canHAdj = 2; // can do adjust of text continuously
 
             (*p_dev_desc).startps = device_descriptor.startps;
             (*p_dev_desc).startcol = device_descriptor.startcol;
@@ -879,7 +811,7 @@ pub trait DeviceDriver: std::marker::Sized {
             // A raw pointer to the data specific to the device.
             (*p_dev_desc).deviceSpecific = deviceSpecific;
 
-            (*p_dev_desc).displayListOn = <T>::USE_PLOT_HISTORY.into();
+            (*p_dev_desc).displayListOn = Rboolean_FALSE; // TODO
 
             // These are currently not used, so just set FALSE.
             (*p_dev_desc).canGenMouseDown = Rboolean_FALSE;
@@ -898,13 +830,10 @@ pub trait DeviceDriver: std::marker::Sized {
 
             (*p_dev_desc).activate = Some(device_driver_activate::<T>);
             (*p_dev_desc).circle = Some(device_driver_circle::<T>);
-            (*p_dev_desc).clip = match <T>::CLIPPING_STRATEGY {
-                ClippingStrategy::Engine => None,
-                _ => Some(device_driver_clip::<T>),
-            };
+            (*p_dev_desc).clip = Some(device_driver_clip::<T>);
             (*p_dev_desc).close = Some(device_driver_close::<T>);
             (*p_dev_desc).deactivate = Some(device_driver_deactivate::<T>);
-            (*p_dev_desc).locator = Some(device_driver_locator::<T>); // TOD;
+            (*p_dev_desc).locator = Some(device_driver_locator::<T>); // TODO
             (*p_dev_desc).line = Some(device_driver_line::<T>);
             (*p_dev_desc).metricInfo = Some(device_driver_char_metric::<T>);
             (*p_dev_desc).mode = Some(device_driver_mode::<T>);
@@ -913,16 +842,8 @@ pub trait DeviceDriver: std::marker::Sized {
             (*p_dev_desc).polyline = Some(device_driver_polyline::<T>);
             (*p_dev_desc).rect = Some(device_driver_rect::<T>);
             (*p_dev_desc).path = Some(device_driver_path::<T>);
-            (*p_dev_desc).raster = if <T>::USE_RASTER {
-                Some(device_driver_raster::<T>)
-            } else {
-                None
-            };
-            (*p_dev_desc).cap = if <T>::USE_CAPTURE {
-                Some(device_driver_capture::<T>)
-            } else {
-                None
-            };
+            (*p_dev_desc).raster = Some(device_driver_raster::<T>);
+            (*p_dev_desc).cap = Some(device_driver_capture::<T>);
             (*p_dev_desc).size = Some(device_driver_size::<T>);
             (*p_dev_desc).strWidth = Some(device_driver_text_width::<T>);
             (*p_dev_desc).text = Some(device_driver_text::<T>);
@@ -935,18 +856,10 @@ pub trait DeviceDriver: std::marker::Sized {
             (*p_dev_desc).newFrameConfirm = Some(device_driver_new_frame_confirm::<T>);
 
             // UTF-8 support
-            (*p_dev_desc).hasTextUTF8 = <T>::ACCEPT_UTF8_TEXT.into();
-            (*p_dev_desc).textUTF8 = if <T>::ACCEPT_UTF8_TEXT {
-                Some(device_driver_text::<T>)
-            } else {
-                None
-            };
-            (*p_dev_desc).strWidthUTF8 = if <T>::ACCEPT_UTF8_TEXT {
-                Some(device_driver_text_width::<T>)
-            } else {
-                None
-            };
-            (*p_dev_desc).wantSymbolUTF8 = <T>::ACCEPT_UTF8_TEXT.into();
+            (*p_dev_desc).hasTextUTF8 = Rboolean_TRUE;
+            (*p_dev_desc).textUTF8 = Some(device_driver_text::<T>);
+            (*p_dev_desc).strWidthUTF8 = Some(device_driver_text_width::<T>);
+            (*p_dev_desc).wantSymbolUTF8 = Rboolean_TRUE;
 
             // R internals says:
             //
@@ -964,29 +877,12 @@ pub trait DeviceDriver: std::marker::Sized {
             (*p_dev_desc).holdflush = Some(device_driver_holdflush::<T>);
 
             // TODO: implement capability properly.
-            (*p_dev_desc).haveTransparency = DevCapTransparency::Yes as _;
-            (*p_dev_desc).haveTransparentBg = DevCapTransparentBg::Fully as _;
+            (*p_dev_desc).haveTransparency = 2; // yes
+            (*p_dev_desc).haveTransparentBg = 2; // fully
 
-            // There might be some cases where we want to use `Unset` or
-            // `ExceptForMissingValues`, but, for the sake of simplicity, we
-            // only use yes or no. Let's revisit here when necessary.
-            (*p_dev_desc).haveRaster = if <T>::USE_RASTER {
-                DevCapRaster::Yes as _
-            } else {
-                DevCapRaster::No as _
-            };
-
-            (*p_dev_desc).haveCapture = if <T>::USE_CAPTURE {
-                DevCapCapture::Yes as _
-            } else {
-                DevCapCapture::No as _
-            };
-
-            (*p_dev_desc).haveLocator = if <T>::USE_LOCATOR {
-                DevCapLocator::Yes as _
-            } else {
-                DevCapLocator::No as _
-            };
+            (*p_dev_desc).haveRaster = 1;
+            (*p_dev_desc).haveCapture = 1; // TODO
+            (*p_dev_desc).haveLocator = 1; // TODO
 
             (*p_dev_desc).setPattern = Some(device_driver_setPattern::<T>);
             (*p_dev_desc).releasePattern = Some(device_driver_releasePattern::<T>);
@@ -999,10 +895,7 @@ pub trait DeviceDriver: std::marker::Sized {
 
             (*p_dev_desc).deviceVersion = R_GE_version as _;
 
-            (*p_dev_desc).deviceClip = match <T>::CLIPPING_STRATEGY {
-                ClippingStrategy::Device => Rboolean_TRUE,
-                _ => Rboolean_FALSE,
-            };
+            (*p_dev_desc).deviceClip = Rboolean_TRUE;
 
             (*p_dev_desc).defineGroup = None;
             (*p_dev_desc).useGroup = None;
