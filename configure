@@ -51,6 +51,9 @@ fi
 # catch DEBUG envvar, which is passed from pkgbuild::compile_dll()
 if [ "${DEBUG}" = "true" ]; then
   FEATURES="${FEATURES} --features tracing"
+  PROFILE=dev
+else
+  PROFILE=release
 fi
 
 sed \
