@@ -96,7 +96,7 @@ cf. <https://github.com/r-devel/r-svn/blob/main/src/include/R_ext/GraphicsDevice
 | `strWidth`        | ✅ | |
 | `text`            | ✅ | |
 | `textUTF8`        | ✅ | |
-| `glyph`           |    | |
+| `glyph`           | ✅ | |
 | `clip`            | ✅ | TODO: server version, can I hide the clipping rectangle? |
 | `cap`             |    | |
 | `eventHelper`     |    | |
