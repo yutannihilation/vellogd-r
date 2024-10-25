@@ -94,8 +94,8 @@ cf. <https://github.com/r-devel/r-svn/blob/main/src/include/R_ext/GraphicsDevice
 | `raster`          | ✅ | TODO: server version, non-interpolated version |
 | `metricInfo`      | ✅ | |
 | `strWidth`        | ✅ | |
-| `text`            | ✅ | (Partially supported) |
-| `textUTF8`        | ✅ | (Partially supported) |
+| `text`            | ✅ | |
+| `textUTF8`        | ✅ | |
 | `glyph`           |    | |
 | `clip`            | ✅ | TODO: server version, can I hide the clipping rectangle? |
 | `cap`             |    | |
