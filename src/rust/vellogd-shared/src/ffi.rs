@@ -6,12 +6,21 @@ use std::os::raw::{c_char, c_int, c_uint, c_void};
 
 // redefine necessary symbols. If this gets too many, probably I should use
 // savvy-ffi
+
 pub type SEXP = *mut c_void;
 pub type R_xlen_t = usize;
+pub type SEXPTYPE = ::std::os::raw::c_uint;
+
+pub const INTSXP: SEXPTYPE = 13;
+
 extern "C" {
     pub static mut R_NilValue: SEXP;
     pub fn SET_VECTOR_ELT(x: SEXP, i: R_xlen_t, v: SEXP) -> SEXP;
-    pub fn Rf_ScalarInteger(arg1: c_int) -> SEXP;
+
+    pub fn Rf_protect(arg1: SEXP) -> SEXP;
+    pub fn Rf_unprotect(arg1: c_int);
+    pub fn INTEGER(x: SEXP) -> *mut c_int;
+    pub fn Rf_allocVector(arg1: SEXPTYPE, arg2: R_xlen_t) -> SEXP;
 }
 
 // TODO: do not include GE version
