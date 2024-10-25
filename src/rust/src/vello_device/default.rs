@@ -1,3 +1,4 @@
+use std::os::raw::c_uint;
 use std::sync::atomic::Ordering;
 
 use super::xy_to_path;
@@ -232,6 +233,29 @@ impl DeviceDriver for VelloGraphicsDevice {
                     .scene
                     .draw_glyph(glyph_run, color, transform);
             }
+        }
+    }
+
+    fn glyph(
+        &mut self,
+        glyphs: &[char],
+        x: &[f64],
+        y: &[f64],
+        fontfile: &str,
+        index: i32,
+        family: &str,
+        weight: f64,
+        style: i32,
+        angle: f64,
+        size: f64,
+        colour: c_uint,
+    ) {
+        let [r, g, b, a] = colour.to_ne_bytes();
+        let color = peniko::Color::rgba8(r, g, b, a);
+
+        match self.register_font(fontfile) {
+            Ok(res) => savvy::r_eprintln!("{res:?}"),
+            Err(e) => savvy::r_eprintln!("{e}"),
         }
     }
 

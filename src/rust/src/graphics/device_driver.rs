@@ -1,6 +1,6 @@
 use savvy::ffi::SEXP;
-use std::ffi::CString;
 use std::slice;
+use std::{ffi::CString, os::raw::c_uint};
 use vellogd_shared::{
     ffi::{
         pDevDesc, pGEcontext, DevDesc, GEaddDevice2, GEcreateDevDesc, GEinitDisplayList,
@@ -270,6 +270,9 @@ pub trait DeviceDriver: std::marker::Sized {
         family: &str,
         weight: f64,
         style: i32,
+        angle: f64,
+        size: f64,
+        colour: c_uint,
     ) {
     }
 
@@ -762,7 +765,7 @@ pub trait DeviceDriver: std::marker::Sized {
             y: *mut f64,
             font: SEXP,
             size: f64,
-            colour: c_int,
+            colour: c_uint,
             rot: f64,
             dd: pDevDesc,
         ) {
@@ -793,7 +796,9 @@ pub trait DeviceDriver: std::marker::Sized {
             let weight = R_GE_glyphFontWeight(font);
             let style = R_GE_glyphFontStyle(font);
 
-            data.glyph(glyphs, x, y, fontfile, index, family, weight, style);
+            data.glyph(
+                glyphs, x, y, fontfile, index, family, weight, style, rot, size, colour,
+            );
         }
 
         //

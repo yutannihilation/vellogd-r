@@ -281,7 +281,7 @@ pub struct _DevDesc {
             y: *mut f64,
             font: SEXP,
             size: f64,
-            colour: c_int,
+            colour: c_uint,
             rot: f64,
             dd: pDevDesc,
         ),

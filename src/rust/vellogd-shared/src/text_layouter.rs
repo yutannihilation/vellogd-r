@@ -1,4 +1,9 @@
-use std::sync::{LazyLock, Mutex};
+use std::{
+    io,
+    sync::{LazyLock, Mutex},
+};
+
+use parley::fontique::{FamilyId, FontInfo};
 
 use crate::ffi::R_GE_gcontext;
 
@@ -90,6 +95,13 @@ pub trait TextLayouter {
                 width: 0.0,
             },
         }
+    }
+
+    fn register_font(&mut self, fontfile: &str) -> io::Result<Vec<(FamilyId, Vec<FontInfo>)>> {
+        let p = std::fs::canonicalize(fontfile).unwrap();
+        let data = std::fs::read(p)?;
+        let mut font_ctx = FONT_CTX.lock().unwrap();
+        Ok(font_ctx.collection.register_fonts(data))
     }
 }
 
