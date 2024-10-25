@@ -25,8 +25,15 @@ echo "using Rust compiler: '${RUSTC_VERSION}'"
 if [ -d "${GITHUB_WORKSPACE}" ]; then
   CARGO_TARGET_DIR=$(echo "${GITHUB_WORKSPACE}/src/rust/target" | sed -e 's|\\|/|g') # normalize path
   echo "Detected GitHub Actions envvar. Using ${CARGO_TARGET_DIR} for the target dir of cargo"
+  # always dev build on GitHub Actions CI
+  PROFILE=dev
 else
   CARGO_TARGET_DIR='$(CURDIR)/rust/target'
+  if [ "${DEBUG}" = "true" ]; then
+    PROFILE=dev
+  else
+    PROFILE=release
+  fi
 fi
 
 FEATURES="--features use_winit"
@@ -34,5 +41,6 @@ FEATURES="--features use_winit"
 sed \
   -e "s/@TARGET@/x86_64-pc-windows-gnu/" \
   -e "s/@FEATURES@/${FEATURES}/" \
+  -e "s/@PROFILE@/${PROFILE}/" \
   -e "s|@CARGO_TARGET_DIR@|${CARGO_TARGET_DIR}|" \
   src/Makevars.win.in > src/Makevars.win

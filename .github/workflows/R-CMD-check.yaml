@@ -50,6 +50,7 @@ jobs:
           needs: check
 
       - uses: Swatinem/rust-cache@v2
+        if: runner.os != 'Windows'
         with:
           workspaces: src/rust
           prefix-key: "v2-rust"
@@ -58,7 +59,7 @@ jobs:
         with:
           upload-results: 'never'
           build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
-      
+
       - name: show install log
         if: always()
         run: |
