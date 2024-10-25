@@ -80,7 +80,7 @@ cf. <https://github.com/r-devel/r-svn/blob/main/src/include/R_ext/GraphicsDevice
 | `close`           | ✅ |  |
 | `newPage`         | ✅ |  |
 | `size`            | ✅ |  |
-| `mode`            | ✅ | TODO: server side |
+| `mode`            | ✅ | TODO: server version |
 | `newFrameConfirm` | ✅ | Do nothing |
 | `holdflush`       |    | |
 | `locator`         |    | |
@@ -96,7 +96,7 @@ cf. <https://github.com/r-devel/r-svn/blob/main/src/include/R_ext/GraphicsDevice
 | `strWidth`        | ✅ | |
 | `text`            | ✅ | |
 | `textUTF8`        | ✅ | |
-| `glyph`           | ✅ | |
+| `glyph`           | ✅ | TODO: server version |
 | `clip`            | ✅ | TODO: server version, can I hide the clipping rectangle? |
 | `cap`             |    | |
 | `eventHelper`     |    | |
@@ -112,7 +112,7 @@ cf. <https://github.com/r-devel/r-svn/blob/main/src/include/R_ext/GraphicsDevice
 | `stroke`          |    | |
 | `fill`            |    | |
 | `fillStroke`      |    | |
-| `capabilities`    |    | |
+| `capabilities`    | ✅ | |
 
 [`kurbo::Line`]: https://docs.rs/kurbo/latest/kurbo/struct.Line.html
 [`kurbo::Circle`]: https://docs.rs/kurbo/latest/kurbo/struct.Circle.html
