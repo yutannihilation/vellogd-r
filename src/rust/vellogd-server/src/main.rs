@@ -56,17 +56,7 @@ impl SceneRequestHandler {
             } => {
                 self.scene.draw_rect(p0, p1, fill_params, stroke_params);
             }
-            Request::DrawText {
-                pos,
-                text,
-                color,
-                size,
-                lineheight,
-                family,
-                face,
-                angle,
-                hadj,
-            } => {
+            Request::DrawText { .. } => {
                 // TODO: where to store layout?
 
                 // self.build_layout(text, size, lineheight);
@@ -146,7 +136,7 @@ fn main() {
     });
 
     let needs_redraw = Arc::new(AtomicBool::new(false));
-    let scene = SceneDrawer::new(y_transform.clone(), needs_redraw.clone());
+    let scene = SceneDrawer::new(y_transform.clone(), height.clone(), needs_redraw.clone());
 
     let request_handler = SceneRequestHandler {
         scene: scene.clone(),

@@ -1,3 +1,4 @@
+use std::os::raw::c_uint;
 use std::sync::atomic::Ordering;
 
 use super::xy_to_path;
@@ -11,6 +12,7 @@ use vellogd_shared::protocol::FillParams;
 use vellogd_shared::protocol::Request;
 use vellogd_shared::protocol::Response;
 use vellogd_shared::protocol::StrokeParams;
+use vellogd_shared::text_layouter::fontface_to_weight_and_style;
 use vellogd_shared::text_layouter::TextLayouter;
 use vellogd_shared::text_layouter::TextMetric;
 use vellogd_shared::winit_app::convert_to_image;
@@ -208,7 +210,8 @@ impl DeviceDriver for VelloGraphicsDevice {
         .to_string();
         let size = (gc.cex * gc.ps) as f32;
         let lineheight = gc.lineheight as f32;
-        self.build_layout(text, &family, gc.fontface, size, lineheight);
+        let (weight, style) = fontface_to_weight_and_style(gc.fontface);
+        self.build_layout(text, &family, weight, style, size, lineheight);
 
         let layout_width = self.layout.width() as f64;
         let window_height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
@@ -233,6 +236,47 @@ impl DeviceDriver for VelloGraphicsDevice {
                     .draw_glyph(glyph_run, color, transform);
             }
         }
+    }
+
+    fn glyph(
+        &mut self,
+        glyph_ids: &[u32],
+        x: &[f64],
+        y: &[f64],
+        fontfile: &str,
+        index: i32,
+        family: &str,
+        weight: f64,
+        style: i32,
+        angle: f64,
+        size: f64,
+        colour: c_uint,
+    ) {
+        add_tracing_point!();
+
+        let [r, g, b, a] = colour.to_ne_bytes();
+        let color = peniko::Color::rgba8(r, g, b, a);
+        let weight = parley::FontWeight::new(weight as f32);
+        let style = match style {
+            1 => parley::FontStyle::Normal,        // R_GE_text_style_normal
+            2 => parley::FontStyle::Italic,        // R_GE_text_style_italic
+            3 => parley::FontStyle::Oblique(None), // R_GE_text_style_oblique
+            _ => parley::FontStyle::Normal,        // TODO: unreachable
+        };
+
+        VELLO_APP_PROXY.scene.draw_glyph_raw(
+            glyph_ids,
+            x,
+            y,
+            fontfile,
+            index as u32,
+            family,
+            weight,
+            style,
+            angle.to_radians(),
+            size as f32,
+            color,
+        );
     }
 
     fn raster(

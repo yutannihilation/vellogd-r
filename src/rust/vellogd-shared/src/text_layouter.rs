@@ -1,4 +1,7 @@
-use std::sync::{LazyLock, Mutex};
+use std::{
+    io,
+    sync::{LazyLock, Mutex},
+};
 
 use crate::ffi::R_GE_gcontext;
 
@@ -19,7 +22,8 @@ pub trait TextLayouter {
         &mut self,
         text: impl AsRef<str>,
         family: impl AsRef<str>,
-        face: i32,
+        weight: parley::FontWeight,
+        style: parley::FontStyle,
         size: f32,
         lineheight: f32,
     ) {
@@ -37,7 +41,6 @@ pub trait TextLayouter {
             .unwrap_or(parley::GenericFamily::SansSerif.into());
         layout_builder.push_default(family);
 
-        let (weight, style) = fontface_to_weight_and_style(face);
         layout_builder.push_default(parley::StyleProperty::FontWeight(weight));
         layout_builder.push_default(parley::StyleProperty::FontStyle(style));
 
@@ -59,7 +62,8 @@ pub trait TextLayouter {
         }
         .to_string();
         let size = gc.cex * gc.ps;
-        self.build_layout(text, &family, gc.fontface, size as _, gc.lineheight as _);
+        let (weight, style) = fontface_to_weight_and_style(gc.fontface);
+        self.build_layout(text, &family, weight, style, size as _, gc.lineheight as _);
         self.layout_ref().width() as _
     }
 
@@ -72,7 +76,8 @@ pub trait TextLayouter {
         .to_string();
         let size = gc.cex * gc.ps;
         let text = c.to_string();
-        self.build_layout(text, &family, gc.fontface, size as _, gc.lineheight as _);
+        let (weight, style) = fontface_to_weight_and_style(gc.fontface);
+        self.build_layout(text, &family, weight, style, size as _, gc.lineheight as _);
         let layout_ref = self.layout_ref();
         let line = layout_ref.lines().next();
         match line {

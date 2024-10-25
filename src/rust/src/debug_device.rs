@@ -1,3 +1,5 @@
+use std::os::raw::c_uint;
+
 use crate::add_tracing_point;
 use crate::graphics::DeviceDriver;
 
@@ -209,6 +211,40 @@ impl DeviceDriver for DebugGraphicsDevice {
     ) {
         add_tracing_point!();
         savvy::r_eprintln!("[text] text: {text}");
+    }
+
+    fn glyph(
+        &mut self,
+        glyphs: &[u32],
+        x: &[f64],
+        y: &[f64],
+        fontfile: &str,
+        index: i32,
+        family: &str,
+        weight: f64,
+        style: i32,
+        angle: f64,
+        size: f64,
+        colour: c_uint,
+    ) {
+        add_tracing_point!();
+
+        let fontfile = std::fs::canonicalize(fontfile);
+        savvy::r_eprintln!(
+            "[glyph]
+glyphs: {glyphs:?}
+x: {x:?}
+y: {y:?}
+fontfile: {fontfile:?}
+index: {index}
+family: {family}
+weight: {weight}
+style: {style}
+angle: {angle}
+size: {size}
+colour: {colour}
+"
+        );
     }
 
     fn on_exit(&mut self, _: DevDesc) {

@@ -4,14 +4,27 @@
 
 use std::os::raw::{c_char, c_int, c_uint, c_void};
 
+// redefine necessary symbols. If this gets too many, probably I should use
+// savvy-ffi
+
 pub type SEXP = *mut c_void;
+pub type R_xlen_t = usize;
+pub type SEXPTYPE = ::std::os::raw::c_uint;
+
+pub const INTSXP: SEXPTYPE = 13;
+
 extern "C" {
     pub static mut R_NilValue: SEXP;
+    pub fn SET_VECTOR_ELT(x: SEXP, i: R_xlen_t, v: SEXP) -> SEXP;
+
+    pub fn Rf_protect(arg1: SEXP) -> SEXP;
+    pub fn Rf_unprotect(arg1: c_int);
+    pub fn INTEGER(x: SEXP) -> *mut c_int;
+    pub fn Rf_allocVector(arg1: SEXPTYPE, arg2: R_xlen_t) -> SEXP;
 }
 
 // TODO: do not include GE version
 pub const R_GE_version: u32 = 16;
-pub const R_GE_definitions: u32 = 13;
 
 extern "C" {
     pub fn R_GE_checkVersionOrDie(version: c_int);
@@ -59,6 +72,26 @@ pub const R_GE_linejoin_GE_ROUND_JOIN: R_GE_linejoin = 1;
 pub const R_GE_linejoin_GE_MITRE_JOIN: R_GE_linejoin = 2;
 pub const R_GE_linejoin_GE_BEVEL_JOIN: R_GE_linejoin = 3;
 pub type R_GE_linejoin = c_int;
+
+// capabilities
+pub const R_GE_capability_semiTransparency: R_xlen_t = 0;
+pub const R_GE_capability_transparentBackground: R_xlen_t = 1;
+pub const R_GE_capability_rasterImage: R_xlen_t = 2;
+pub const R_GE_capability_capture: R_xlen_t = 3;
+pub const R_GE_capability_locator: R_xlen_t = 4;
+pub const R_GE_capability_events: R_xlen_t = 5;
+pub const R_GE_capability_patterns: R_xlen_t = 6;
+pub const R_GE_capability_clippingPaths: R_xlen_t = 7;
+pub const R_GE_capability_masks: R_xlen_t = 8;
+pub const R_GE_capability_compositing: R_xlen_t = 9;
+pub const R_GE_capability_transformations: R_xlen_t = 10;
+pub const R_GE_capability_paths: R_xlen_t = 11;
+pub const R_GE_capability_glyphs: R_xlen_t = 12;
+
+// style
+pub const R_GE_text_style_normal: u32 = 1;
+pub const R_GE_text_style_italic: u32 = 2;
+pub const R_GE_text_style_oblique: u32 = 3;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -243,12 +276,12 @@ pub struct _DevDesc {
     pub glyph: Option<
         unsafe extern "C" fn(
             n: c_int,
-            glyphs: *mut c_int,
+            glyphs: *mut c_uint,
             x: *mut f64,
             y: *mut f64,
             font: SEXP,
             size: f64,
-            colour: c_int,
+            colour: c_uint,
             rot: f64,
             dd: pDevDesc,
         ),
@@ -296,4 +329,10 @@ extern "C" {
     pub fn GEcreateDevDesc(dev: pDevDesc) -> pGEDevDesc;
     pub fn GEinitDisplayList(dd: pGEDevDesc);
     pub fn GEaddDevice2(arg1: pGEDevDesc, arg2: *const c_char);
+
+    pub fn R_GE_glyphFontFile(glyphFont: SEXP) -> *const c_char;
+    pub fn R_GE_glyphFontIndex(glyphFont: SEXP) -> c_int;
+    pub fn R_GE_glyphFontFamily(glyphFont: SEXP) -> *const c_char;
+    pub fn R_GE_glyphFontWeight(glyphFont: SEXP) -> f64;
+    pub fn R_GE_glyphFontStyle(glyphFont: SEXP) -> c_int;
 }

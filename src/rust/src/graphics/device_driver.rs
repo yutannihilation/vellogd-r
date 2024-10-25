@@ -1,11 +1,16 @@
 use savvy::ffi::SEXP;
-use std::ffi::CString;
 use std::slice;
+use std::{ffi::CString, os::raw::c_uint};
 use vellogd_shared::{
     ffi::{
         pDevDesc, pGEcontext, DevDesc, GEaddDevice2, GEcreateDevDesc, GEinitDisplayList,
-        R_CheckDeviceAvailable, R_EmptyEnv, R_GE_checkVersionOrDie, R_GE_definitions,
-        R_GE_gcontext, R_GE_version, R_NilValue, Rboolean, Rboolean_FALSE, Rboolean_TRUE,
+        R_CheckDeviceAvailable, R_EmptyEnv, R_GE_capability_clippingPaths,
+        R_GE_capability_compositing, R_GE_capability_glyphs, R_GE_capability_masks,
+        R_GE_capability_paths, R_GE_capability_patterns, R_GE_capability_transformations,
+        R_GE_checkVersionOrDie, R_GE_gcontext, R_GE_glyphFontFamily, R_GE_glyphFontFile,
+        R_GE_glyphFontIndex, R_GE_glyphFontStyle, R_GE_glyphFontWeight, R_GE_version, R_NilValue,
+        Rboolean, Rboolean_FALSE, Rboolean_TRUE, Rf_allocVector, Rf_protect, Rf_unprotect, INTEGER,
+        INTSXP, SET_VECTOR_ELT,
     },
     text_layouter::TextMetric,
 };
@@ -252,6 +257,25 @@ pub trait DeviceDriver: std::marker::Sized {
     ) {
     }
 
+    /// A callback function to draw a glyph.
+    ///
+    /// cf. https://www.stat.auckland.ac.nz/~paul/Reports/Typography/glyphs/glyphs.html
+    fn glyph(
+        &mut self,
+        glyphs: &[u32],
+        x: &[f64],
+        y: &[f64],
+        fontfile: &str,
+        index: i32,
+        family: &str,
+        weight: f64,
+        style: i32,
+        angle: f64,
+        size: f64,
+        colour: c_uint,
+    ) {
+    }
+
     /// A callback function called when the user aborts some operation. It seems
     /// this is rarely implemented.
     fn on_exit(&mut self, dd: DevDesc) {}
@@ -281,6 +305,71 @@ pub trait DeviceDriver: std::marker::Sized {
     // but compiler throws erors. It should be ok to use
     // i32 here.
     fn eventHelper(&mut self, dd: DevDesc, code: i32) {}
+
+    /// cf. src/library/grDevices/src/devices.c in R's source code
+    fn capabilities(cap: SEXP) -> SEXP {
+        // patterns
+        unsafe {
+            let len = 3;
+            let patterns = Rf_protect(Rf_allocVector(INTSXP, len));
+            std::ptr::write_bytes(INTEGER(patterns), 0, len);
+            // *INTEGER(patterns) = 1;
+            SET_VECTOR_ELT(cap, R_GE_capability_patterns, patterns);
+            Rf_unprotect(1);
+        }
+
+        // clipping_paths
+        unsafe {
+            let clipping_paths = Rf_protect(Rf_allocVector(INTSXP, 1));
+            *INTEGER(clipping_paths) = 0;
+            SET_VECTOR_ELT(cap, R_GE_capability_clippingPaths, clipping_paths);
+            Rf_unprotect(1);
+        }
+
+        // masks
+        unsafe {
+            let len = 2;
+            let masks = Rf_protect(Rf_allocVector(INTSXP, len));
+            std::ptr::write_bytes(INTEGER(masks), 0, len);
+            SET_VECTOR_ELT(cap, R_GE_capability_masks, masks);
+            Rf_unprotect(1);
+        }
+
+        // compositing
+        unsafe {
+            let len = 11;
+            let compositing = Rf_protect(Rf_allocVector(INTSXP, len));
+            std::ptr::write_bytes(INTEGER(compositing), 0, len);
+            SET_VECTOR_ELT(cap, R_GE_capability_compositing, compositing);
+            Rf_unprotect(1);
+        }
+
+        // transforms
+        unsafe {
+            let transforms = Rf_protect(Rf_allocVector(INTSXP, 1));
+            *INTEGER(transforms) = 0;
+            SET_VECTOR_ELT(cap, R_GE_capability_transformations, transforms);
+            Rf_unprotect(1);
+        }
+
+        // paths
+        unsafe {
+            let paths = Rf_protect(Rf_allocVector(INTSXP, 1));
+            *INTEGER(paths) = 0;
+            SET_VECTOR_ELT(cap, R_GE_capability_paths, paths);
+            Rf_unprotect(1);
+        }
+
+        // glyphs
+        unsafe {
+            let glyphs = Rf_protect(Rf_allocVector(INTSXP, 1));
+            *INTEGER(glyphs) = 1;
+            SET_VECTOR_ELT(cap, R_GE_capability_glyphs, glyphs);
+            Rf_unprotect(1);
+        }
+
+        cap
+    }
 
     /// Create a [Device].
     fn create_device<T: DeviceDriver>(
@@ -659,6 +748,48 @@ pub trait DeviceDriver: std::marker::Sized {
             // data.releaseMask(ref_, *dd);
         }
 
+        unsafe extern "C" fn device_driver_releaseGroup<T: DeviceDriver>(ref_: SEXP, dd: pDevDesc) {
+            let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
+            // TODO
+            // data.releaseMask(ref_, *dd);
+        }
+
+        unsafe extern "C" fn device_driver_capabilities<T: DeviceDriver>(cap: SEXP) -> SEXP {
+            <T>::capabilities(cap)
+        }
+
+        unsafe extern "C" fn device_driver_glyph<T: DeviceDriver>(
+            n: c_int,
+            glyphs: *mut c_uint,
+            x: *mut f64,
+            y: *mut f64,
+            font: SEXP,
+            size: f64,
+            colour: c_uint,
+            rot: f64,
+            dd: pDevDesc,
+        ) {
+            let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
+            let glyphs = slice::from_raw_parts(glyphs, n as _);
+
+            let x = slice::from_raw_parts(x, n as _);
+            let y = slice::from_raw_parts(y, n as _);
+
+            let fontfile = std::ffi::CStr::from_ptr(R_GE_glyphFontFile(font))
+                .to_str()
+                .unwrap_or_default();
+            let index = R_GE_glyphFontIndex(font);
+            let family = std::ffi::CStr::from_ptr(R_GE_glyphFontFamily(font))
+                .to_str()
+                .unwrap_or_default();
+            let weight = R_GE_glyphFontWeight(font);
+            let style = R_GE_glyphFontStyle(font);
+
+            data.glyph(
+                glyphs, x, y, fontfile, index, family, weight, style, rot, size, colour,
+            );
+        }
+
         //
         // ************* defining the wrapper functions ends here ****************
         //
@@ -866,7 +997,7 @@ pub trait DeviceDriver: std::marker::Sized {
             (*p_dev_desc).setMask = Some(device_driver_setMask::<T>);
             (*p_dev_desc).releaseMask = Some(device_driver_releaseMask::<T>);
 
-            (*p_dev_desc).deviceVersion = R_GE_definitions as _;
+            (*p_dev_desc).deviceVersion = R_GE_version as _;
 
             (*p_dev_desc).deviceClip = match <T>::CLIPPING_STRATEGY {
                 ClippingStrategy::Device => Rboolean_TRUE,
@@ -875,13 +1006,15 @@ pub trait DeviceDriver: std::marker::Sized {
 
             (*p_dev_desc).defineGroup = None;
             (*p_dev_desc).useGroup = None;
-            (*p_dev_desc).releaseGroup = None;
+            (*p_dev_desc).releaseGroup = Some(device_driver_releaseGroup::<T>);
 
             (*p_dev_desc).stroke = None;
             (*p_dev_desc).fill = None;
             (*p_dev_desc).fillStroke = None;
 
-            (*p_dev_desc).capabilities = None;
+            (*p_dev_desc).capabilities = Some(device_driver_capabilities::<T>);
+
+            (*p_dev_desc).glyph = Some(device_driver_glyph::<T>);
         } // unsafe ends here
 
         let device_name = CString::new(device_name).unwrap();
