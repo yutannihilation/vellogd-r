@@ -208,7 +208,7 @@ impl DeviceDriver for VelloGraphicsDevice {
         .to_string();
         let size = (gc.cex * gc.ps) as f32;
         let lineheight = gc.lineheight as f32;
-        self.build_layout(text, &family, size, lineheight);
+        self.build_layout(text, &family, gc.fontface, size, lineheight);
 
         let layout_width = self.layout.width() as f64;
         let window_height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;

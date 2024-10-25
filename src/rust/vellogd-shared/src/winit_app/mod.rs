@@ -652,10 +652,11 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 size,
                 lineheight,
                 family,
+                face,
                 angle,
                 hadj,
             } => {
-                self.build_layout(text, &family, size, lineheight);
+                self.build_layout(text, &family, face, size, lineheight);
 
                 let layout_width = self.layout.width();
                 let window_height = self.height.load(Ordering::Relaxed) as f64;

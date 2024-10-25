@@ -18,9 +18,8 @@ pub trait TextLayouter {
     fn build_layout(
         &mut self,
         text: impl AsRef<str>,
-        // TODO
         family: impl AsRef<str>,
-        // face: i32,
+        face: i32,
         size: f32,
         lineheight: f32,
     ) {
@@ -37,6 +36,10 @@ pub trait TextLayouter {
         let family = parley::FontFamily::parse(family.as_ref())
             .unwrap_or(parley::GenericFamily::SansSerif.into());
         layout_builder.push_default(family);
+
+        let (weight, style) = fontface_to_weight_and_style(face);
+        layout_builder.push_default(parley::StyleProperty::FontWeight(weight));
+        layout_builder.push_default(parley::StyleProperty::FontStyle(style));
 
         // TODO: use build_into() to reuse a Layout?
         let layout = self.layout_mut();
@@ -56,7 +59,7 @@ pub trait TextLayouter {
         }
         .to_string();
         let size = gc.cex * gc.ps;
-        self.build_layout(text, &family, size as _, gc.lineheight as _);
+        self.build_layout(text, &family, gc.fontface, size as _, gc.lineheight as _);
         self.layout_ref().width() as _
     }
 
@@ -68,7 +71,8 @@ pub trait TextLayouter {
         }
         .to_string();
         let size = gc.cex * gc.ps;
-        self.build_layout(c.to_string(), &family, size as _, gc.lineheight as _);
+        let text = c.to_string();
+        self.build_layout(text, &family, gc.fontface, size as _, gc.lineheight as _);
         let layout_ref = self.layout_ref();
         let line = layout_ref.lines().next();
         match line {
@@ -86,5 +90,15 @@ pub trait TextLayouter {
                 width: 0.0,
             },
         }
+    }
+}
+
+pub fn fontface_to_weight_and_style(fontface: i32) -> (parley::FontWeight, parley::FontStyle) {
+    match fontface {
+        1 => (parley::FontWeight::NORMAL, parley::FontStyle::Normal), // Plain
+        2 => (parley::FontWeight::BOLD, parley::FontStyle::Normal),   // Bold
+        3 => (parley::FontWeight::NORMAL, parley::FontStyle::Italic), // Italic
+        4 => (parley::FontWeight::BOLD, parley::FontStyle::Italic),   // BoldItalic
+        _ => (parley::FontWeight::NORMAL, parley::FontStyle::Normal), // Symbolic or unknown
     }
 }

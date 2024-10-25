@@ -59,9 +59,8 @@ pub enum Request {
         color: peniko::Color,
         size: f32,
         lineheight: f32,
-        // TODO
-        // face
         family: String,
+        face: i32,
         angle: f32,
         hadj: f32,
     },
