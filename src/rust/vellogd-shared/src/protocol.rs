@@ -14,6 +14,39 @@ pub struct StrokeParams {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct GlyphParams<'a> {
+    pub fontfile: &'a str,
+    pub index: u32,
+    pub family: &'a str,
+    pub weight_raw: f32, // TODO: parley::FontWeight is not serializable
+    pub style_raw: u32,  // TODO: parley::FontStyle is not serializable
+    pub angle: f64,
+    pub size: f32,
+    pub color: peniko::Color,
+}
+
+impl<'a> GlyphParams<'a> {
+    pub fn font(&self) -> std::io::Result<parley::Font> {
+        let p = std::fs::canonicalize(self.fontfile).unwrap();
+        let data = std::fs::read(p)?;
+        Ok(parley::Font::new(data.into(), self.index))
+    }
+
+    pub fn weight(&self) -> parley::FontWeight {
+        parley::FontWeight::new(self.weight_raw)
+    }
+
+    pub fn style(&self) -> parley::FontStyle {
+        match self.style_raw {
+            1 => parley::FontStyle::Normal,        // R_GE_text_style_normal
+            2 => parley::FontStyle::Italic,        // R_GE_text_style_italic
+            3 => parley::FontStyle::Oblique(None), // R_GE_text_style_oblique
+            _ => parley::FontStyle::Normal,        // TODO: unreachable
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Request {
     ConnectionReady,
     NewWindow,

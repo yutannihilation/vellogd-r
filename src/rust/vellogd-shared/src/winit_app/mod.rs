@@ -27,7 +27,7 @@ use winit::{
 };
 
 use crate::{
-    protocol::{AppResponseRelay, FillParams, Request, Response, StrokeParams},
+    protocol::{AppResponseRelay, FillParams, GlyphParams, Request, Response, StrokeParams},
     text_layouter::{fontface_to_weight_and_style, TextLayouter},
 };
 
@@ -299,22 +299,9 @@ impl SceneDrawer {
         glyph_ids: &[u32],
         x: &[f64],
         y: &[f64],
-        fontfile: &str,
-        index: u32,
-        family: &str,
-        weight: parley::FontWeight,
-        style: parley::FontStyle,
-        angle: f64,
-        size: f32,
-        color: peniko::Color,
+        glyph_params: GlyphParams,
     ) {
         let scene = &mut self.inner.lock().unwrap();
-        let p = std::fs::canonicalize(fontfile).unwrap();
-        let font = match std::fs::read(p) {
-            Ok(data) => parley::Font::new(data.into(), index),
-            Err(_) => todo!(),
-        };
-
         let window_height = self.window_height.load(Ordering::Relaxed) as f32;
 
         let glyphs = x
@@ -327,13 +314,15 @@ impl SceneDrawer {
                 y: window_height - *y as f32,
             });
 
-        let transform = kurbo::Affine::rotate(-angle);
+        let transform = kurbo::Affine::rotate(-glyph_params.angle);
+
+        let font = glyph_params.font().unwrap(); // TODO: handle error
 
         scene
             .draw_glyphs(&font)
-            .brush(color)
+            .brush(glyph_params.color)
             .transform(transform)
-            .font_size(size)
+            .font_size(glyph_params.size)
             .draw(peniko::Fill::NonZero, glyphs);
 
         self.needs_redraw.store(true, Ordering::Relaxed);

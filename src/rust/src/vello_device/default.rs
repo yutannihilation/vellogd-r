@@ -9,6 +9,7 @@ use crate::vello_device::xy_to_path_with_hole;
 use vellogd_shared::ffi::DevDesc;
 use vellogd_shared::ffi::R_GE_gcontext;
 use vellogd_shared::protocol::FillParams;
+use vellogd_shared::protocol::GlyphParams;
 use vellogd_shared::protocol::Request;
 use vellogd_shared::protocol::Response;
 use vellogd_shared::protocol::StrokeParams;
@@ -256,27 +257,20 @@ impl DeviceDriver for VelloGraphicsDevice {
 
         let [r, g, b, a] = colour.to_ne_bytes();
         let color = peniko::Color::rgba8(r, g, b, a);
-        let weight = parley::FontWeight::new(weight as f32);
-        let style = match style {
-            1 => parley::FontStyle::Normal,        // R_GE_text_style_normal
-            2 => parley::FontStyle::Italic,        // R_GE_text_style_italic
-            3 => parley::FontStyle::Oblique(None), // R_GE_text_style_oblique
-            _ => parley::FontStyle::Normal,        // TODO: unreachable
+        let glyph_params = GlyphParams {
+            fontfile,
+            index: index as u32,
+            family,
+            weight_raw: weight as f32,
+            style_raw: style as u32,
+            angle: angle.to_radians(),
+            size: size as f32,
+            color,
         };
 
-        VELLO_APP_PROXY.scene.draw_glyph_raw(
-            glyph_ids,
-            x,
-            y,
-            fontfile,
-            index as u32,
-            family,
-            weight,
-            style,
-            angle.to_radians(),
-            size as f32,
-            color,
-        );
+        VELLO_APP_PROXY
+            .scene
+            .draw_glyph_raw(glyph_ids, x, y, glyph_params);
     }
 
     fn raster(
