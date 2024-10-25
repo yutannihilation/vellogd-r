@@ -50,7 +50,6 @@ jobs:
           needs: check
 
       - uses: Swatinem/rust-cache@v2
-        if: runner.os != 'Windows'
         with:
           workspaces: src/rust
           prefix-key: "v2-rust"
