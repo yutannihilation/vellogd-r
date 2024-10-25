@@ -5,9 +5,9 @@ use vellogd_shared::{
     ffi::{
         pDevDesc, pGEcontext, DevDesc, GEaddDevice2, GEcreateDevDesc, GEinitDisplayList,
         R_CheckDeviceAvailable, R_EmptyEnv, R_GE_capability_glyphs, R_GE_checkVersionOrDie,
-        R_GE_definitions, R_GE_gcontext, R_GE_glyphFontFamily, R_GE_glyphFontFile,
-        R_GE_glyphFontIndex, R_GE_glyphFontStyle, R_GE_glyphFontWeight, R_GE_version, R_NilValue,
-        Rboolean, Rboolean_FALSE, Rboolean_TRUE, Rf_ScalarInteger, SET_VECTOR_ELT,
+        R_GE_gcontext, R_GE_glyphFontFamily, R_GE_glyphFontFile, R_GE_glyphFontIndex,
+        R_GE_glyphFontStyle, R_GE_glyphFontWeight, R_GE_version, R_NilValue, Rboolean,
+        Rboolean_FALSE, Rboolean_TRUE, Rf_ScalarInteger, SET_VECTOR_ELT,
     },
     text_layouter::TextMetric,
 };

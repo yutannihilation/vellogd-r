@@ -56,17 +56,7 @@ impl SceneRequestHandler {
             } => {
                 self.scene.draw_rect(p0, p1, fill_params, stroke_params);
             }
-            Request::DrawText {
-                pos,
-                text,
-                color,
-                size,
-                lineheight,
-                family,
-                face,
-                angle,
-                hadj,
-            } => {
+            Request::DrawText { .. } => {
                 // TODO: where to store layout?
 
                 // self.build_layout(text, size, lineheight);
