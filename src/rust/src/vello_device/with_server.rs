@@ -254,8 +254,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
                 color,
                 size: (gc.cex * gc.ps) as _,
                 lineheight: gc.lineheight as _,
-                // face: gc.fontface as _,
                 family,
+                face: gc.fontface,
                 angle: angle as _,
                 hadj: hadj as _,
             })

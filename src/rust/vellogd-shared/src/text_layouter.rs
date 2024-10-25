@@ -18,9 +18,8 @@ pub trait TextLayouter {
     fn build_layout(
         &mut self,
         text: impl AsRef<str>,
-        // TODO
-        // family: String,
-        // face: i32,
+        family: impl AsRef<str>,
+        face: i32,
         size: f32,
         lineheight: f32,
     ) {
@@ -33,7 +32,14 @@ pub trait TextLayouter {
         // TODO: should scale be configurable?
         layout_builder.push_default(parley::StyleProperty::FontSize(size));
         layout_builder.push_default(parley::StyleProperty::LineHeight(lineheight));
-        layout_builder.push_default(parley::GenericFamily::SansSerif); // TODO: specify family
+
+        let family = parley::FontFamily::parse(family.as_ref())
+            .unwrap_or(parley::GenericFamily::SansSerif.into());
+        layout_builder.push_default(family);
+
+        let (weight, style) = fontface_to_weight_and_style(face);
+        layout_builder.push_default(parley::StyleProperty::FontWeight(weight));
+        layout_builder.push_default(parley::StyleProperty::FontStyle(style));
 
         // TODO: use build_into() to reuse a Layout?
         let layout = self.layout_mut();
@@ -46,28 +52,27 @@ pub trait TextLayouter {
     }
 
     fn get_text_width<T: AsRef<str>>(&mut self, text: T, gc: R_GE_gcontext) -> f64 {
-        // TODO
-        // let family = unsafe {
-        //     CStr::from_ptr(gc.fontfamily.as_ptr())
-        //         .to_str()
-        //         .unwrap_or("Arial")
-        // }
-        // .to_string();
+        let family = unsafe {
+            std::ffi::CStr::from_ptr(gc.fontfamily.as_ptr())
+                .to_str()
+                .unwrap_or("Arial")
+        }
+        .to_string();
         let size = gc.cex * gc.ps;
-        self.build_layout(text, size as _, gc.lineheight as _);
+        self.build_layout(text, &family, gc.fontface, size as _, gc.lineheight as _);
         self.layout_ref().width() as _
     }
 
     fn get_char_metric(&mut self, c: char, gc: R_GE_gcontext) -> TextMetric {
-        // TODO
-        // let _family = unsafe {
-        //     CStr::from_ptr(gc.fontfamily.as_ptr())
-        //         .to_str()
-        //         .unwrap_or("Arial")
-        // }
-        // .to_string();
+        let family = unsafe {
+            std::ffi::CStr::from_ptr(gc.fontfamily.as_ptr())
+                .to_str()
+                .unwrap_or("Arial")
+        }
+        .to_string();
         let size = gc.cex * gc.ps;
-        self.build_layout(c.to_string(), size as _, gc.lineheight as _);
+        let text = c.to_string();
+        self.build_layout(text, &family, gc.fontface, size as _, gc.lineheight as _);
         let layout_ref = self.layout_ref();
         let line = layout_ref.lines().next();
         match line {
@@ -85,5 +90,15 @@ pub trait TextLayouter {
                 width: 0.0,
             },
         }
+    }
+}
+
+pub fn fontface_to_weight_and_style(fontface: i32) -> (parley::FontWeight, parley::FontStyle) {
+    match fontface {
+        1 => (parley::FontWeight::NORMAL, parley::FontStyle::Normal), // Plain
+        2 => (parley::FontWeight::BOLD, parley::FontStyle::Normal),   // Bold
+        3 => (parley::FontWeight::NORMAL, parley::FontStyle::Italic), // Italic
+        4 => (parley::FontWeight::BOLD, parley::FontStyle::Italic),   // BoldItalic
+        _ => (parley::FontWeight::NORMAL, parley::FontStyle::Normal), // Symbolic or unknown
     }
 }

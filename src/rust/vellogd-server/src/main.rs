@@ -63,6 +63,7 @@ impl SceneRequestHandler {
                 size,
                 lineheight,
                 family,
+                face,
                 angle,
                 hadj,
             } => {

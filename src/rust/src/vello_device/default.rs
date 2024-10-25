@@ -200,16 +200,15 @@ impl DeviceDriver for VelloGraphicsDevice {
 
         let [r, g, b, a] = gc.col.to_ne_bytes();
         let color = peniko::Color::rgba8(r, g, b, a);
-        // TODO
-        // let family = unsafe {
-        //     std::ffi::CStr::from_ptr(gc.fontfamily.as_ptr())
-        //         .to_str()
-        //         .unwrap_or("Arial")
-        // }
-        // .to_string();
+        let family = unsafe {
+            std::ffi::CStr::from_ptr(gc.fontfamily.as_ptr())
+                .to_str()
+                .unwrap_or("Arial")
+        }
+        .to_string();
         let size = (gc.cex * gc.ps) as f32;
         let lineheight = gc.lineheight as f32;
-        self.build_layout(text, size, lineheight);
+        self.build_layout(text, &family, gc.fontface, size, lineheight);
 
         let layout_width = self.layout.width() as f64;
         let window_height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
