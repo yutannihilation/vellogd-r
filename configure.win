@@ -24,23 +24,18 @@ echo "using Rust compiler: '${RUSTC_VERSION}'"
 # catch DEBUG envvar, which is passed from pkgbuild::compile_dll()
 if [ "${DEBUG}" = "true" ]; then
   FEATURES="--features use_winit --features tracing"
+  PROFILE=dev
 else
   FEATURES="--features use_winit"
+  PROFILE=release
 fi
 
 # In order to use rust-cache action, target dir needs to be a fixed, existing path.
 if [ -d "${GITHUB_WORKSPACE}" ]; then
   CARGO_TARGET_DIR=$(echo "${GITHUB_WORKSPACE}/src/rust/target" | sed -e 's|\\|/|g') # normalize path
   echo "Detected GitHub Actions envvar. Using ${CARGO_TARGET_DIR} for the target dir of cargo"
-  # always dev build on GitHub Actions CI
-  PROFILE=dev
 else
   CARGO_TARGET_DIR='$(CURDIR)/rust/target'
-  if [ "${DEBUG}" = "true" ]; then
-    PROFILE=dev
-  else
-    PROFILE=release
-  fi
 fi
 
 sed \
