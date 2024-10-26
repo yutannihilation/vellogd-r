@@ -5,7 +5,31 @@ use crate::graphics::DeviceDriver;
 
 use vellogd_shared::ffi::DevDesc;
 use vellogd_shared::ffi::R_GE_gcontext;
+use vellogd_shared::ffi::R_GE_linearGradientColour;
+use vellogd_shared::ffi::R_GE_linearGradientExtend;
+use vellogd_shared::ffi::R_GE_linearGradientNumStops;
+use vellogd_shared::ffi::R_GE_linearGradientStop;
+use vellogd_shared::ffi::R_GE_linearGradientX1;
+use vellogd_shared::ffi::R_GE_linearGradientX2;
+use vellogd_shared::ffi::R_GE_linearGradientY1;
+use vellogd_shared::ffi::R_GE_linearGradientY2;
+use vellogd_shared::ffi::R_GE_patternType;
+use vellogd_shared::ffi::R_GE_radialGradientCX1;
+use vellogd_shared::ffi::R_GE_radialGradientCX2;
+use vellogd_shared::ffi::R_GE_radialGradientCY1;
+use vellogd_shared::ffi::R_GE_radialGradientCY2;
+use vellogd_shared::ffi::R_GE_radialGradientColour;
+use vellogd_shared::ffi::R_GE_radialGradientExtend;
+use vellogd_shared::ffi::R_GE_radialGradientNumStops;
+use vellogd_shared::ffi::R_GE_radialGradientR1;
+use vellogd_shared::ffi::R_GE_radialGradientR2;
+use vellogd_shared::ffi::R_GE_radialGradientStop;
 use vellogd_shared::ffi::R_NilValue;
+use vellogd_shared::ffi::Rboolean_TRUE;
+use vellogd_shared::ffi::Rf_ScalarInteger;
+use vellogd_shared::ffi::Rf_isNull;
+use vellogd_shared::ffi::INTEGER;
+use vellogd_shared::ffi::SEXP;
 use vellogd_shared::text_layouter::TextMetric;
 
 #[cfg(debug_assertions)]
@@ -137,9 +161,13 @@ impl DeviceDriver for DebugGraphicsDevice {
         savvy::r_eprintln!("[polyline] x: {} y: {}", take3(x), take3(y));
     }
 
-    fn rect(&mut self, from: (f64, f64), to: (f64, f64), _: R_GE_gcontext, _: DevDesc) {
+    fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
         savvy::r_eprintln!("[rect] from: {from:?} to: {to:?}");
+        if unsafe { Rf_isNull(gc.patternFill) != Rboolean_TRUE } {
+            let fill = unsafe { *INTEGER(gc.patternFill) };
+            savvy::r_eprintln!("  fill: {fill}")
+        }
     }
 
     fn path(
@@ -170,9 +198,9 @@ impl DeviceDriver for DebugGraphicsDevice {
 
         savvy::r_eprintln!(
             "[raster] 
-        pixels: {pixels:?}
-        pos: {pos:?} 
-        size: {size:?}"
+  pixels: {pixels:?}
+  pos: {pos:?} 
+  size: {size:?}"
         );
     }
 
@@ -232,19 +260,80 @@ impl DeviceDriver for DebugGraphicsDevice {
         let fontfile = std::fs::canonicalize(fontfile);
         savvy::r_eprintln!(
             "[glyph]
-glyphs: {glyphs:?}
-x: {x:?}
-y: {y:?}
-fontfile: {fontfile:?}
-index: {index}
-family: {family}
-weight: {weight}
-style: {style}
-angle: {angle}
-size: {size}
-colour: {colour}
+  glyphs: {glyphs:?}
+  x: {x:?}
+  y: {y:?}
+  fontfile: {fontfile:?}
+  index: {index}
+  family: {family}
+  weight: {weight}
+  style: {style}
+  angle: {angle}
+  size: {size}
+  colour: {colour}
 "
         );
+    }
+
+    fn set_pattern(&mut self, pattern: SEXP, dd: DevDesc) -> SEXP {
+        unsafe {
+            if Rf_isNull(pattern) == Rboolean_TRUE {
+                return Rf_ScalarInteger(-1);
+            }
+        }
+
+        match unsafe { R_GE_patternType(pattern) } {
+            1 => unsafe {
+                let x1 = R_GE_linearGradientX1(pattern);
+                let y1 = R_GE_linearGradientY1(pattern);
+                let x2 = R_GE_linearGradientX2(pattern);
+                let y2 = R_GE_linearGradientY2(pattern);
+                let extend = R_GE_linearGradientExtend(pattern);
+                savvy::r_eprintln!(
+                    "[setPattern]
+  from: ({x1}, {y1})
+  to:   ({x2}, {y2})
+  extend: {extend}"
+                );
+
+                let num_stops = R_GE_linearGradientNumStops(pattern);
+                savvy::r_eprintln!("  stops:");
+
+                for i in 0..num_stops {
+                    let stop = R_GE_linearGradientStop(pattern, i);
+                    let color = R_GE_linearGradientColour(pattern, i);
+                    savvy::r_eprintln!("    {i}: {stop},{color:08x}");
+                }
+            },
+            2 => unsafe {
+                let cx1 = R_GE_radialGradientCX1(pattern);
+                let cy1 = R_GE_radialGradientCY1(pattern);
+                let r1 = R_GE_radialGradientR1(pattern);
+                let cx2 = R_GE_radialGradientCX2(pattern);
+                let cy2 = R_GE_radialGradientCY2(pattern);
+                let r2 = R_GE_radialGradientR2(pattern);
+                let extend = R_GE_radialGradientExtend(pattern);
+                savvy::r_eprintln!(
+                    "[setPattern]
+  from: ({cx1}, {cy1}), r: {r1}
+  to:   ({cx2}, {cy2}), r: {r2}
+  extend: {extend}"
+                );
+
+                let num_stops = R_GE_radialGradientNumStops(pattern);
+                savvy::r_eprintln!("  stops:");
+
+                for i in 0..num_stops {
+                    let stop = R_GE_radialGradientStop(pattern, i);
+                    let color = R_GE_radialGradientColour(pattern, i);
+                    savvy::r_eprintln!("    {i}: {stop},{color:08x}");
+                }
+            },
+            3 => {} // tiling
+            _ => {}
+        }
+
+        unsafe { R_NilValue }
     }
 
     fn on_exit(&mut self, _: DevDesc) {

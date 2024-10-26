@@ -212,6 +212,12 @@ pub trait DeviceDriver: std::marker::Sized {
     ) {
     }
 
+    fn set_pattern(&mut self, pattern: SEXP, dd: DevDesc) -> SEXP {
+        unsafe { R_NilValue }
+    }
+
+    fn release_pattern(&mut self, pattern: SEXP, dd: DevDesc) {}
+
     /// A callback function called when the user aborts some operation. It seems
     /// this is rarely implemented.
     fn on_exit(&mut self, dd: DevDesc) {}
@@ -632,9 +638,7 @@ pub trait DeviceDriver: std::marker::Sized {
             dd: pDevDesc,
         ) -> SEXP {
             let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
-            // TODO
-            // data.setPattern(pattern, *dd)
-            R_NilValue
+            data.set_pattern(pattern, *dd)
         }
 
         unsafe extern "C" fn device_driver_releasePattern<T: DeviceDriver>(
@@ -642,8 +646,7 @@ pub trait DeviceDriver: std::marker::Sized {
             dd: pDevDesc,
         ) {
             let data = ((*dd).deviceSpecific as *mut T).as_mut().unwrap();
-            // TODO
-            // data.reelasePattern(ref_, *dd);
+            data.release_pattern(ref_, *dd);
         }
 
         unsafe extern "C" fn device_driver_setClipPath<T: DeviceDriver>(
