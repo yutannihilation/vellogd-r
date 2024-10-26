@@ -50,7 +50,12 @@ pub enum FillPattern {
 
 #[derive(Clone)]
 pub struct SceneDrawer {
-    inner: Arc<Mutex<Scene>>,
+    // update_target and render_target are usually the same, but can be
+    // different. For example, tiling pattern fill requires a temporary scene to
+    // be rasterized.
+    update_target: Arc<Mutex<Scene>>,
+    render_target: Arc<Mutex<Scene>>,
+
     // This is a bit tricky. Scene doesn't need to know the window size, but,
     // since R requires a flipped Y-axis, SceneDrawer needs to know how to flip,
     // at least.
@@ -72,8 +77,10 @@ impl SceneDrawer {
         window_height: Arc<AtomicU32>,
         needs_redraw: Arc<AtomicBool>,
     ) -> Self {
+        let scene = Arc::new(Mutex::new(Scene::new()));
         Self {
-            inner: Arc::new(Mutex::new(Scene::new())),
+            update_target: scene.clone(),
+            render_target: scene,
             y_transform,
             window_height,
             active_pattern: Arc::new(Mutex::new(None)),
@@ -82,11 +89,11 @@ impl SceneDrawer {
     }
 
     pub fn reset(&mut self) {
-        self.inner.lock().unwrap().reset();
+        self.update_target.lock().unwrap().reset();
     }
 
     pub fn scene(&self) -> std::sync::MutexGuard<'_, Scene> {
-        self.inner.lock().unwrap()
+        self.render_target.lock().unwrap()
     }
 
     fn draw_stroke_inner(
@@ -95,7 +102,7 @@ impl SceneDrawer {
         color: peniko::Color,
         shape: &impl kurbo::Shape,
     ) {
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.update_target.lock().unwrap();
         let y_transform = *self.y_transform.lock().unwrap();
         scene.stroke(stroke, y_transform, color, None, shape);
     }
@@ -106,7 +113,7 @@ impl SceneDrawer {
         color: peniko::Color,
         shape: &impl kurbo::Shape,
     ) {
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.update_target.lock().unwrap();
         let y_transform = *self.y_transform.lock().unwrap();
         let fill_pattern = self.active_pattern.lock().unwrap();
         let brush: peniko::BrushRef = match fill_pattern.as_ref() {
@@ -203,7 +210,7 @@ impl SceneDrawer {
         let transform = kurbo::Affine::scale_non_uniform(scale.0, scale.1)
             .then_translate(pos)
             .then_rotate(-angle.to_radians());
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.update_target.lock().unwrap();
 
         let (brush_transform, width, height) = if with_extended_edge {
             // draw largely and clip the edge
@@ -233,7 +240,7 @@ impl SceneDrawer {
         color: peniko::Color,
         transform: kurbo::Affine,
     ) {
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.update_target.lock().unwrap();
 
         let mut x = glyph_run.offset();
         let y = 0.0;
@@ -287,7 +294,7 @@ impl SceneDrawer {
         y: &[f64],
         glyph_params: GlyphParams,
     ) {
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.update_target.lock().unwrap();
         let window_height = self.window_height.load(Ordering::Relaxed) as f32;
 
         let glyphs = x
@@ -315,7 +322,7 @@ impl SceneDrawer {
     }
 
     pub fn push_clip(&self, p0: kurbo::Point, p1: kurbo::Point) {
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.update_target.lock().unwrap();
         let y_transform = *self.y_transform.lock().unwrap();
 
         // R's graphics device always replaces the clipping strategy (really?)
@@ -330,7 +337,7 @@ impl SceneDrawer {
     }
 
     pub fn pop_clip(&self) {
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.update_target.lock().unwrap();
         scene.pop_layer();
     }
 
