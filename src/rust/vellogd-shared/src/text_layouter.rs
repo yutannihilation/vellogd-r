@@ -1,7 +1,4 @@
-use std::{
-    io,
-    sync::{LazyLock, Mutex},
-};
+use std::sync::{LazyLock, Mutex};
 
 use crate::ffi::R_GE_gcontext;
 
