@@ -7,7 +7,7 @@ use vellogd_shared::{
 
 use crate::{add_tracing_point, graphics::DeviceDriver};
 
-use super::{xy_to_path, WindowController};
+use super::{xy_to_path, xy_to_path_with_hole, WindowController};
 
 pub struct VelloGraphicsDeviceWithServer {
     filename: String,
@@ -189,7 +189,7 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
         let stroke_params = StrokeParams::from_gc(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             self.send_event(Request::DrawPolygon {
-                path: xy_to_path(x, y, true),
+                path: xy_to_path_with_hole(x, y, nper),
                 fill_params,
                 stroke_params,
             })
