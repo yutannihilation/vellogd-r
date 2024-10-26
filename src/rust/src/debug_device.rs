@@ -264,7 +264,7 @@ impl DeviceDriver for DebugGraphicsDevice {
                 let y2 = R_GE_linearGradientY2(pattern);
                 let extend = R_GE_linearGradientExtend(pattern);
                 savvy::r_eprintln!(
-                    "[setPattern]
+                    "[setPattern] linearGradient
   from: ({x1}, {y1})
   to:   ({x2}, {y2})
   extend: {extend}"
@@ -288,7 +288,7 @@ impl DeviceDriver for DebugGraphicsDevice {
                 let r2 = R_GE_radialGradientR2(pattern);
                 let extend = R_GE_radialGradientExtend(pattern);
                 savvy::r_eprintln!(
-                    "[setPattern]
+                    "[setPattern] radialGradient
   from: ({cx1}, {cy1}), r: {r1}
   to:   ({cx2}, {cy2}), r: {r2}
   extend: {extend}"
@@ -303,7 +303,24 @@ impl DeviceDriver for DebugGraphicsDevice {
                     savvy::r_eprintln!("    {i}: {stop},{color:08x}");
                 }
             },
-            3 => {} // tiling
+            3 => unsafe {
+                let x = R_GE_tilingPatternX(pattern);
+                let y = R_GE_tilingPatternY(pattern);
+                let w = R_GE_tilingPatternWidth(pattern);
+                let h = R_GE_tilingPatternHeight(pattern);
+                let extend = R_GE_tilingPatternExtend(pattern);
+                savvy::r_eprintln!(
+                    "[setPattern] tilingPattern
+  pos:  ({x}, {y})
+  size: ({w}, {h})
+  extend: {extend}"
+                );
+
+                // let fun = R_GE_tilingPatternFunction(pattern);
+                // let call = Rf_protect(Rf_lang1(fun));
+                // Rf_eval(call, R_GlobalEnv);
+                // Rf_unprotect(1);
+            },
             _ => {}
         }
 

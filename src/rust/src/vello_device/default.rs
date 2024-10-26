@@ -410,7 +410,23 @@ impl DeviceDriver for VelloGraphicsDevice {
                     .scene
                     .set_pattern(FillPattern::Gradient(gradient));
             },
-            3 => {} // tiling
+            3 => unsafe {
+                let x = R_GE_tilingPatternX(pattern);
+                let y = R_GE_tilingPatternY(pattern);
+                let w = R_GE_tilingPatternWidth(pattern);
+                let h = R_GE_tilingPatternHeight(pattern);
+                let extend = match R_GE_tilingPatternExtend(pattern) {
+                    1 => peniko::Extend::Pad,     // R_GE_patternExtendPad
+                    2 => peniko::Extend::Repeat,  // R_GE_patternExtendRepeat
+                    3 => peniko::Extend::Reflect, // R_GE_patternExtendReflect
+                    _ => peniko::Extend::Pad, // TODO: what should I do when R_GE_patternExtendNone?
+                };
+
+                let fun = R_GE_tilingPatternFunction(pattern);
+                let call = Rf_protect(Rf_lang1(fun));
+                Rf_eval(call, R_GlobalEnv);
+                Rf_unprotect(1);
+            },
             _ => {}
         }
 
