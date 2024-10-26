@@ -100,8 +100,8 @@ cf. <https://github.com/r-devel/r-svn/blob/main/src/include/R_ext/GraphicsDevice
 | `clip`            | ✅ | TODO: server version, can I hide the clipping rectangle? |
 | `cap`             |    | |
 | `eventHelper`     |    | |
-| `setPattern`      | ✅  | |
-| `releasePattern`  | ✅  | |
+| `setPattern`      | ✅  | TODO: tiling, fix #24 |
+| `releasePattern`  | ✅  | TODO: tiling, fix #24 |
 | `setClipPath`     |    | |
 | `releaseClipPath` |    | |
 | `setMask`         |    | |
