@@ -6,8 +6,7 @@ use super::WindowController;
 use crate::add_tracing_point;
 use crate::graphics::DeviceDriver;
 use crate::vello_device::xy_to_path_with_hole;
-use vellogd_shared::ffi::DevDesc;
-use vellogd_shared::ffi::R_GE_gcontext;
+use vellogd_shared::ffi::*;
 use vellogd_shared::protocol::FillParams;
 use vellogd_shared::protocol::GlyphParams;
 use vellogd_shared::protocol::Request;
@@ -17,6 +16,7 @@ use vellogd_shared::text_layouter::fontface_to_weight_and_style;
 use vellogd_shared::text_layouter::TextLayouter;
 use vellogd_shared::text_layouter::TextMetric;
 use vellogd_shared::winit_app::convert_to_image;
+use vellogd_shared::winit_app::FillPattern;
 use vellogd_shared::winit_app::VELLO_APP_PROXY;
 
 pub struct VelloGraphicsDevice {
@@ -337,6 +337,89 @@ impl DeviceDriver for VelloGraphicsDevice {
         add_tracing_point!();
 
         self.get_text_width(text, gc)
+    }
+
+    fn set_pattern(&mut self, pattern: SEXP, _: DevDesc) -> SEXP {
+        unsafe {
+            if pattern == R_NilValue {
+                return Rf_ScalarInteger(-1);
+            }
+        }
+
+        match unsafe { R_GE_patternType(pattern) } {
+            1 => unsafe {
+                let x1 = R_GE_linearGradientX1(pattern);
+                let y1 = R_GE_linearGradientY1(pattern);
+                let x2 = R_GE_linearGradientX2(pattern);
+                let y2 = R_GE_linearGradientY2(pattern);
+                let extend = match R_GE_linearGradientExtend(pattern) {
+                    1 => peniko::Extend::Pad,     // R_GE_patternExtendPad
+                    2 => peniko::Extend::Repeat,  // R_GE_patternExtendRepeat
+                    3 => peniko::Extend::Reflect, // R_GE_patternExtendReflect
+                    _ => peniko::Extend::Pad, // TODO: what should I do when R_GE_patternExtendNone?
+                };
+
+                let num_stops = R_GE_linearGradientNumStops(pattern);
+
+                let color_stops_iter = (0..num_stops).map(|i| {
+                    let offset = R_GE_linearGradientStop(pattern, i) as f32;
+                    let [r, g, b, a] = R_GE_linearGradientColour(pattern, i).to_ne_bytes();
+                    let color = peniko::Color::rgba8(r, g, b, a);
+                    peniko::ColorStop { offset, color }
+                });
+                let color_stops = peniko::ColorStops::from_iter(color_stops_iter);
+
+                let mut gradient =
+                    peniko::Gradient::new_linear((x1, y1), (x2, y2)).with_extend(extend);
+                // Note: with_stops doesn't accept &[ColorStop] or ColorStops. Why?
+                gradient.stops = color_stops;
+
+                VELLO_APP_PROXY
+                    .scene
+                    .set_pattern(FillPattern::Gradient(gradient));
+            },
+            2 => unsafe {
+                let cx1 = R_GE_radialGradientCX1(pattern);
+                let cy1 = R_GE_radialGradientCY1(pattern);
+                let r1 = R_GE_radialGradientR1(pattern) as f32;
+                let cx2 = R_GE_radialGradientCX2(pattern);
+                let cy2 = R_GE_radialGradientCY2(pattern);
+                let r2 = R_GE_radialGradientR2(pattern) as f32;
+                let extend = match R_GE_radialGradientExtend(pattern) {
+                    1 => peniko::Extend::Pad,     // R_GE_patternExtendPad
+                    2 => peniko::Extend::Repeat,  // R_GE_patternExtendRepeat
+                    3 => peniko::Extend::Reflect, // R_GE_patternExtendReflect
+                    _ => peniko::Extend::Pad, // TODO: what should I do when R_GE_patternExtendNone?
+                };
+
+                let num_stops = R_GE_radialGradientNumStops(pattern);
+
+                let color_stops_iter = (0..num_stops).map(|i| {
+                    let offset = R_GE_radialGradientStop(pattern, i) as f32;
+                    let [r, g, b, a] = R_GE_radialGradientColour(pattern, i).to_ne_bytes();
+                    let color = peniko::Color::rgba8(r, g, b, a);
+                    peniko::ColorStop { offset, color }
+                });
+                let color_stops = peniko::ColorStops::from_iter(color_stops_iter);
+                let mut gradient =
+                    peniko::Gradient::new_two_point_radial((cx1, cy1), r1, (cx2, cy2), r2)
+                        .with_extend(extend);
+                // Note: with_stops doesn't accept &[ColorStop] or ColorStops. Why?
+                gradient.stops = color_stops;
+                VELLO_APP_PROXY
+                    .scene
+                    .set_pattern(FillPattern::Gradient(gradient));
+            },
+            3 => {} // tiling
+            _ => {}
+        }
+
+        unsafe { R_NilValue }
+    }
+
+    fn release_pattern(&mut self, _ref: SEXP, _: DevDesc) {
+        // TODO: ref_ contains the index of the pattern, so it can be released.
+        VELLO_APP_PROXY.scene.release_pattern();
     }
 
     // TODO

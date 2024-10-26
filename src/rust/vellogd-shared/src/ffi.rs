@@ -15,7 +15,6 @@ pub const INTSXP: SEXPTYPE = 13;
 
 extern "C" {
     pub static mut R_NilValue: SEXP;
-    pub fn Rf_isNull(s: SEXP) -> Rboolean;
     pub fn Rf_xlength(arg1: SEXP) -> R_xlen_t;
 
     pub fn SET_VECTOR_ELT(x: SEXP, i: R_xlen_t, v: SEXP) -> SEXP;
