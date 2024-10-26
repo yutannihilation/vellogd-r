@@ -3,9 +3,7 @@ use std::os::raw::c_uint;
 use crate::add_tracing_point;
 use crate::graphics::DeviceDriver;
 
-use vellogd_shared::ffi::DevDesc;
-use vellogd_shared::ffi::R_GE_gcontext;
-use vellogd_shared::ffi::R_NilValue;
+use vellogd_shared::ffi::*;
 use vellogd_shared::text_layouter::TextMetric;
 
 #[cfg(debug_assertions)]
@@ -137,9 +135,13 @@ impl DeviceDriver for DebugGraphicsDevice {
         savvy::r_eprintln!("[polyline] x: {} y: {}", take3(x), take3(y));
     }
 
-    fn rect(&mut self, from: (f64, f64), to: (f64, f64), _: R_GE_gcontext, _: DevDesc) {
+    fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
         savvy::r_eprintln!("[rect] from: {from:?} to: {to:?}");
+        if unsafe { gc.patternFill != R_NilValue } {
+            let fill = unsafe { *INTEGER(gc.patternFill) };
+            savvy::r_eprintln!("  fill: {fill}")
+        }
     }
 
     fn path(
@@ -170,9 +172,9 @@ impl DeviceDriver for DebugGraphicsDevice {
 
         savvy::r_eprintln!(
             "[raster] 
-        pixels: {pixels:?}
-        pos: {pos:?} 
-        size: {size:?}"
+  pixels: {pixels:?}
+  pos: {pos:?} 
+  size: {size:?}"
         );
     }
 
@@ -232,19 +234,90 @@ impl DeviceDriver for DebugGraphicsDevice {
         let fontfile = std::fs::canonicalize(fontfile);
         savvy::r_eprintln!(
             "[glyph]
-glyphs: {glyphs:?}
-x: {x:?}
-y: {y:?}
-fontfile: {fontfile:?}
-index: {index}
-family: {family}
-weight: {weight}
-style: {style}
-angle: {angle}
-size: {size}
-colour: {colour}
+  glyphs: {glyphs:?}
+  x: {x:?}
+  y: {y:?}
+  fontfile: {fontfile:?}
+  index: {index}
+  family: {family}
+  weight: {weight}
+  style: {style}
+  angle: {angle}
+  size: {size}
+  colour: {colour}
 "
         );
+    }
+
+    fn set_pattern(&mut self, pattern: SEXP, _: DevDesc) -> SEXP {
+        unsafe {
+            if pattern == R_NilValue {
+                return Rf_ScalarInteger(-1);
+            }
+        }
+
+        match unsafe { R_GE_patternType(pattern) } {
+            1 => unsafe {
+                let x1 = R_GE_linearGradientX1(pattern);
+                let y1 = R_GE_linearGradientY1(pattern);
+                let x2 = R_GE_linearGradientX2(pattern);
+                let y2 = R_GE_linearGradientY2(pattern);
+                let extend = R_GE_linearGradientExtend(pattern);
+                savvy::r_eprintln!(
+                    "[setPattern]
+  from: ({x1}, {y1})
+  to:   ({x2}, {y2})
+  extend: {extend}"
+                );
+
+                let num_stops = R_GE_linearGradientNumStops(pattern);
+                savvy::r_eprintln!("  stops:");
+
+                for i in 0..num_stops {
+                    let stop = R_GE_linearGradientStop(pattern, i);
+                    let color = R_GE_linearGradientColour(pattern, i);
+                    savvy::r_eprintln!("    {i}: {stop},{color:08x}");
+                }
+            },
+            2 => unsafe {
+                let cx1 = R_GE_radialGradientCX1(pattern);
+                let cy1 = R_GE_radialGradientCY1(pattern);
+                let r1 = R_GE_radialGradientR1(pattern);
+                let cx2 = R_GE_radialGradientCX2(pattern);
+                let cy2 = R_GE_radialGradientCY2(pattern);
+                let r2 = R_GE_radialGradientR2(pattern);
+                let extend = R_GE_radialGradientExtend(pattern);
+                savvy::r_eprintln!(
+                    "[setPattern]
+  from: ({cx1}, {cy1}), r: {r1}
+  to:   ({cx2}, {cy2}), r: {r2}
+  extend: {extend}"
+                );
+
+                let num_stops = R_GE_radialGradientNumStops(pattern);
+                savvy::r_eprintln!("  stops:");
+
+                for i in 0..num_stops {
+                    let stop = R_GE_radialGradientStop(pattern, i);
+                    let color = R_GE_radialGradientColour(pattern, i);
+                    savvy::r_eprintln!("    {i}: {stop},{color:08x}");
+                }
+            },
+            3 => {} // tiling
+            _ => {}
+        }
+
+        unsafe { R_NilValue }
+    }
+
+    fn release_pattern(&mut self, ref_: SEXP, _: DevDesc) {
+        savvy::r_eprintln!("[releasePattern]");
+
+        unsafe {
+            if ref_ != R_NilValue {
+                savvy::r_eprintln!("  index: {}", *INTEGER(ref_));
+            }
+        }
     }
 
     fn on_exit(&mut self, _: DevDesc) {

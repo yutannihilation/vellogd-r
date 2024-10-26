@@ -42,6 +42,12 @@ pub enum RenderState<'a> {
     Suspended(Option<Arc<Window>>),
 }
 
+#[derive(Debug)]
+pub enum FillPattern {
+    Gradient(peniko::Gradient),
+    Tiling, // TODO
+}
+
 #[derive(Clone)]
 pub struct SceneDrawer {
     inner: Arc<Mutex<Scene>>,
@@ -54,6 +60,9 @@ pub struct SceneDrawer {
     // items (e.g. glyph) are not.
     y_transform: Arc<Mutex<vello::kurbo::Affine>>,
     window_height: Arc<AtomicU32>,
+
+    active_pattern: Arc<Mutex<Option<FillPattern>>>,
+
     needs_redraw: Arc<AtomicBool>,
 }
 
@@ -67,6 +76,7 @@ impl SceneDrawer {
             inner: Arc::new(Mutex::new(Scene::new())),
             y_transform,
             window_height,
+            active_pattern: Arc::new(Mutex::new(None)),
             needs_redraw,
         }
     }
@@ -79,6 +89,36 @@ impl SceneDrawer {
         self.inner.lock().unwrap()
     }
 
+    fn draw_stroke_inner(
+        &self,
+        stroke: &kurbo::Stroke,
+        color: peniko::Color,
+        shape: &impl kurbo::Shape,
+    ) {
+        let scene = &mut self.inner.lock().unwrap();
+        let y_transform = *self.y_transform.lock().unwrap();
+        scene.stroke(stroke, y_transform, color, None, shape);
+    }
+
+    fn draw_fill_inner(
+        &self,
+        fill_rule: peniko::Fill,
+        color: peniko::Color,
+        shape: &impl kurbo::Shape,
+    ) {
+        let scene = &mut self.inner.lock().unwrap();
+        let y_transform = *self.y_transform.lock().unwrap();
+        let fill_pattern = self.active_pattern.lock().unwrap();
+        let brush: peniko::BrushRef = match fill_pattern.as_ref() {
+            Some(ptn) => match ptn {
+                FillPattern::Gradient(gradient) => gradient.into(),
+                FillPattern::Tiling => todo!(),
+            },
+            None => color.into(),
+        };
+        scene.fill(fill_rule, y_transform, brush, None, shape);
+    }
+
     pub fn draw_circle(
         &self,
         center: kurbo::Point,
@@ -87,27 +127,13 @@ impl SceneDrawer {
         stroke_params: Option<StrokeParams>,
     ) {
         let circle = vello::kurbo::Circle::new(center, radius);
-        let scene = &mut self.inner.lock().unwrap();
-        let y_transform = *self.y_transform.lock().unwrap();
 
         if let Some(fill_params) = fill_params {
-            scene.fill(
-                peniko::Fill::NonZero,
-                y_transform,
-                fill_params.color,
-                None,
-                &circle,
-            );
+            self.draw_fill_inner(peniko::Fill::NonZero, fill_params.color, &circle);
         }
 
         if let Some(stroke_params) = stroke_params {
-            scene.stroke(
-                &stroke_params.stroke,
-                y_transform,
-                stroke_params.color,
-                None,
-                &circle,
-            );
+            self.draw_stroke_inner(&stroke_params.stroke, stroke_params.color, &circle);
         }
 
         self.needs_redraw.store(true, Ordering::Relaxed);
@@ -115,31 +141,12 @@ impl SceneDrawer {
 
     pub fn draw_line(&self, p0: kurbo::Point, p1: kurbo::Point, stroke_params: StrokeParams) {
         let line = vello::kurbo::Line::new(p0, p1);
-        let scene = &mut self.inner.lock().unwrap();
-        let y_transform = *self.y_transform.lock().unwrap();
-
-        scene.stroke(
-            &stroke_params.stroke,
-            y_transform,
-            stroke_params.color,
-            None,
-            &line,
-        );
-
+        self.draw_stroke_inner(&stroke_params.stroke, stroke_params.color, &line);
         self.needs_redraw.store(true, Ordering::Relaxed);
     }
 
     pub fn draw_polyline(&self, path: kurbo::BezPath, stroke_params: StrokeParams) {
-        let scene = &mut self.inner.lock().unwrap();
-        let y_transform = *self.y_transform.lock().unwrap();
-        scene.stroke(
-            &stroke_params.stroke,
-            y_transform,
-            stroke_params.color,
-            None,
-            &path,
-        );
-
+        self.draw_stroke_inner(&stroke_params.stroke, stroke_params.color, &path);
         self.needs_redraw.store(true, Ordering::Relaxed);
     }
 
@@ -149,25 +156,17 @@ impl SceneDrawer {
         fill_params: Option<FillParams>,
         stroke_params: Option<StrokeParams>,
     ) {
-        let scene = &mut self.inner.lock().unwrap();
-        let y_transform = *self.y_transform.lock().unwrap();
         if let Some(fill_params) = fill_params {
             let style = if fill_params.use_nonzero_rule {
                 peniko::Fill::NonZero
             } else {
                 peniko::Fill::EvenOdd
             };
-            scene.fill(style, y_transform, fill_params.color, None, &path);
+            self.draw_fill_inner(style, fill_params.color, &path);
         }
 
         if let Some(stroke_params) = stroke_params {
-            scene.stroke(
-                &stroke_params.stroke,
-                y_transform,
-                stroke_params.color,
-                None,
-                &path,
-            );
+            self.draw_stroke_inner(&stroke_params.stroke, stroke_params.color, &path);
         }
 
         self.needs_redraw.store(true, Ordering::Relaxed);
@@ -181,26 +180,13 @@ impl SceneDrawer {
         stroke_params: Option<StrokeParams>,
     ) {
         let rect = vello::kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y);
-        let scene = &mut self.inner.lock().unwrap();
-        let y_transform = *self.y_transform.lock().unwrap();
+
         if let Some(fill_params) = fill_params {
-            scene.fill(
-                peniko::Fill::NonZero,
-                y_transform,
-                fill_params.color,
-                None,
-                &rect,
-            );
+            self.draw_fill_inner(peniko::Fill::NonZero, fill_params.color, &rect);
         }
 
         if let Some(stroke_params) = stroke_params {
-            scene.stroke(
-                &stroke_params.stroke,
-                y_transform,
-                stroke_params.color,
-                None,
-                &rect,
-            );
+            self.draw_stroke_inner(&stroke_params.stroke, stroke_params.color, &rect);
         }
 
         self.needs_redraw.store(true, Ordering::Relaxed);
@@ -346,6 +332,14 @@ impl SceneDrawer {
     pub fn pop_clip(&self) {
         let scene = &mut self.inner.lock().unwrap();
         scene.pop_layer();
+    }
+
+    pub fn set_pattern(&self, pattern: FillPattern) {
+        self.active_pattern.lock().unwrap().replace(pattern);
+    }
+
+    pub fn release_pattern(&self) {
+        self.active_pattern.lock().unwrap().take();
     }
 }
 

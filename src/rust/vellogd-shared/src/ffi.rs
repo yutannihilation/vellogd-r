@@ -9,18 +9,21 @@ use std::os::raw::{c_char, c_int, c_uint, c_void};
 
 pub type SEXP = *mut c_void;
 pub type R_xlen_t = usize;
-pub type SEXPTYPE = ::std::os::raw::c_uint;
+pub type SEXPTYPE = c_uint;
 
 pub const INTSXP: SEXPTYPE = 13;
 
 extern "C" {
     pub static mut R_NilValue: SEXP;
+    pub fn Rf_xlength(arg1: SEXP) -> R_xlen_t;
+
     pub fn SET_VECTOR_ELT(x: SEXP, i: R_xlen_t, v: SEXP) -> SEXP;
 
     pub fn Rf_protect(arg1: SEXP) -> SEXP;
     pub fn Rf_unprotect(arg1: c_int);
-    pub fn INTEGER(x: SEXP) -> *mut c_int;
     pub fn Rf_allocVector(arg1: SEXPTYPE, arg2: R_xlen_t) -> SEXP;
+    pub fn INTEGER(x: SEXP) -> *mut c_int;
+    pub fn Rf_ScalarInteger(arg1: c_int) -> SEXP;
 }
 
 // TODO: do not include GE version
@@ -316,6 +319,16 @@ pub struct _GEDevDesc {
 }
 pub type pGEDevDesc = *mut GEDevDesc;
 
+// pattern
+pub const R_GE_linearGradientPattern: u32 = 1;
+pub const R_GE_radialGradientPattern: u32 = 2;
+pub const R_GE_tilingPattern: u32 = 3;
+
+pub const R_GE_patternExtendPad: u32 = 1;
+pub const R_GE_patternExtendRepeat: u32 = 2;
+pub const R_GE_patternExtendReflect: u32 = 3;
+pub const R_GE_patternExtendNone: u32 = 4;
+
 extern "C" {
     pub fn GEfromDeviceX(value: f64, to: GEUnit, dd: pGEDevDesc) -> f64;
     pub fn GEtoDeviceX(value: f64, from: GEUnit, dd: pGEDevDesc) -> f64;
@@ -330,6 +343,32 @@ extern "C" {
     pub fn GEinitDisplayList(dd: pGEDevDesc);
     pub fn GEaddDevice2(arg1: pGEDevDesc, arg2: *const c_char);
 
+    // pattern
+    pub fn R_GE_patternType(pattern: SEXP) -> c_int;
+
+    // linear gradient
+    pub fn R_GE_linearGradientX1(pattern: SEXP) -> f64;
+    pub fn R_GE_linearGradientY1(pattern: SEXP) -> f64;
+    pub fn R_GE_linearGradientX2(pattern: SEXP) -> f64;
+    pub fn R_GE_linearGradientY2(pattern: SEXP) -> f64;
+    pub fn R_GE_linearGradientNumStops(pattern: SEXP) -> c_int;
+    pub fn R_GE_linearGradientStop(pattern: SEXP, i: c_int) -> f64;
+    pub fn R_GE_linearGradientColour(pattern: SEXP, i: c_int) -> c_uint;
+    pub fn R_GE_linearGradientExtend(pattern: SEXP) -> c_int;
+
+    // radial gradient
+    pub fn R_GE_radialGradientCX1(pattern: SEXP) -> f64;
+    pub fn R_GE_radialGradientCY1(pattern: SEXP) -> f64;
+    pub fn R_GE_radialGradientR1(pattern: SEXP) -> f64;
+    pub fn R_GE_radialGradientCX2(pattern: SEXP) -> f64;
+    pub fn R_GE_radialGradientCY2(pattern: SEXP) -> f64;
+    pub fn R_GE_radialGradientR2(pattern: SEXP) -> f64;
+    pub fn R_GE_radialGradientNumStops(pattern: SEXP) -> c_int;
+    pub fn R_GE_radialGradientStop(pattern: SEXP, i: c_int) -> f64;
+    pub fn R_GE_radialGradientColour(pattern: SEXP, i: c_int) -> c_uint;
+    pub fn R_GE_radialGradientExtend(pattern: SEXP) -> c_int;
+
+    // glyph
     pub fn R_GE_glyphFontFile(glyphFont: SEXP) -> *const c_char;
     pub fn R_GE_glyphFontIndex(glyphFont: SEXP) -> c_int;
     pub fn R_GE_glyphFontFamily(glyphFont: SEXP) -> *const c_char;
