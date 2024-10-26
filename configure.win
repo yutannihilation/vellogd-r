@@ -21,6 +21,15 @@ RUSTC_VERSION="$(rustc --version || true)"
 echo "using Rust package manager: '${CARGO_VERSION}'"
 echo "using Rust compiler: '${RUSTC_VERSION}'"
 
+# catch DEBUG envvar, which is passed from pkgbuild::compile_dll()
+if [ "${DEBUG}" = "true" ]; then
+  FEATURES="--features use_winit --features tracing"
+  PROFILE=dev
+else
+  FEATURES="--features use_winit"
+  PROFILE=release
+fi
+
 # In order to use rust-cache action, target dir needs to be a fixed, existing path.
 if [ -d "${GITHUB_WORKSPACE}" ]; then
   CARGO_TARGET_DIR=$(echo "${GITHUB_WORKSPACE}/src/rust/target" | sed -e 's|\\|/|g') # normalize path
@@ -29,10 +38,9 @@ else
   CARGO_TARGET_DIR='$(CURDIR)/rust/target'
 fi
 
-FEATURES="--features use_winit"
-
 sed \
   -e "s/@TARGET@/x86_64-pc-windows-gnu/" \
+  -e "s/@PROFILE@/${PROFILE}/" \
   -e "s/@FEATURES@/${FEATURES}/" \
   -e "s|@CARGO_TARGET_DIR@|${CARGO_TARGET_DIR}|" \
   src/Makevars.win.in > src/Makevars.win
