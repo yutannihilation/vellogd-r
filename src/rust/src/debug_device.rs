@@ -8,7 +8,14 @@ use vellogd_shared::text_layouter::TextMetric;
 
 #[cfg(debug_assertions)]
 fn fill_related_params(gc: R_GE_gcontext) -> String {
-    format!("fill: {:08x}", gc.fill)
+    let pattern_fill = unsafe {
+        if gc.patternFill != R_NilValue {
+            (*INTEGER(gc.patternFill)).to_string()
+        } else {
+            "NULL".to_string()
+        }
+    };
+    format!("fill: {:08x}, patternFill: {pattern_fill}", gc.fill)
 }
 
 #[cfg(debug_assertions)]
@@ -32,15 +39,19 @@ fn text_related_params(gc: R_GE_gcontext) -> String {
 
 pub struct DebugGraphicsDevice {
     n_clip: i32,
+    n_pattern: i32,
 }
 
 impl DebugGraphicsDevice {
     pub fn new() -> Self {
-        Self { n_clip: 0 }
+        Self {
+            n_clip: 0,
+            n_pattern: 0,
+        }
     }
 }
 
-fn take3<T: std::fmt::Debug>(x: &[T]) -> String {
+fn take3(x: &[f64]) -> String {
     if x.len() < 3 {
         return format!("{x:?}");
     }
@@ -48,7 +59,7 @@ fn take3<T: std::fmt::Debug>(x: &[T]) -> String {
     let x = x
         .iter()
         .take(3)
-        .map(|x| format!("{x:?}"))
+        .map(|x| format!("{x:.1}"))
         .collect::<Vec<String>>()
         .join(", ");
 
@@ -121,27 +132,37 @@ impl DeviceDriver for DebugGraphicsDevice {
 
     fn new_page(&mut self, gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
-        let fill = gc.fill;
-        savvy::r_eprintln!("[new_page] fill: {fill:#08x}");
+        savvy::r_eprintln!("[new_page] fill params: {{ {} }}", fill_related_params(gc));
     }
 
-    fn polygon(&mut self, x: &[f64], y: &[f64], _: R_GE_gcontext, _: DevDesc) {
+    fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
-        savvy::r_eprintln!("[polygon] x: {} y: {}", take3(x), take3(y));
+        savvy::r_eprintln!(
+            "[polygon] x: {} y: {} fill params: {{ {} }}, line params: {{ {} }}",
+            take3(x),
+            take3(y),
+            fill_related_params(gc),
+            line_related_params(gc),
+        );
     }
 
-    fn polyline(&mut self, x: &[f64], y: &[f64], _: R_GE_gcontext, _: DevDesc) {
+    fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
-        savvy::r_eprintln!("[polyline] x: {} y: {}", take3(x), take3(y));
+        savvy::r_eprintln!(
+            "[polyline] x: {} y: {},  line params: {{ {} }}",
+            take3(x),
+            take3(y),
+            line_related_params(gc),
+        );
     }
 
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
-        savvy::r_eprintln!("[rect] from: {from:?} to: {to:?}");
-        if unsafe { gc.patternFill != R_NilValue } {
-            let fill = unsafe { *INTEGER(gc.patternFill) };
-            savvy::r_eprintln!("  fill: {fill}")
-        }
+        savvy::r_eprintln!(
+            "[rect] from: {from:?} to: {to:?} fill params: {{ {} }}, line params: {{ {} }}",
+            fill_related_params(gc),
+            line_related_params(gc),
+        );
     }
 
     fn path(
@@ -150,11 +171,15 @@ impl DeviceDriver for DebugGraphicsDevice {
         _y: &[f64],
         nper: &[i32],
         _winding: bool,
-        _gc: R_GE_gcontext,
+        gc: R_GE_gcontext,
         _: DevDesc,
     ) {
         add_tracing_point!();
-        savvy::r_eprintln!("[path] nper: {nper:?}");
+        savvy::r_eprintln!(
+            "[path] nper: {nper:?} fill params: {{ {} }}, line params: {{ {} }}",
+            fill_related_params(gc),
+            line_related_params(gc),
+        );
     }
 
     fn raster(
@@ -324,7 +349,11 @@ impl DeviceDriver for DebugGraphicsDevice {
             _ => {}
         }
 
-        unsafe { R_NilValue }
+        unsafe {
+            let pattern_id = self.n_pattern;
+            self.n_pattern += 1;
+            Rf_ScalarInteger(pattern_id)
+        }
     }
 
     fn release_pattern(&mut self, ref_: SEXP, _: DevDesc) {

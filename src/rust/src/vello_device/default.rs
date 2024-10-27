@@ -443,6 +443,7 @@ impl DeviceDriver for VelloGraphicsDevice {
                 Rf_unprotect(1);
 
                 self.request_register_tile().unwrap();
+                let index = VELLO_APP_PROXY.rx.lock().unwrap().recv().unwrap();
 
                 // TODO: use tile and set active pattern
 
