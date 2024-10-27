@@ -418,8 +418,8 @@ impl DeviceDriver for VelloGraphicsDevice {
             3 => unsafe {
                 let x = R_GE_tilingPatternX(pattern);
                 let y = R_GE_tilingPatternY(pattern);
-                let width = R_GE_tilingPatternWidth(pattern) as u32;
-                let height = R_GE_tilingPatternHeight(pattern) as u32;
+                let width = R_GE_tilingPatternWidth(pattern);
+                let height = R_GE_tilingPatternHeight(pattern);
                 let extend = match R_GE_tilingPatternExtend(pattern) {
                     1 => peniko::Extend::Pad,     // R_GE_patternExtendPad
                     2 => peniko::Extend::Repeat,  // R_GE_patternExtendRepeat
@@ -432,14 +432,18 @@ impl DeviceDriver for VelloGraphicsDevice {
                     .stop_rendering
                     .store(true, Ordering::Relaxed);
 
+                // the pattern tile is drawn on the screen of original sizes,
+                // but it needs to be clipped at the specified area.
+                let mut y_transform = VELLO_APP_PROXY.y_transform.lock().unwrap();
+                let orig_y_transform = *y_transform;
+                // TODO: to match the actual pixels and logical sizes, this needs to be scaled.
+                *y_transform = y_transform.then_translate((-x, -y).into());
+                // release lock, otherwise it deadlocks...
+                drop(y_transform);
+
                 // Use a new scene to preserve the current scene
                 let tmp_scene = vello::Scene::new();
                 let orig_scene = VELLO_APP_PROXY.scene.replace_edited_scene(tmp_scene);
-
-                // Setup the width
-                let orig_width = VELLO_APP_PROXY.width.load(Ordering::Relaxed);
-                let orig_height = VELLO_APP_PROXY.height.load(Ordering::Relaxed);
-                VELLO_APP_PROXY.set_size(width, height);
 
                 // Run drawing function
                 let fun = R_GE_tilingPatternFunction(pattern);
@@ -447,15 +451,14 @@ impl DeviceDriver for VelloGraphicsDevice {
                 Rf_eval(call, R_GlobalEnv);
                 Rf_unprotect(1);
 
-                self.request_register_tile(x as f32, y as f32, extend)
-                    .unwrap();
+                self.request_register_tile(width, height, extend).unwrap();
                 let index = VELLO_APP_PROXY.rx.lock().unwrap().recv().unwrap();
 
                 // TODO: use tile and set active pattern
 
                 // restore
                 let _ = VELLO_APP_PROXY.scene.replace_edited_scene(orig_scene);
-                VELLO_APP_PROXY.set_size(orig_width, orig_height);
+                *VELLO_APP_PROXY.y_transform.lock().unwrap() = orig_y_transform;
                 VELLO_APP_PROXY
                     .stop_rendering
                     .store(false, Ordering::Relaxed);

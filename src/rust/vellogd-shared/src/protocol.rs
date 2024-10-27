@@ -69,8 +69,8 @@ pub enum Request {
         height: u32,
     },
     SaveAsTile {
-        x_offset: f32,
-        y_offset: f32,
+        width: f64,
+        height: f64,
         extend: peniko::Extend,
     },
 

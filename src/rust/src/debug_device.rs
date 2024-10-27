@@ -338,13 +338,18 @@ impl DeviceDriver for DebugGraphicsDevice {
                     "[setPattern] tilingPattern
   pos:  ({x}, {y})
   size: ({w}, {h})
-  extend: {extend}"
+  extend: {extend}
+
+=== pattern function ==============
+"
                 );
 
-                // let fun = R_GE_tilingPatternFunction(pattern);
-                // let call = Rf_protect(Rf_lang1(fun));
-                // Rf_eval(call, R_GlobalEnv);
-                // Rf_unprotect(1);
+                let fun = R_GE_tilingPatternFunction(pattern);
+                let call = Rf_protect(Rf_lang1(fun));
+                Rf_eval(call, R_GlobalEnv);
+                Rf_unprotect(1);
+
+                savvy::r_eprintln!("=== pattern function end ==========")
             },
             _ => {}
         }

@@ -101,13 +101,13 @@ pub trait WindowController {
 
     fn request_register_tile(
         &self,
-        x_offset: f32,
-        y_offset: f32,
+        width: f64,
+        height: f64,
         extend: peniko::Extend,
     ) -> savvy::Result<()> {
         self.send_event(Request::SaveAsTile {
-            x_offset,
-            y_offset,
+            width,
+            height,
             extend,
         })
     }

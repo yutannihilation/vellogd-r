@@ -47,7 +47,7 @@ pub enum RenderState<'a> {
 #[derive(Debug)]
 pub enum FillPattern {
     Gradient(peniko::Gradient),
-    Tiling(peniko::Image), // TODO
+    Tiling(peniko::Image),
 }
 
 #[derive(Clone)]
@@ -754,23 +754,16 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
             }
 
             Request::PrepareForSaveAsTile { height } => {
-                self.height.store(height, Ordering::Relaxed);
-                *self.y_transform.lock().unwrap() = calc_y_translate(height as f32);
-
-                self.scene.reset();
-                // TODO: this will overwrite both on_screen_scene and
-                // edited_scene because both are the same Arc. Needs some tweak...
-                //
-                // *self.scene.edited_scene.lock().unwrap() = Scene::new()
+                // TODO
             }
 
             Request::SaveAsTile {
-                x_offset: _, // TODO
-                y_offset: _, // TODO
+                width,
+                height,
                 extend,
             } => {
-                let width = self.width.load(Ordering::Relaxed);
-                let height = self.height.load(Ordering::Relaxed);
+                let width = width.ceil() as u32;
+                let height = height.ceil() as u32;
 
                 let scene = self.scene.edited_scene.lock().unwrap().clone();
                 let data = self.rasterize(&scene, width, height).unwrap();
@@ -785,6 +778,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                     u8::MAX,
                     false,
                 );
+
                 let mut patterns = self.scene.patterns.lock().unwrap();
                 patterns.push(FillPattern::Tiling(image));
                 let index = patterns.len() - 1;
@@ -812,12 +806,18 @@ pub struct VelloAppProxy {
     pub rx: std::sync::Mutex<std::sync::mpsc::Receiver<Response>>,
 
     pub scene: SceneDrawer,
+
     // Note: these fields are intentionally not bundled as a struct; if it's a
     // struct, it would need `Mutex`, but we want to read the values without
     // lock (probably doesn't affect much on the performance, though).
     pub width: Arc<AtomicU32>,
     pub height: Arc<AtomicU32>,
-    y_transform: Arc<Mutex<vello::kurbo::Affine>>,
+
+    // Note: usually, this should be set by calc_y_translate(height). But, in
+    // some cases (e.g. drawing a pattern tile), this needs to be tweaked
+    // individually.
+    pub y_transform: Arc<Mutex<vello::kurbo::Affine>>,
+
     base_color: Arc<AtomicU32>,
 
     // To be called by mode() API so that the device can stop rendering when it
