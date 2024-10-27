@@ -34,6 +34,11 @@ NULL
 }
 
 
+`dump_patterns` <- function() {
+  invisible(.Call(savvy_dump_patterns__impl))
+}
+
+
 `vellogd_with_server_impl` <- function(`filename`, `width`, `height`, `server` = NULL) {
   invisible(.Call(savvy_vellogd_with_server_impl__impl, `filename`, `width`, `height`, `server`))
 }

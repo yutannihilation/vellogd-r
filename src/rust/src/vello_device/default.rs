@@ -454,8 +454,6 @@ impl DeviceDriver for VelloGraphicsDevice {
                 self.request_register_tile(width, height, extend).unwrap();
                 let index = VELLO_APP_PROXY.rx.lock().unwrap().recv().unwrap();
 
-                // TODO: use tile and set active pattern
-
                 // restore
                 let _ = VELLO_APP_PROXY.scene.replace_edited_scene(orig_scene);
                 *VELLO_APP_PROXY.y_transform.lock().unwrap() = orig_y_transform;

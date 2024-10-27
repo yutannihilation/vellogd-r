@@ -59,7 +59,7 @@ pub struct SceneDrawer {
     /// tile pattern).
     edited_scene: Arc<Mutex<Scene>>,
 
-    patterns: Arc<Mutex<Vec<FillPattern>>>,
+    pub patterns: Arc<Mutex<Vec<FillPattern>>>,
 
     // This is a bit tricky. Scene doesn't need to know the window size, but,
     // since R requires a flipped Y-axis, SceneDrawer needs to know how to flip,
@@ -753,7 +753,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 let _ = self.save_as_png(filename, width, height);
             }
 
-            Request::PrepareForSaveAsTile { height } => {
+            Request::PrepareForSaveAsTile { height: _ } => {
                 // TODO
             }
 
