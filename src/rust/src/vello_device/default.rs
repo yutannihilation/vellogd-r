@@ -4,14 +4,15 @@ use std::sync::atomic::Ordering;
 use super::xy_to_path;
 use super::WindowController;
 use crate::add_tracing_point;
+use crate::graphics::gc_to_fill_params;
+use crate::graphics::gc_to_fill_params_with_flag;
+use crate::graphics::gc_to_stroke_params;
 use crate::graphics::DeviceDriver;
 use crate::vello_device::xy_to_path_with_hole;
 use vellogd_shared::ffi::*;
-use vellogd_shared::protocol::FillParams;
 use vellogd_shared::protocol::GlyphParams;
 use vellogd_shared::protocol::Request;
 use vellogd_shared::protocol::Response;
-use vellogd_shared::protocol::StrokeParams;
 use vellogd_shared::text_layouter::fontface_to_weight_and_style;
 use vellogd_shared::text_layouter::TextLayouter;
 use vellogd_shared::text_layouter::TextMetric;
@@ -114,8 +115,8 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
+        let fill_params = gc_to_fill_params(gc);
+        let stroke_params = gc_to_stroke_params(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             VELLO_APP_PROXY
                 .scene
@@ -126,7 +127,7 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        if let Some(stroke_params) = StrokeParams::from_gc(gc) {
+        if let Some(stroke_params) = gc_to_stroke_params(gc) {
             VELLO_APP_PROXY
                 .scene
                 .draw_line(from.into(), to.into(), stroke_params);
@@ -136,8 +137,8 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
+        let fill_params = gc_to_fill_params(gc);
+        let stroke_params = gc_to_stroke_params(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             VELLO_APP_PROXY
                 .scene
@@ -156,8 +157,8 @@ impl DeviceDriver for VelloGraphicsDevice {
     ) {
         add_tracing_point!();
 
-        let fill_params = FillParams::from_gc_with_flag(gc, winding);
-        let stroke_params = StrokeParams::from_gc(gc);
+        let fill_params = gc_to_fill_params_with_flag(gc, winding);
+        let stroke_params = gc_to_stroke_params(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             VELLO_APP_PROXY.scene.draw_polygon(
                 xy_to_path_with_hole(x, y, nper),
@@ -170,7 +171,7 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        let stroke_params = StrokeParams::from_gc(gc);
+        let stroke_params = gc_to_stroke_params(gc);
         if let Some(stroke_params) = stroke_params {
             VELLO_APP_PROXY
                 .scene
@@ -181,8 +182,8 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
+        let fill_params = gc_to_fill_params(gc);
+        let stroke_params = gc_to_stroke_params(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             VELLO_APP_PROXY
                 .scene
