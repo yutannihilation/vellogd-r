@@ -1,9 +1,17 @@
-use crate::ffi::R_GE_gcontext;
+use crate::ffi::{R_GE_gcontext, R_NilValue, INTEGER};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum FillBrush {
+    /// color
+    Color(peniko::Color),
+    /// index of the registered pattern
+    PatternRef(u32),
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FillParams {
-    pub color: peniko::Color,
+    pub brush: FillBrush,
     pub use_nonzero_rule: bool,
 }
 
@@ -61,7 +69,11 @@ pub enum Request {
     PrepareForSaveAsTile {
         height: u32,
     },
-    SaveAsTile,
+    SaveAsTile {
+        x_offset: f32,
+        y_offset: f32,
+        extend: peniko::Extend,
+    },
 
     SetBaseColor {
         color: u32,
@@ -110,7 +122,7 @@ pub enum Request {
 pub enum Response {
     WindowSizes { width: u32, height: u32 },
     Connect { server_name: String },
-    TileRegistered { index: usize },
+    PatternRegistered { index: usize },
 }
 
 pub trait AppResponseRelay {
@@ -206,10 +218,18 @@ impl FillParams {
         if gc.fill == 0 {
             return None;
         }
-        let [r, g, b, a] = gc.fill.to_ne_bytes();
-        let color = peniko::Color::rgba8(r, g, b, a);
+
+        let brush = if unsafe { gc.patternFill != R_NilValue } {
+            let index = unsafe { *INTEGER(gc.patternFill) };
+            FillBrush::PatternRef(index as u32)
+        } else {
+            let [r, g, b, a] = gc.fill.to_ne_bytes();
+            let color = peniko::Color::rgba8(r, g, b, a);
+            FillBrush::Color(color)
+        };
+
         Some(Self {
-            color,
+            brush,
             use_nonzero_rule,
         })
     }

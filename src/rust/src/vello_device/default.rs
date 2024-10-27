@@ -303,6 +303,7 @@ impl DeviceDriver for VelloGraphicsDevice {
             raster,
             pixels.0 as usize,
             pixels.1 as usize,
+            peniko::Extend::Pad,
             alpha,
             with_extended_edge,
         );
@@ -374,9 +375,10 @@ impl DeviceDriver for VelloGraphicsDevice {
                 // Note: with_stops doesn't accept &[ColorStop] or ColorStops. Why?
                 gradient.stops = color_stops;
 
-                VELLO_APP_PROXY
+                let index = VELLO_APP_PROXY
                     .scene
-                    .set_pattern(FillPattern::Gradient(gradient));
+                    .register_pattern(FillPattern::Gradient(gradient));
+                Rf_ScalarInteger(index as i32)
             },
             2 => unsafe {
                 let cx1 = R_GE_radialGradientCX1(pattern);
@@ -406,9 +408,11 @@ impl DeviceDriver for VelloGraphicsDevice {
                         .with_extend(extend);
                 // Note: with_stops doesn't accept &[ColorStop] or ColorStops. Why?
                 gradient.stops = color_stops;
-                VELLO_APP_PROXY
+
+                let index = VELLO_APP_PROXY
                     .scene
-                    .set_pattern(FillPattern::Gradient(gradient));
+                    .register_pattern(FillPattern::Gradient(gradient));
+                Rf_ScalarInteger(index as i32)
             },
             3 => unsafe {
                 let x = R_GE_tilingPatternX(pattern);
@@ -442,7 +446,8 @@ impl DeviceDriver for VelloGraphicsDevice {
                 Rf_eval(call, R_GlobalEnv);
                 Rf_unprotect(1);
 
-                self.request_register_tile().unwrap();
+                self.request_register_tile(x as f32, y as f32, extend)
+                    .unwrap();
                 let index = VELLO_APP_PROXY.rx.lock().unwrap().recv().unwrap();
 
                 // TODO: use tile and set active pattern
@@ -453,11 +458,15 @@ impl DeviceDriver for VelloGraphicsDevice {
                 VELLO_APP_PROXY
                     .stop_rendering
                     .store(false, Ordering::Relaxed);
-            },
-            _ => {}
-        }
 
-        unsafe { R_NilValue }
+                if let Response::PatternRegistered { index } = index {
+                    Rf_ScalarInteger(index as i32)
+                } else {
+                    R_NilValue
+                }
+            },
+            _ => unsafe { R_NilValue },
+        }
     }
 
     fn release_pattern(&mut self, _ref: SEXP, _: DevDesc) {

@@ -27,7 +27,9 @@ use winit::{
 };
 
 use crate::{
-    protocol::{AppResponseRelay, FillParams, GlyphParams, Request, Response, StrokeParams},
+    protocol::{
+        AppResponseRelay, FillBrush, FillParams, GlyphParams, Request, Response, StrokeParams,
+    },
     text_layouter::{fontface_to_weight_and_style, TextLayouter},
 };
 
@@ -45,7 +47,7 @@ pub enum RenderState<'a> {
 #[derive(Debug)]
 pub enum FillPattern {
     Gradient(peniko::Gradient),
-    Tiling, // TODO
+    Tiling(peniko::Image), // TODO
 }
 
 #[derive(Clone)]
@@ -57,7 +59,7 @@ pub struct SceneDrawer {
     /// tile pattern).
     edited_scene: Arc<Mutex<Scene>>,
 
-    tiles: Arc<Mutex<Vec<peniko::Image>>>,
+    patterns: Arc<Mutex<Vec<FillPattern>>>,
 
     // This is a bit tricky. Scene doesn't need to know the window size, but,
     // since R requires a flipped Y-axis, SceneDrawer needs to know how to flip,
@@ -68,8 +70,6 @@ pub struct SceneDrawer {
     // items (e.g. glyph) are not.
     y_transform: Arc<Mutex<vello::kurbo::Affine>>,
     window_height: Arc<AtomicU32>,
-
-    active_pattern: Arc<Mutex<Option<FillPattern>>>,
 
     needs_redraw: Arc<AtomicBool>,
 }
@@ -84,10 +84,9 @@ impl SceneDrawer {
         Self {
             on_screen_scene: scene.clone(),
             edited_scene: scene,
-            tiles: Arc::new(Mutex::new(Vec::new())),
+            patterns: Arc::new(Mutex::new(Vec::new())),
             y_transform,
             window_height,
-            active_pattern: Arc::new(Mutex::new(None)),
             needs_redraw,
         }
     }
@@ -121,20 +120,27 @@ impl SceneDrawer {
     fn draw_fill_inner(
         &self,
         fill_rule: peniko::Fill,
-        color: peniko::Color,
+        brush: FillBrush,
         shape: &impl kurbo::Shape,
     ) {
         let scene = &mut self.edited_scene.lock().unwrap();
         let y_transform = *self.y_transform.lock().unwrap();
-        let fill_pattern = self.active_pattern.lock().unwrap();
-        let brush: peniko::BrushRef = match fill_pattern.as_ref() {
-            Some(ptn) => match ptn {
-                FillPattern::Gradient(gradient) => gradient.into(),
-                FillPattern::Tiling => todo!(),
-            },
-            None => color.into(),
+        match brush {
+            FillBrush::Color(color) => {
+                scene.fill(fill_rule, y_transform, color, None, shape);
+            }
+            FillBrush::PatternRef(index) => {
+                let patterns = self.patterns.lock().unwrap();
+                match patterns.get(index as usize).unwrap() {
+                    FillPattern::Gradient(gradient) => {
+                        scene.fill(fill_rule, y_transform, gradient, None, shape);
+                    }
+                    FillPattern::Tiling(image) => {
+                        scene.fill(fill_rule, y_transform, image, None, shape);
+                    }
+                }
+            }
         };
-        scene.fill(fill_rule, y_transform, brush, None, shape);
     }
 
     pub fn draw_circle(
@@ -147,7 +153,7 @@ impl SceneDrawer {
         let circle = vello::kurbo::Circle::new(center, radius);
 
         if let Some(fill_params) = fill_params {
-            self.draw_fill_inner(peniko::Fill::NonZero, fill_params.color, &circle);
+            self.draw_fill_inner(peniko::Fill::NonZero, fill_params.brush, &circle);
         }
 
         if let Some(stroke_params) = stroke_params {
@@ -180,7 +186,7 @@ impl SceneDrawer {
             } else {
                 peniko::Fill::EvenOdd
             };
-            self.draw_fill_inner(style, fill_params.color, &path);
+            self.draw_fill_inner(style, fill_params.brush, &path);
         }
 
         if let Some(stroke_params) = stroke_params {
@@ -200,7 +206,7 @@ impl SceneDrawer {
         let rect = vello::kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y);
 
         if let Some(fill_params) = fill_params {
-            self.draw_fill_inner(peniko::Fill::NonZero, fill_params.color, &rect);
+            self.draw_fill_inner(peniko::Fill::NonZero, fill_params.brush, &rect);
         }
 
         if let Some(stroke_params) = stroke_params {
@@ -352,12 +358,15 @@ impl SceneDrawer {
         scene.pop_layer();
     }
 
-    pub fn set_pattern(&self, pattern: FillPattern) {
-        self.active_pattern.lock().unwrap().replace(pattern);
+    pub fn register_pattern(&self, pattern: FillPattern) -> usize {
+        let mut patterns = self.patterns.lock().unwrap();
+        patterns.push(pattern);
+
+        patterns.len() - 1 // index
     }
 
     pub fn release_pattern(&self) {
-        self.active_pattern.lock().unwrap().take();
+        // TODO
     }
 }
 
@@ -369,6 +378,7 @@ pub fn convert_to_image(
     raster: &[u8],
     width: usize,
     height: usize,
+    extend: peniko::Extend,
     alpha: u8,
     with_extended_edge: bool,
 ) -> peniko::Image {
@@ -398,7 +408,7 @@ pub fn convert_to_image(
         format: peniko::Format::Rgba8,
         width,
         height,
-        extend: peniko::Extend::Pad,
+        extend,
         alpha,
     }
 }
@@ -754,7 +764,11 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 // *self.scene.edited_scene.lock().unwrap() = Scene::new()
             }
 
-            Request::SaveAsTile => {
+            Request::SaveAsTile {
+                x_offset: _, // TODO
+                y_offset: _, // TODO
+                extend,
+            } => {
                 let width = self.width.load(Ordering::Relaxed);
                 let height = self.height.load(Ordering::Relaxed);
 
@@ -763,13 +777,19 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
 
                 // register to tiles
 
-                let image =
-                    convert_to_image(&data, width as usize, height as usize, u8::MAX, false);
-                let mut tiles = self.scene.tiles.lock().unwrap();
-                tiles.push(image);
-                let index = tiles.len() - 1;
+                let image = convert_to_image(
+                    &data,
+                    width as usize,
+                    height as usize,
+                    extend,
+                    u8::MAX,
+                    false,
+                );
+                let mut patterns = self.scene.patterns.lock().unwrap();
+                patterns.push(FillPattern::Tiling(image));
+                let index = patterns.len() - 1;
 
-                self.tx.respond(Response::TileRegistered { index });
+                self.tx.respond(Response::PatternRegistered { index });
             }
 
             // ignore other events

@@ -99,7 +99,16 @@ pub trait WindowController {
         })
     }
 
-    fn request_register_tile(&self) -> savvy::Result<()> {
-        self.send_event(Request::SaveAsTile)
+    fn request_register_tile(
+        &self,
+        x_offset: f32,
+        y_offset: f32,
+        extend: peniko::Extend,
+    ) -> savvy::Result<()> {
+        self.send_event(Request::SaveAsTile {
+            x_offset,
+            y_offset,
+            extend,
+        })
     }
 }
