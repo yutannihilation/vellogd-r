@@ -720,8 +720,16 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
 
                 self.needs_redraw.store(true, Ordering::Relaxed);
             }
+
+            // Note: this doesn't relates to window, so it might be possible to
+            // do this off-screen rendering outside of VelloApp. I'm not sure if
+            // it's feasible, though.
             Request::SaveAsPng { filename } => {
-                self.save_as_png(filename);
+                let width = self.width.load(Ordering::Relaxed);
+                let height = self.height.load(Ordering::Relaxed);
+
+                // TODO: handle error
+                let _ = self.save_as_png(filename, width, height);
             }
 
             // ignore other events
