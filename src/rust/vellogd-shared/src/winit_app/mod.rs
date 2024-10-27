@@ -50,11 +50,14 @@ pub enum FillPattern {
 
 #[derive(Clone)]
 pub struct SceneDrawer {
-    // update_target and render_target are usually the same, but can be
-    // different. For example, tiling pattern fill requires a temporary scene to
-    // be rasterized.
-    update_target: Arc<Mutex<Scene>>,
-    render_target: Arc<Mutex<Scene>>,
+    /// A scene that is drawn on the window visible to user.
+    on_screen_scene: Arc<Mutex<Scene>>,
+    /// A scene that is actively drawn and modified. Usually, this is the same
+    /// as on_screen_scene, but sometimes this is different (e.g. rasterizing a
+    /// tile pattern).
+    edited_scene: Arc<Mutex<Scene>>,
+
+    tiles: Arc<Mutex<Vec<peniko::Image>>>,
 
     // This is a bit tricky. Scene doesn't need to know the window size, but,
     // since R requires a flipped Y-axis, SceneDrawer needs to know how to flip,
@@ -79,8 +82,9 @@ impl SceneDrawer {
     ) -> Self {
         let scene = Arc::new(Mutex::new(Scene::new()));
         Self {
-            update_target: scene.clone(),
-            render_target: scene,
+            on_screen_scene: scene.clone(),
+            edited_scene: scene,
+            tiles: Arc::new(Mutex::new(Vec::new())),
             y_transform,
             window_height,
             active_pattern: Arc::new(Mutex::new(None)),
@@ -89,11 +93,18 @@ impl SceneDrawer {
     }
 
     pub fn reset(&mut self) {
-        self.update_target.lock().unwrap().reset();
+        self.edited_scene.lock().unwrap().reset();
     }
 
     pub fn scene(&self) -> std::sync::MutexGuard<'_, Scene> {
-        self.render_target.lock().unwrap()
+        self.on_screen_scene.lock().unwrap()
+    }
+
+    pub fn replace_edited_scene(&self, new: Scene) -> Scene {
+        let mut scene = self.edited_scene.lock().unwrap();
+        let orig = scene.clone();
+        *scene = new;
+        orig
     }
 
     fn draw_stroke_inner(
@@ -102,7 +113,7 @@ impl SceneDrawer {
         color: peniko::Color,
         shape: &impl kurbo::Shape,
     ) {
-        let scene = &mut self.update_target.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
         let y_transform = *self.y_transform.lock().unwrap();
         scene.stroke(stroke, y_transform, color, None, shape);
     }
@@ -113,7 +124,7 @@ impl SceneDrawer {
         color: peniko::Color,
         shape: &impl kurbo::Shape,
     ) {
-        let scene = &mut self.update_target.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
         let y_transform = *self.y_transform.lock().unwrap();
         let fill_pattern = self.active_pattern.lock().unwrap();
         let brush: peniko::BrushRef = match fill_pattern.as_ref() {
@@ -210,7 +221,7 @@ impl SceneDrawer {
         let transform = kurbo::Affine::scale_non_uniform(scale.0, scale.1)
             .then_translate(pos)
             .then_rotate(-angle.to_radians());
-        let scene = &mut self.update_target.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
 
         let (brush_transform, width, height) = if with_extended_edge {
             // draw largely and clip the edge
@@ -240,7 +251,7 @@ impl SceneDrawer {
         color: peniko::Color,
         transform: kurbo::Affine,
     ) {
-        let scene = &mut self.update_target.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
 
         let mut x = glyph_run.offset();
         let y = 0.0;
@@ -294,7 +305,7 @@ impl SceneDrawer {
         y: &[f64],
         glyph_params: GlyphParams,
     ) {
-        let scene = &mut self.update_target.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
         let window_height = self.window_height.load(Ordering::Relaxed) as f32;
 
         let glyphs = x
@@ -322,7 +333,7 @@ impl SceneDrawer {
     }
 
     pub fn push_clip(&self, p0: kurbo::Point, p1: kurbo::Point) {
-        let scene = &mut self.update_target.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
         let y_transform = *self.y_transform.lock().unwrap();
 
         // R's graphics device always replaces the clipping strategy (really?)
@@ -337,7 +348,7 @@ impl SceneDrawer {
     }
 
     pub fn pop_clip(&self) {
-        let scene = &mut self.update_target.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
         scene.pop_layer();
     }
 
@@ -730,6 +741,35 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
 
                 // TODO: handle error
                 let _ = self.save_as_png(filename, width, height);
+            }
+
+            Request::PrepareForSaveAsTile { height } => {
+                self.height.store(height, Ordering::Relaxed);
+                *self.y_transform.lock().unwrap() = calc_y_translate(height as f32);
+
+                self.scene.reset();
+                // TODO: this will overwrite both on_screen_scene and
+                // edited_scene because both are the same Arc. Needs some tweak...
+                //
+                // *self.scene.edited_scene.lock().unwrap() = Scene::new()
+            }
+
+            Request::SaveAsTile => {
+                let width = self.width.load(Ordering::Relaxed);
+                let height = self.height.load(Ordering::Relaxed);
+
+                let scene = self.scene.edited_scene.lock().unwrap().clone();
+                let data = self.rasterize(&scene, width, height).unwrap();
+
+                // register to tiles
+
+                let image =
+                    convert_to_image(&data, width as usize, height as usize, u8::MAX, false);
+                let mut tiles = self.scene.tiles.lock().unwrap();
+                tiles.push(image);
+                let index = tiles.len() - 1;
+
+                self.tx.respond(Response::TileRegistered { index });
             }
 
             // ignore other events

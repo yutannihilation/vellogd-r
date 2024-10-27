@@ -53,9 +53,16 @@ pub enum Request {
     RedrawWindow,
     CloseWindow,
     NewPage,
+
     SaveAsPng {
         filename: String,
     },
+
+    PrepareForSaveAsTile {
+        height: u32,
+    },
+    SaveAsTile,
+
     SetBaseColor {
         color: u32,
     },
@@ -103,6 +110,7 @@ pub enum Request {
 pub enum Response {
     WindowSizes { width: u32, height: u32 },
     Connect { server_name: String },
+    TileRegistered { index: usize },
 }
 
 pub trait AppResponseRelay {

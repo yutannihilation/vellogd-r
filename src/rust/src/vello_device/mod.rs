@@ -98,4 +98,8 @@ pub trait WindowController {
             filename: filename.to_string(),
         })
     }
+
+    fn request_register_tile(&self) -> savvy::Result<()> {
+        self.send_event(Request::SaveAsTile)
+    }
 }
