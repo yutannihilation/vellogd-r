@@ -4,15 +4,58 @@ vellogd: A GPU-powered Interactive Graphics Device for R
 [![R-CMD-check.yaml](https://github.com/yutannihilation/vellogd-r/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/yutannihilation/vellogd-r/actions/workflows/R-CMD-check.yaml)
 [![vellogd status badge](https://yutannihilation.r-universe.dev/badges/vellogd)](https://yutannihilation.r-universe.dev/vellogd)
 
-Vellogd is an experimental graphics device for R. It relies on these Rust crates:
-
-* [vello]: Cross-platform 2D rendering engine with GPU
-* [parley]: Rich text-layout
-* [winit]: Cross-platform window management
+Vellogd is an experimental graphics device for R. This is powered by vello, a
+cross-platform 2D rendering engine with GPU.
 
 [vello]: https://github.com/linebender/vello
-[parley]: https://github.com/linebender/parley
-[winit]: https://docs.rs/winit/latest/winit/
+
+# Why yet another graphics device?
+
+You might wonder why do we need vellogd while there are already high-quality,
+cross-platform graphics devices like [ragg] and [svglite]. Behind vellogd, I
+have two motivations.
+
+[ragg]: https://ragg.r-lib.org/
+[svglite]: https://svglite.r-lib.org/
+
+## "Interactive" graphics device with extra features
+
+As far as I know, there's no cross-platform and **interactive** graphics device.
+R provides interactive graphics devices, but they are not cross-platform. They
+are implemented differently, which makes some features missing on some platform
+(e.g. [X11 on Windows doesn't provide `onIdle` event][coolbutuseless]).
+
+[coolbutuseless]: https://coolbutuseless.github.io/2022/05/06/introducing-eventloop-realtime-interactive-rendering-in-r/
+
+What's more exciting about crafting a new graphics device is, we might be able
+to implement extra features beyond R's graphics API. What do you want an
+interactive graphics device to be? Here's my wishlist, for example.
+
+* Zoom in and out by mousewheel
+* Support touch device
+* Provides an API for [Lottie animation](https://airbnb.io/lottie/)
+
+## A showcase of the power of WebGPU
+
+One more thing I feel a bit frustrating about R's graphics ecosystem is, it's
+too CPU-centric. I'm not an expert of GPU, but I think R can utilize the power
+of GPU a lot more.
+
+I understand it's difficult to use GPU in an R package because different
+platforms and different vendors require different implementation. However, now
+we have [**the WebGPU standard**](https://gpuweb.github.io/gpuweb/) and the
+cross-platform implemntations of the API in C++ ([dawn], used by Chrome) and
+Rust ([wgpu], used by Firefox and Deno).
+
+[dawn]: https://dawn.googlesource.com/dawn/+/refs/heads/chromium-gpu-experimental/README.md
+[wgpu]: https://wgpu.rs/
+
+Unlike the name indicates, WebGPU is not only for web. It's a GPU-powered
+graphics API, which is so **portable and safe** that it can be used on web
+browsers. So, if you want to create a cross-platform R package using GPU, WebGPU
+can be the best choice. I hope vellogd servers as a showcase of such an attempt.
+
+(Personally, I'm hoping rayshader will use WebGPU!)
 
 # Installation
 
