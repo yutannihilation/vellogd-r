@@ -4,14 +4,15 @@ use std::sync::atomic::Ordering;
 use super::xy_to_path;
 use super::WindowController;
 use crate::add_tracing_point;
+use crate::graphics::gc_to_fill_params;
+use crate::graphics::gc_to_fill_params_with_flag;
+use crate::graphics::gc_to_stroke_params;
 use crate::graphics::DeviceDriver;
 use crate::vello_device::xy_to_path_with_hole;
 use vellogd_shared::ffi::*;
-use vellogd_shared::protocol::FillParams;
 use vellogd_shared::protocol::GlyphParams;
 use vellogd_shared::protocol::Request;
 use vellogd_shared::protocol::Response;
-use vellogd_shared::protocol::StrokeParams;
 use vellogd_shared::text_layouter::fontface_to_weight_and_style;
 use vellogd_shared::text_layouter::TextLayouter;
 use vellogd_shared::text_layouter::TextMetric;
@@ -114,8 +115,8 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
+        let fill_params = gc_to_fill_params(gc);
+        let stroke_params = gc_to_stroke_params(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             VELLO_APP_PROXY
                 .scene
@@ -126,7 +127,7 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        if let Some(stroke_params) = StrokeParams::from_gc(gc) {
+        if let Some(stroke_params) = gc_to_stroke_params(gc) {
             VELLO_APP_PROXY
                 .scene
                 .draw_line(from.into(), to.into(), stroke_params);
@@ -136,8 +137,8 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
+        let fill_params = gc_to_fill_params(gc);
+        let stroke_params = gc_to_stroke_params(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             VELLO_APP_PROXY
                 .scene
@@ -156,8 +157,8 @@ impl DeviceDriver for VelloGraphicsDevice {
     ) {
         add_tracing_point!();
 
-        let fill_params = FillParams::from_gc_with_flag(gc, winding);
-        let stroke_params = StrokeParams::from_gc(gc);
+        let fill_params = gc_to_fill_params_with_flag(gc, winding);
+        let stroke_params = gc_to_stroke_params(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             VELLO_APP_PROXY.scene.draw_polygon(
                 xy_to_path_with_hole(x, y, nper),
@@ -170,7 +171,7 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        let stroke_params = StrokeParams::from_gc(gc);
+        let stroke_params = gc_to_stroke_params(gc);
         if let Some(stroke_params) = stroke_params {
             VELLO_APP_PROXY
                 .scene
@@ -181,8 +182,8 @@ impl DeviceDriver for VelloGraphicsDevice {
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
+        let fill_params = gc_to_fill_params(gc);
+        let stroke_params = gc_to_stroke_params(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             VELLO_APP_PROXY
                 .scene
@@ -303,6 +304,7 @@ impl DeviceDriver for VelloGraphicsDevice {
             raster,
             pixels.0 as usize,
             pixels.1 as usize,
+            peniko::Extend::Pad,
             alpha,
             with_extended_edge,
         );
@@ -374,9 +376,10 @@ impl DeviceDriver for VelloGraphicsDevice {
                 // Note: with_stops doesn't accept &[ColorStop] or ColorStops. Why?
                 gradient.stops = color_stops;
 
-                VELLO_APP_PROXY
+                let index = VELLO_APP_PROXY
                     .scene
-                    .set_pattern(FillPattern::Gradient(gradient));
+                    .register_pattern(FillPattern::Gradient(gradient));
+                Rf_ScalarInteger(index as i32)
             },
             2 => unsafe {
                 let cx1 = R_GE_radialGradientCX1(pattern);
@@ -406,15 +409,70 @@ impl DeviceDriver for VelloGraphicsDevice {
                         .with_extend(extend);
                 // Note: with_stops doesn't accept &[ColorStop] or ColorStops. Why?
                 gradient.stops = color_stops;
-                VELLO_APP_PROXY
-                    .scene
-                    .set_pattern(FillPattern::Gradient(gradient));
-            },
-            3 => {} // tiling
-            _ => {}
-        }
 
-        unsafe { R_NilValue }
+                let index = VELLO_APP_PROXY
+                    .scene
+                    .register_pattern(FillPattern::Gradient(gradient));
+                Rf_ScalarInteger(index as i32)
+            },
+            3 => unsafe {
+                let x = R_GE_tilingPatternX(pattern);
+                let y = R_GE_tilingPatternY(pattern);
+                let width = R_GE_tilingPatternWidth(pattern);
+                let height = R_GE_tilingPatternHeight(pattern);
+                let extend = match R_GE_tilingPatternExtend(pattern) {
+                    1 => peniko::Extend::Pad,     // R_GE_patternExtendPad
+                    2 => peniko::Extend::Repeat,  // R_GE_patternExtendRepeat
+                    3 => peniko::Extend::Reflect, // R_GE_patternExtendReflect
+                    _ => peniko::Extend::Pad, // TODO: what should I do when R_GE_patternExtendNone?
+                };
+
+                // Do not reflect the tile drawing to screen
+                //
+                // TODO: this is not perfect because mode() API call will mess
+                // this flag. So, probably another flag or using accumulated
+                // value instead of a bool is needed.
+                VELLO_APP_PROXY
+                    .stop_rendering
+                    .store(true, Ordering::Relaxed);
+
+                // the pattern tile is drawn on the screen of original sizes,
+                // but it needs to be clipped at the specified area.
+                let mut y_transform = VELLO_APP_PROXY.y_transform.lock().unwrap();
+                let orig_y_transform = *y_transform;
+                // TODO: to match the actual pixels and logical sizes, this needs to be scaled.
+                *y_transform = y_transform.then_translate((-x, -y).into());
+                // release lock, otherwise it deadlocks...
+                drop(y_transform);
+
+                // Use a new scene to preserve the current scene
+                let tmp_scene = vello::Scene::new();
+                let orig_scene = VELLO_APP_PROXY.scene.replace_edited_scene(tmp_scene);
+
+                // Run drawing function
+                let fun = R_GE_tilingPatternFunction(pattern);
+                let call = Rf_protect(Rf_lang1(fun));
+                Rf_eval(call, R_GlobalEnv);
+                Rf_unprotect(1);
+
+                self.request_register_tile(width, height, extend).unwrap();
+                let index = VELLO_APP_PROXY.rx.lock().unwrap().recv().unwrap();
+
+                // restore
+                let _ = VELLO_APP_PROXY.scene.replace_edited_scene(orig_scene);
+                *VELLO_APP_PROXY.y_transform.lock().unwrap() = orig_y_transform;
+                VELLO_APP_PROXY
+                    .stop_rendering
+                    .store(false, Ordering::Relaxed);
+
+                if let Response::PatternRegistered { index } = index {
+                    Rf_ScalarInteger(index as i32)
+                } else {
+                    R_NilValue
+                }
+            },
+            _ => unsafe { R_NilValue },
+        }
     }
 
     fn release_pattern(&mut self, _ref: SEXP, _: DevDesc) {

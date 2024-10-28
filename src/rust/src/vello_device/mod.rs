@@ -98,4 +98,17 @@ pub trait WindowController {
             filename: filename.to_string(),
         })
     }
+
+    fn request_register_tile(
+        &self,
+        width: f64,
+        height: f64,
+        extend: peniko::Extend,
+    ) -> savvy::Result<()> {
+        self.send_event(Request::SaveAsTile {
+            width,
+            height,
+            extend,
+        })
+    }
 }

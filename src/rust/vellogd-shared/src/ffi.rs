@@ -15,6 +15,9 @@ pub const INTSXP: SEXPTYPE = 13;
 
 extern "C" {
     pub static mut R_NilValue: SEXP;
+    pub static mut R_GlobalEnv: SEXP;
+    pub static mut R_EmptyEnv: SEXP;
+
     pub fn Rf_xlength(arg1: SEXP) -> R_xlen_t;
 
     pub fn SET_VECTOR_ELT(x: SEXP, i: R_xlen_t, v: SEXP) -> SEXP;
@@ -24,6 +27,10 @@ extern "C" {
     pub fn Rf_allocVector(arg1: SEXPTYPE, arg2: R_xlen_t) -> SEXP;
     pub fn INTEGER(x: SEXP) -> *mut c_int;
     pub fn Rf_ScalarInteger(arg1: c_int) -> SEXP;
+    pub static mut R_NaInt: c_int;
+
+    pub fn Rf_lang1(arg1: SEXP) -> SEXP;
+    pub fn Rf_eval(arg1: SEXP, arg2: SEXP) -> SEXP;
 }
 
 // TODO: do not include GE version
@@ -32,9 +39,6 @@ pub const R_GE_version: u32 = 16;
 extern "C" {
     pub fn R_GE_checkVersionOrDie(version: c_int);
     pub fn R_CheckDeviceAvailable();
-
-    pub static mut R_GlobalEnv: SEXP;
-    pub static mut R_EmptyEnv: SEXP;
 }
 
 pub const LTY_BLANK: i32 = -1;
@@ -367,6 +371,14 @@ extern "C" {
     pub fn R_GE_radialGradientStop(pattern: SEXP, i: c_int) -> f64;
     pub fn R_GE_radialGradientColour(pattern: SEXP, i: c_int) -> c_uint;
     pub fn R_GE_radialGradientExtend(pattern: SEXP) -> c_int;
+
+    // tiling
+    pub fn R_GE_tilingPatternFunction(pattern: SEXP) -> SEXP;
+    pub fn R_GE_tilingPatternX(pattern: SEXP) -> f64;
+    pub fn R_GE_tilingPatternY(pattern: SEXP) -> f64;
+    pub fn R_GE_tilingPatternWidth(pattern: SEXP) -> f64;
+    pub fn R_GE_tilingPatternHeight(pattern: SEXP) -> f64;
+    pub fn R_GE_tilingPatternExtend(pattern: SEXP) -> c_int;
 
     // glyph
     pub fn R_GE_glyphFontFile(glyphFont: SEXP) -> *const c_char;

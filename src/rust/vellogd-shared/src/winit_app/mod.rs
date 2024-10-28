@@ -27,7 +27,9 @@ use winit::{
 };
 
 use crate::{
-    protocol::{AppResponseRelay, FillParams, GlyphParams, Request, Response, StrokeParams},
+    protocol::{
+        AppResponseRelay, FillBrush, FillParams, GlyphParams, Request, Response, StrokeParams,
+    },
     text_layouter::{fontface_to_weight_and_style, TextLayouter},
 };
 
@@ -45,12 +47,20 @@ pub enum RenderState<'a> {
 #[derive(Debug)]
 pub enum FillPattern {
     Gradient(peniko::Gradient),
-    Tiling, // TODO
+    Tiling(peniko::Image),
 }
 
 #[derive(Clone)]
 pub struct SceneDrawer {
-    inner: Arc<Mutex<Scene>>,
+    /// A scene that is drawn on the window visible to user.
+    on_screen_scene: Arc<Mutex<Scene>>,
+    /// A scene that is actively drawn and modified. Usually, this is the same
+    /// as on_screen_scene, but sometimes this is different (e.g. rasterizing a
+    /// tile pattern).
+    edited_scene: Arc<Mutex<Scene>>,
+
+    patterns: Arc<Mutex<Vec<FillPattern>>>,
+
     // This is a bit tricky. Scene doesn't need to know the window size, but,
     // since R requires a flipped Y-axis, SceneDrawer needs to know how to flip,
     // at least.
@@ -61,8 +71,6 @@ pub struct SceneDrawer {
     y_transform: Arc<Mutex<vello::kurbo::Affine>>,
     window_height: Arc<AtomicU32>,
 
-    active_pattern: Arc<Mutex<Option<FillPattern>>>,
-
     needs_redraw: Arc<AtomicBool>,
 }
 
@@ -72,21 +80,30 @@ impl SceneDrawer {
         window_height: Arc<AtomicU32>,
         needs_redraw: Arc<AtomicBool>,
     ) -> Self {
+        let scene = Arc::new(Mutex::new(Scene::new()));
         Self {
-            inner: Arc::new(Mutex::new(Scene::new())),
+            on_screen_scene: scene.clone(),
+            edited_scene: scene,
+            patterns: Arc::new(Mutex::new(Vec::new())),
             y_transform,
             window_height,
-            active_pattern: Arc::new(Mutex::new(None)),
             needs_redraw,
         }
     }
 
     pub fn reset(&mut self) {
-        self.inner.lock().unwrap().reset();
+        self.edited_scene.lock().unwrap().reset();
     }
 
     pub fn scene(&self) -> std::sync::MutexGuard<'_, Scene> {
-        self.inner.lock().unwrap()
+        self.on_screen_scene.lock().unwrap()
+    }
+
+    pub fn replace_edited_scene(&self, new: Scene) -> Scene {
+        let mut scene = self.edited_scene.lock().unwrap();
+        let orig = scene.clone();
+        *scene = new;
+        orig
     }
 
     fn draw_stroke_inner(
@@ -95,7 +112,7 @@ impl SceneDrawer {
         color: peniko::Color,
         shape: &impl kurbo::Shape,
     ) {
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
         let y_transform = *self.y_transform.lock().unwrap();
         scene.stroke(stroke, y_transform, color, None, shape);
     }
@@ -103,20 +120,27 @@ impl SceneDrawer {
     fn draw_fill_inner(
         &self,
         fill_rule: peniko::Fill,
-        color: peniko::Color,
+        brush: FillBrush,
         shape: &impl kurbo::Shape,
     ) {
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
         let y_transform = *self.y_transform.lock().unwrap();
-        let fill_pattern = self.active_pattern.lock().unwrap();
-        let brush: peniko::BrushRef = match fill_pattern.as_ref() {
-            Some(ptn) => match ptn {
-                FillPattern::Gradient(gradient) => gradient.into(),
-                FillPattern::Tiling => todo!(),
-            },
-            None => color.into(),
+        match brush {
+            FillBrush::Color(color) => {
+                scene.fill(fill_rule, y_transform, color, None, shape);
+            }
+            FillBrush::PatternRef(index) => {
+                let patterns = self.patterns.lock().unwrap();
+                match patterns.get(index as usize).unwrap() {
+                    FillPattern::Gradient(gradient) => {
+                        scene.fill(fill_rule, y_transform, gradient, None, shape);
+                    }
+                    FillPattern::Tiling(image) => {
+                        scene.fill(fill_rule, y_transform, image, None, shape);
+                    }
+                }
+            }
         };
-        scene.fill(fill_rule, y_transform, brush, None, shape);
     }
 
     pub fn draw_circle(
@@ -129,7 +153,7 @@ impl SceneDrawer {
         let circle = vello::kurbo::Circle::new(center, radius);
 
         if let Some(fill_params) = fill_params {
-            self.draw_fill_inner(peniko::Fill::NonZero, fill_params.color, &circle);
+            self.draw_fill_inner(peniko::Fill::NonZero, fill_params.brush, &circle);
         }
 
         if let Some(stroke_params) = stroke_params {
@@ -162,7 +186,7 @@ impl SceneDrawer {
             } else {
                 peniko::Fill::EvenOdd
             };
-            self.draw_fill_inner(style, fill_params.color, &path);
+            self.draw_fill_inner(style, fill_params.brush, &path);
         }
 
         if let Some(stroke_params) = stroke_params {
@@ -182,7 +206,7 @@ impl SceneDrawer {
         let rect = vello::kurbo::Rect::new(p0.x, p0.y, p1.x, p1.y);
 
         if let Some(fill_params) = fill_params {
-            self.draw_fill_inner(peniko::Fill::NonZero, fill_params.color, &rect);
+            self.draw_fill_inner(peniko::Fill::NonZero, fill_params.brush, &rect);
         }
 
         if let Some(stroke_params) = stroke_params {
@@ -203,7 +227,7 @@ impl SceneDrawer {
         let transform = kurbo::Affine::scale_non_uniform(scale.0, scale.1)
             .then_translate(pos)
             .then_rotate(-angle.to_radians());
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
 
         let (brush_transform, width, height) = if with_extended_edge {
             // draw largely and clip the edge
@@ -233,7 +257,7 @@ impl SceneDrawer {
         color: peniko::Color,
         transform: kurbo::Affine,
     ) {
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
 
         let mut x = glyph_run.offset();
         let y = 0.0;
@@ -287,7 +311,7 @@ impl SceneDrawer {
         y: &[f64],
         glyph_params: GlyphParams,
     ) {
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
         let window_height = self.window_height.load(Ordering::Relaxed) as f32;
 
         let glyphs = x
@@ -315,7 +339,7 @@ impl SceneDrawer {
     }
 
     pub fn push_clip(&self, p0: kurbo::Point, p1: kurbo::Point) {
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
         let y_transform = *self.y_transform.lock().unwrap();
 
         // R's graphics device always replaces the clipping strategy (really?)
@@ -330,16 +354,19 @@ impl SceneDrawer {
     }
 
     pub fn pop_clip(&self) {
-        let scene = &mut self.inner.lock().unwrap();
+        let scene = &mut self.edited_scene.lock().unwrap();
         scene.pop_layer();
     }
 
-    pub fn set_pattern(&self, pattern: FillPattern) {
-        self.active_pattern.lock().unwrap().replace(pattern);
+    pub fn register_pattern(&self, pattern: FillPattern) -> usize {
+        let mut patterns = self.patterns.lock().unwrap();
+        patterns.push(pattern);
+
+        patterns.len() - 1 // index
     }
 
     pub fn release_pattern(&self) {
-        self.active_pattern.lock().unwrap().take();
+        // TODO
     }
 }
 
@@ -351,6 +378,7 @@ pub fn convert_to_image(
     raster: &[u8],
     width: usize,
     height: usize,
+    extend: peniko::Extend,
     alpha: u8,
     with_extended_edge: bool,
 ) -> peniko::Image {
@@ -380,7 +408,7 @@ pub fn convert_to_image(
         format: peniko::Format::Rgba8,
         width,
         height,
-        extend: peniko::Extend::Pad,
+        extend,
         alpha,
     }
 }
@@ -713,8 +741,49 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
 
                 self.needs_redraw.store(true, Ordering::Relaxed);
             }
+
+            // Note: this doesn't relates to window, so it might be possible to
+            // do this off-screen rendering outside of VelloApp. I'm not sure if
+            // it's feasible, though.
             Request::SaveAsPng { filename } => {
-                self.save_as_png(filename);
+                let width = self.width.load(Ordering::Relaxed);
+                let height = self.height.load(Ordering::Relaxed);
+
+                // TODO: handle error
+                let _ = self.save_as_png(filename, width, height);
+            }
+
+            Request::PrepareForSaveAsTile { height: _ } => {
+                // TODO
+            }
+
+            Request::SaveAsTile {
+                width,
+                height,
+                extend,
+            } => {
+                let width = width.ceil() as u32;
+                let height = height.ceil() as u32;
+
+                let scene = self.scene.edited_scene.lock().unwrap().clone();
+                let data = self.rasterize(&scene, width, height).unwrap();
+
+                // register to tiles
+
+                let image = convert_to_image(
+                    &data,
+                    width as usize,
+                    height as usize,
+                    extend,
+                    u8::MAX,
+                    false,
+                );
+
+                let mut patterns = self.scene.patterns.lock().unwrap();
+                patterns.push(FillPattern::Tiling(image));
+                let index = patterns.len() - 1;
+
+                self.tx.respond(Response::PatternRegistered { index });
             }
 
             // ignore other events
@@ -737,12 +806,18 @@ pub struct VelloAppProxy {
     pub rx: std::sync::Mutex<std::sync::mpsc::Receiver<Response>>,
 
     pub scene: SceneDrawer,
+
     // Note: these fields are intentionally not bundled as a struct; if it's a
     // struct, it would need `Mutex`, but we want to read the values without
     // lock (probably doesn't affect much on the performance, though).
     pub width: Arc<AtomicU32>,
     pub height: Arc<AtomicU32>,
-    y_transform: Arc<Mutex<vello::kurbo::Affine>>,
+
+    // Note: usually, this should be set by calc_y_translate(height). But, in
+    // some cases (e.g. drawing a pattern tile), this needs to be tweaked
+    // individually.
+    pub y_transform: Arc<Mutex<vello::kurbo::Affine>>,
+
     base_color: Arc<AtomicU32>,
 
     // To be called by mode() API so that the device can stop rendering when it

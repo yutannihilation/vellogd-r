@@ -1,11 +1,14 @@
 use ipc_channel::ipc::{IpcOneShotServer, IpcReceiver, IpcSender};
 use vellogd_shared::{
     ffi::{DevDesc, R_GE_gcontext},
-    protocol::{FillParams, Request, Response, StrokeParams},
+    protocol::{Request, Response},
     text_layouter::{TextLayouter, TextMetric},
 };
 
-use crate::{add_tracing_point, graphics::DeviceDriver};
+use crate::{
+    add_tracing_point,
+    graphics::{gc_to_fill_params, gc_to_fill_params_with_flag, gc_to_stroke_params, DeviceDriver},
+};
 
 use super::{xy_to_path, xy_to_path_with_hole, WindowController};
 
@@ -135,8 +138,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     fn circle(&mut self, center: (f64, f64), r: f64, gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
+        let fill_params = gc_to_fill_params(gc);
+        let stroke_params = gc_to_stroke_params(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             self.send_event(Request::DrawCircle {
                 center: center.into(),
@@ -151,7 +154,7 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     fn line(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        if let Some(stroke_params) = StrokeParams::from_gc(gc) {
+        if let Some(stroke_params) = gc_to_stroke_params(gc) {
             self.send_event(Request::DrawLine {
                 p0: from.into(),
                 p1: to.into(),
@@ -164,8 +167,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     fn polygon(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
+        let fill_params = gc_to_fill_params(gc);
+        let stroke_params = gc_to_stroke_params(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             self.send_event(Request::DrawPolygon {
                 path: xy_to_path(x, y, true),
@@ -185,8 +188,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
         gc: R_GE_gcontext,
         _: DevDesc,
     ) {
-        let fill_params = FillParams::from_gc_with_flag(gc, winding);
-        let stroke_params = StrokeParams::from_gc(gc);
+        let fill_params = gc_to_fill_params_with_flag(gc, winding);
+        let stroke_params = gc_to_stroke_params(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             self.send_event(Request::DrawPolygon {
                 path: xy_to_path_with_hole(x, y, nper),
@@ -200,7 +203,7 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     fn polyline(&mut self, x: &[f64], y: &[f64], gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        let stroke_params = StrokeParams::from_gc(gc);
+        let stroke_params = gc_to_stroke_params(gc);
         if let Some(stroke_params) = stroke_params {
             self.send_event(Request::DrawPolyline {
                 path: xy_to_path(x, y, false),
@@ -213,8 +216,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
     fn rect(&mut self, from: (f64, f64), to: (f64, f64), gc: R_GE_gcontext, _: DevDesc) {
         add_tracing_point!();
 
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
+        let fill_params = gc_to_fill_params(gc);
+        let stroke_params = gc_to_stroke_params(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             self.send_event(Request::DrawRect {
                 p0: from.into(),
@@ -245,8 +248,8 @@ impl DeviceDriver for VelloGraphicsDeviceWithServer {
                 .unwrap_or("Arial")
         }
         .to_string();
-        let fill_params = FillParams::from_gc(gc);
-        let stroke_params = StrokeParams::from_gc(gc);
+        let fill_params = gc_to_fill_params(gc);
+        let stroke_params = gc_to_stroke_params(gc);
         if fill_params.is_some() || stroke_params.is_some() {
             self.send_event(Request::DrawText {
                 pos: pos.into(),

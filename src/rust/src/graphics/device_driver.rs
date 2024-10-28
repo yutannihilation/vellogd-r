@@ -1,6 +1,9 @@
 use savvy::ffi::SEXP;
 use std::slice;
 use std::{ffi::CString, os::raw::c_uint};
+use vellogd_shared::ffi::{
+    R_GE_linearGradientPattern, R_GE_radialGradientPattern, R_GE_tilingPattern, R_NaInt,
+};
 use vellogd_shared::{
     ffi::{
         pDevDesc, pGEcontext, DevDesc, GEaddDevice2, GEcreateDevDesc, GEinitDisplayList,
@@ -254,8 +257,9 @@ pub trait DeviceDriver: std::marker::Sized {
         unsafe {
             let len = 3;
             let patterns = Rf_protect(Rf_allocVector(INTSXP, len));
-            std::ptr::write_bytes(INTEGER(patterns), 0, len);
-            // *INTEGER(patterns) = 1;
+            *INTEGER(patterns).offset(0) = R_GE_linearGradientPattern as i32;
+            *INTEGER(patterns).offset(1) = R_GE_radialGradientPattern as i32;
+            *INTEGER(patterns).offset(2) = R_GE_tilingPattern as i32;
             SET_VECTOR_ELT(cap, R_GE_capability_patterns, patterns);
             Rf_unprotect(1);
         }
@@ -263,25 +267,36 @@ pub trait DeviceDriver: std::marker::Sized {
         // clipping_paths
         unsafe {
             let clipping_paths = Rf_protect(Rf_allocVector(INTSXP, 1));
-            *INTEGER(clipping_paths) = 0;
+            *INTEGER(clipping_paths) = R_NaInt;
             SET_VECTOR_ELT(cap, R_GE_capability_clippingPaths, clipping_paths);
             Rf_unprotect(1);
         }
 
         // masks
         unsafe {
-            let len = 2;
+            let len = 1; // TODO: 2
             let masks = Rf_protect(Rf_allocVector(INTSXP, len));
-            std::ptr::write_bytes(INTEGER(masks), 0, len);
+            *INTEGER(masks).offset(0) = R_NaInt;
+            // *INTEGER(masks).offset(1) = R_NaInt;
             SET_VECTOR_ELT(cap, R_GE_capability_masks, masks);
             Rf_unprotect(1);
         }
 
         // compositing
         unsafe {
-            let len = 11;
+            let len = 1; // TODO: 11
             let compositing = Rf_protect(Rf_allocVector(INTSXP, len));
-            std::ptr::write_bytes(INTEGER(compositing), 0, len);
+            *INTEGER(compositing).offset(0) = R_NaInt;
+            // *INTEGER(compositing).offset(1) = R_NaInt;
+            // *INTEGER(compositing).offset(2) = R_NaInt;
+            // *INTEGER(compositing).offset(3) = R_NaInt;
+            // *INTEGER(compositing).offset(4) = R_NaInt;
+            // *INTEGER(compositing).offset(5) = R_NaInt;
+            // *INTEGER(compositing).offset(6) = R_NaInt;
+            // *INTEGER(compositing).offset(7) = R_NaInt;
+            // *INTEGER(compositing).offset(8) = R_NaInt;
+            // *INTEGER(compositing).offset(9) = R_NaInt;
+            // *INTEGER(compositing).offset(10) = R_NaInt;
             SET_VECTOR_ELT(cap, R_GE_capability_compositing, compositing);
             Rf_unprotect(1);
         }
