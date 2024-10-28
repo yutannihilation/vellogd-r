@@ -23,6 +23,20 @@ NULL
   }
 }
 
+# Prohibit modifying environments
+
+#' @export
+`$<-.savvy_vellogd__sealed` <- function(x, name, value) {
+  class <- gsub("__bundle$", "", class(x)[1])
+  stop(class, " cannot be modified", call. = FALSE)
+}
+
+#' @export
+`[[<-.savvy_vellogd__sealed` <- function(x, i, value) {
+  class <- gsub("__bundle$", "", class(x)[1])
+  stop(class, " cannot be modified", call. = FALSE)
+}
+
 
 `vellogd_impl` <- function(`filename`, `width`, `height`) {
   invisible(.Call(savvy_vellogd_impl__impl, `filename`, `width`, `height`))
