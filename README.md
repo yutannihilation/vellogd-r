@@ -11,9 +11,9 @@ cross-platform 2D rendering engine with GPU.
 
 # Why yet another graphics device?
 
-You might wonder why do we need vellogd while there are already high-quality,
+You might wonder why we need vellogd while there are already high-quality,
 cross-platform graphics devices like [ragg] and [svglite]. Behind vellogd, I
-have two motivations.
+have mainly two motivations.
 
 [ragg]: https://ragg.r-lib.org/
 [svglite]: https://svglite.r-lib.org/
@@ -21,9 +21,9 @@ have two motivations.
 ## "Interactive" graphics device with extra features
 
 As far as I know, there's no cross-platform and **interactive** graphics device.
-R provides interactive graphics devices, but they are not cross-platform. They
-are implemented differently, which makes some features missing on some platform
-(e.g. [X11 on Windows doesn't provide `onIdle` event][coolbutuseless]).
+R provides interactive graphics devices, but they are not really cross-platform.
+They are implemented differently, which makes some features missing on some
+platform (e.g. [X11 on Windows doesn't provide `onIdle` event][coolbutuseless]).
 
 [coolbutuseless]: https://coolbutuseless.github.io/2022/05/06/introducing-eventloop-realtime-interactive-rendering-in-r/
 
