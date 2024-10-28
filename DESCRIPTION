@@ -1,5 +1,5 @@
 Package: vellogd
-Title: 'Vello' Graphics Device For R
+Title: A GPU-powered Interactive Graphics Device
 Version: 0.0.0.9000
 Authors@R: 
     c(person(given = "Hiroaki",

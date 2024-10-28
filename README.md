@@ -1,5 +1,5 @@
-vellogd: A Vello Graphics Device for R
-======================================
+vellogd: A GPU-powered Interactive Graphics Device for R
+========================================================
 
 [![R-CMD-check.yaml](https://github.com/yutannihilation/vellogd-r/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/yutannihilation/vellogd-r/actions/workflows/R-CMD-check.yaml)
 [![vellogd status badge](https://yutannihilation.r-universe.dev/badges/vellogd)](https://yutannihilation.r-universe.dev/vellogd)
