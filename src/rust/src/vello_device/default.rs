@@ -428,6 +428,10 @@ impl DeviceDriver for VelloGraphicsDevice {
                 };
 
                 // Do not reflect the tile drawing to screen
+                //
+                // TODO: this is not perfect because mode() API call will mess
+                // this flag. So, probably another flag or using accumulated
+                // value instead of a bool is needed.
                 VELLO_APP_PROXY
                     .stop_rendering
                     .store(true, Ordering::Relaxed);

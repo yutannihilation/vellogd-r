@@ -59,7 +59,7 @@ pub struct SceneDrawer {
     /// tile pattern).
     edited_scene: Arc<Mutex<Scene>>,
 
-    pub patterns: Arc<Mutex<Vec<FillPattern>>>,
+    patterns: Arc<Mutex<Vec<FillPattern>>>,
 
     // This is a bit tricky. Scene doesn't need to know the window size, but,
     // since R requires a flipped Y-axis, SceneDrawer needs to know how to flip,

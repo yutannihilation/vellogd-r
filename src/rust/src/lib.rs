@@ -61,32 +61,32 @@ fn save_as_png(filename: &str) -> savvy::Result<()> {
     }
 }
 
-#[savvy]
-fn dump_patterns() -> savvy::Result<()> {
-    use vellogd_shared::winit_app::VELLO_APP_PROXY;
+// #[savvy]
+// fn dump_patterns() -> savvy::Result<()> {
+//     use vellogd_shared::winit_app::VELLO_APP_PROXY;
 
-    let patterns = VELLO_APP_PROXY.scene.patterns.lock().unwrap();
-    for (i, ptn) in patterns.iter().enumerate() {
-        match ptn {
-            vellogd_shared::winit_app::FillPattern::Gradient(gradient) => {
-                savvy::r_eprintln!(
-                    "{i}: gradient
-{gradient:?}"
-                );
-            }
-            vellogd_shared::winit_app::FillPattern::Tiling(image) => {
-                let data_len = image.data.data().len();
-                savvy::r_eprintln!(
-                    "{i}: image
-data_len: {data_len}
-{image:?}",
-                );
-            }
-        }
-    }
+//     let patterns = VELLO_APP_PROXY.scene.patterns.lock().unwrap();
+//     for (i, ptn) in patterns.iter().enumerate() {
+//         match ptn {
+//             vellogd_shared::winit_app::FillPattern::Gradient(gradient) => {
+//                 savvy::r_eprintln!(
+//                     "{i}: gradient
+// {gradient:?}"
+//                 );
+//             }
+//             vellogd_shared::winit_app::FillPattern::Tiling(image) => {
+//                 let data_len = image.data.data().len();
+//                 savvy::r_eprintln!(
+//                     "{i}: image
+// data_len: {data_len}
+// {image:?}",
+//                 );
+//             }
+//         }
+//     }
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 #[savvy]
 fn vellogd_with_server_impl(
