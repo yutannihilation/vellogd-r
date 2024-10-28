@@ -33,7 +33,8 @@ interactive graphics device to be? Here's my wishlist, for example.
 
 * Zoom in and out by mousewheel
 * Support touch device
-* Provides an API for [Lottie animation](https://airbnb.io/lottie/)
+* Provide an API for [Lottie animation](https://airbnb.io/lottie/)
+* Provide an API to draw a bezier curve (why R provides no API...?)
 
 ## A showcase of the power of WebGPU
 
