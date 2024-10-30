@@ -49,8 +49,6 @@ fastrace = { version = "0.7", features = ["enable"] }
 peniko = { version = "*", default-features = false, features = ["serde"] }
 kurbo = { version = "*", default-features = false, features = ["serde"] }
 
-anyhow = "1.0"
-
 [profile.release]
 # By default, on release build, savvy terminates the R session when a panic
 # occurs. This is the right behavior in that a panic means such a fatal event
