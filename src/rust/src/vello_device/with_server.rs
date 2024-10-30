@@ -88,11 +88,13 @@ impl VelloGraphicsDeviceWithServer {
 
 impl WindowController for VelloGraphicsDeviceWithServer {
     fn send_event(&self, event: vellogd_shared::protocol::Request) -> savvy::Result<()> {
-        self.tx.send(event).map_err(|e| e.to_string().into())
+        self.tx.send(event)?;
+        Ok(())
     }
 
     fn recv_response(&self) -> savvy::Result<vellogd_shared::protocol::Response> {
-        self.rx.recv().map_err(|e| e.to_string().into())
+        let res = self.rx.recv()?;
+        Ok(res)
     }
 }
 

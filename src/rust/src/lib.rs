@@ -51,14 +51,10 @@ fn save_as_png(filename: &str) -> savvy::Result<()> {
             .tx
             .send_event(vellogd_shared::protocol::Request::SaveAsPng {
                 filename: filename.into(),
-            })
-            .map_err(|_| "failed to request to write out as PNG".into())
+            })?;
     }
 
-    #[cfg(not(feature = "use_winit"))]
-    {
-        Ok(())
-    }
+    Ok(())
 }
 
 // #[savvy]

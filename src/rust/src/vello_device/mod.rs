@@ -11,6 +11,7 @@ pub use no_winit::VelloGraphicsDevice;
 
 mod with_server;
 
+use savvy::savvy_err;
 use vellogd_shared::protocol::{Request, Response};
 pub use with_server::VelloGraphicsDeviceWithServer;
 
@@ -73,7 +74,7 @@ pub trait WindowController {
         self.send_event(Request::GetWindowSizes)?;
         match self.recv_response()? {
             Response::WindowSizes { width, height } => Ok((width, height)),
-            _ => Err("Unexpected result".into()),
+            _ => Err(savvy_err!("Unexpected result")),
         }
     }
 

@@ -13,7 +13,7 @@ use_winit = ["winit", "vellogd-shared/use_winit"]
 
 [dependencies]
 libc = "0.2.155"
-savvy = "*"
+savvy = { git = "https://github.com/yutannihilation/savvy.git", branch = "feat/error-conversion2" }
 vellogd-shared.workspace = true
 vello.workspace = true
 peniko.workspace = true

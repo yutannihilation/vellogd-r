@@ -37,15 +37,14 @@ impl VelloGraphicsDevice {
 
 impl WindowController for VelloGraphicsDevice {
     fn send_event(&self, event: Request) -> savvy::Result<()> {
-        VELLO_APP_PROXY
-            .tx
-            .send_event(event)
-            .map_err(|e| format!("Failed to send event {e:?}").into())
+        VELLO_APP_PROXY.tx.send_event(event)?;
+        Ok(())
     }
 
     fn recv_response(&self) -> savvy::Result<Response> {
-        let receiver = VELLO_APP_PROXY.rx.lock().map_err(|e| e.to_string())?;
-        receiver.recv().map_err(|e| e.to_string().into())
+        let receiver = VELLO_APP_PROXY.rx.lock()?;
+        let res = receiver.recv()?;
+        Ok(res)
     }
 }
 
