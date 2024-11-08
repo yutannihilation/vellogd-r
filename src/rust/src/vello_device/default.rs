@@ -290,22 +290,12 @@ impl DeviceDriver for VelloGraphicsDevice {
 
         let scale = (size.0 / pixels.0 as f64, size.1 / pixels.1 as f64);
 
-        // when the pixel is small enough, it's not a problem, but if it's
-        // large, this needs a tweak.
-        let with_extended_edge = scale.0 > 1.0 || scale.1 > 1.0;
-
-        #[cfg(debug_assertions)]
-        {
-            savvy::r_eprintln!("with_extended_edge : {with_extended_edge}");
-        }
-
         let image = convert_to_image(
             raster,
             pixels.0 as usize,
             pixels.1 as usize,
             peniko::Extend::Pad,
             alpha,
-            with_extended_edge,
         );
 
         let window_height = VELLO_APP_PROXY.height.load(Ordering::Relaxed) as f64;
@@ -313,7 +303,7 @@ impl DeviceDriver for VelloGraphicsDevice {
 
         VELLO_APP_PROXY
             .scene
-            .draw_raster(&image, scale, pos.into(), angle, with_extended_edge);
+            .draw_raster(&image, scale, pos.into(), angle);
     }
 
     // TODO
