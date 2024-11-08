@@ -40,7 +40,7 @@ ipc-channel = "0.18.3"
 winit = "0.30"
 pollster = "0.3"
 
-vello = "0.3"
+vello = { git = "https://github.com/linebender/vello" }
 parley = "0.2"
 fastrace = { version = "0.7", features = ["enable"] }
 
