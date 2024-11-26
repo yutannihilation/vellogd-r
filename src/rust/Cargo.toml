@@ -38,10 +38,10 @@ vellogd-shared = { path = "./vellogd-shared", default-features = false }
 
 ipc-channel = "0.18.3"
 winit = "0.30"
-pollster = "0.3"
+pollster = "0.4"
 
 vello = { git = "https://github.com/linebender/vello" }
-parley = "0.2"
+parley = { git = "https://github.com/linebender/parley" }
 fastrace = { version = "0.7", features = ["enable"] }
 
 # While vello exposes peniko and kurbo, it doesn't provide the serde feature
