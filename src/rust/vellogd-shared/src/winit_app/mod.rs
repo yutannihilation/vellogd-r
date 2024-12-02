@@ -683,6 +683,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
             }
             Request::NewPage => {
                 self.scene.reset();
+                self.lottie_compositions.clear();
                 self.needs_redraw.store(true, Ordering::Relaxed);
             }
             Request::GetWindowSizes => {
