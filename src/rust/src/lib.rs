@@ -57,6 +57,22 @@ fn save_as_png(filename: &str) -> savvy::Result<()> {
     Ok(())
 }
 
+#[savvy]
+fn add_lottie_animation(filename: &str) -> savvy::Result<()> {
+    #[cfg(feature = "use_winit")]
+    {
+        use vellogd_shared::winit_app::VELLO_APP_PROXY;
+
+        VELLO_APP_PROXY
+            .tx
+            .send_event(vellogd_shared::protocol::Request::AddLottieAnimation {
+                filename: filename.into(),
+            })?;
+    }
+
+    Ok(())
+}
+
 // #[savvy]
 // fn dump_patterns() -> savvy::Result<()> {
 //     use vellogd_shared::winit_app::VELLO_APP_PROXY;

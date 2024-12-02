@@ -7,6 +7,7 @@ mod wgpu_util;
 
 use std::{
     num::NonZeroUsize,
+    str::FromStr,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
         Arc, LazyLock, Mutex,
@@ -764,6 +765,12 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 let index = patterns.len() - 1;
 
                 self.tx.respond(Response::PatternRegistered { index });
+            }
+
+            Request::AddLottieAnimation { filename } => {
+                let lottie = std::fs::read_to_string(&filename).unwrap();
+                let composition = velato::Composition::from_str(&lottie).unwrap();
+                self.lottie_compositions.push(composition);
             }
 
             // ignore other events
