@@ -379,6 +379,9 @@ pub struct VelloApp<'a, T: AppResponseRelay> {
     renderers: Vec<Option<Renderer>>,
     state: RenderState<'a>,
     scene: SceneDrawer,
+    lottie_renderer: velato::Renderer,
+    lottie_compositions: Vec<velato::Composition>,
+    elapsed: std::time::Instant,
     needs_redraw: Arc<AtomicBool>,
     width: Arc<AtomicU32>,
     height: Arc<AtomicU32>,
@@ -405,6 +408,9 @@ impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
             renderers: vec![],
             state: RenderState::Suspended(None),
             scene,
+            lottie_renderer: velato::Renderer::new(),
+            lottie_compositions: vec![],
+            elapsed: std::time::Instant::now(),
             needs_redraw,
             width,
             height,
@@ -595,6 +601,20 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                     .surface
                     .get_current_texture()
                     .expect("failed to get surface texture");
+
+                for animation in &self.lottie_compositions {
+                    // c.f. https://github.com/linebender/velato/blob/2d6cd9516f93d662c6ea4096bbf837b8151dfc76/examples/scenes/src/lottie.rs#L106-L108
+                    let frame = ((self.elapsed.elapsed().as_secs_f64() * animation.frame_rate)
+                        % (animation.frames.end - animation.frames.start))
+                        + animation.frames.start;
+                    self.lottie_renderer.append(
+                        animation,
+                        frame,
+                        vello::kurbo::Affine::IDENTITY,
+                        1.0,
+                        &mut self.scene.scene(),
+                    );
+                }
 
                 if let Some(renderer) = self.renderers[surface.dev_id].as_mut() {
                     let base_color = {
