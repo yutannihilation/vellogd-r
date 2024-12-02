@@ -674,7 +674,9 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 // TODO
             }
             Request::RedrawWindow => {
-                if self.needs_redraw.load(Ordering::Relaxed) {
+                // always redraw if there's animation
+                if self.needs_redraw.load(Ordering::Relaxed) || !self.lottie_compositions.is_empty()
+                {
                     render_state.window.request_redraw();
                 }
             }
