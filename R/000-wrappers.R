@@ -48,6 +48,11 @@ NULL
 }
 
 
+`add_lottie_animation` <- function(`filename`) {
+  invisible(.Call(savvy_add_lottie_animation__impl, `filename`))
+}
+
+
 `vellogd_with_server_impl` <- function(`filename`, `width`, `height`, `server` = NULL) {
   invisible(.Call(savvy_vellogd_with_server_impl__impl, `filename`, `width`, `height`, `server`))
 }
