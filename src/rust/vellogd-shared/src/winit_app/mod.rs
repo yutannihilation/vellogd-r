@@ -7,6 +7,7 @@ mod wgpu_util;
 
 use std::{
     num::NonZeroUsize,
+    str::FromStr,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
         Arc, LazyLock, Mutex,
@@ -379,6 +380,9 @@ pub struct VelloApp<'a, T: AppResponseRelay> {
     renderers: Vec<Option<Renderer>>,
     state: RenderState<'a>,
     scene: SceneDrawer,
+    lottie_renderer: velato::Renderer,
+    lottie_compositions: Vec<velato::Composition>,
+    elapsed: std::time::Instant,
     needs_redraw: Arc<AtomicBool>,
     width: Arc<AtomicU32>,
     height: Arc<AtomicU32>,
@@ -405,6 +409,9 @@ impl<'a, T: AppResponseRelay> VelloApp<'a, T> {
             renderers: vec![],
             state: RenderState::Suspended(None),
             scene,
+            lottie_renderer: velato::Renderer::new(),
+            lottie_compositions: vec![],
+            elapsed: std::time::Instant::now(),
             needs_redraw,
             width,
             height,
@@ -596,6 +603,25 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                     .get_current_texture()
                     .expect("failed to get surface texture");
 
+                // TODO: `scene` needs to be cloned because the lottie animation
+                // needs to be drawn freshly on every frame. Can this be more
+                // efficient?
+                let mut scene = self.scene.scene().clone();
+
+                for animation in &self.lottie_compositions {
+                    // c.f. https://github.com/linebender/velato/blob/2d6cd9516f93d662c6ea4096bbf837b8151dfc76/examples/scenes/src/lottie.rs#L106-L108
+                    let frame = ((self.elapsed.elapsed().as_secs_f64() * animation.frame_rate)
+                        % (animation.frames.end - animation.frames.start))
+                        + animation.frames.start;
+                    self.lottie_renderer.append(
+                        animation,
+                        frame,
+                        vello::kurbo::Affine::IDENTITY,
+                        1.0,
+                        &mut scene,
+                    );
+                }
+
                 if let Some(renderer) = self.renderers[surface.dev_id].as_mut() {
                     let base_color = {
                         let [r, g, b, a] = self.base_color.load(Ordering::Relaxed).to_ne_bytes();
@@ -605,7 +631,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                         .render_to_surface(
                             &device_handle.device,
                             &device_handle.queue,
-                            &self.scene.scene(),
+                            &scene,
                             &surface_texture,
                             &vello::RenderParams {
                                 base_color,
@@ -648,7 +674,9 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 // TODO
             }
             Request::RedrawWindow => {
-                if self.needs_redraw.load(Ordering::Relaxed) {
+                // always redraw if there's animation
+                if self.needs_redraw.load(Ordering::Relaxed) || !self.lottie_compositions.is_empty()
+                {
                     render_state.window.request_redraw();
                 }
             }
@@ -657,6 +685,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
             }
             Request::NewPage => {
                 self.scene.reset();
+                self.lottie_compositions.clear();
                 self.needs_redraw.store(true, Ordering::Relaxed);
             }
             Request::GetWindowSizes => {
@@ -739,6 +768,12 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                 let index = patterns.len() - 1;
 
                 self.tx.respond(Response::PatternRegistered { index });
+            }
+
+            Request::AddLottieAnimation { filename } => {
+                let lottie = std::fs::read_to_string(&filename).unwrap();
+                let composition = velato::Composition::from_str(&lottie).unwrap();
+                self.lottie_compositions.push(composition);
             }
 
             // ignore other events

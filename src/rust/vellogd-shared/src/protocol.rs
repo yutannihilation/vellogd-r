@@ -115,6 +115,9 @@ pub enum Request {
         angle: f32,
         hadj: f32,
     },
+    AddLottieAnimation {
+        filename: String,
+    },
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
