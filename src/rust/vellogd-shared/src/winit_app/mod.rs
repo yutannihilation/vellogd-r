@@ -602,6 +602,11 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                     .get_current_texture()
                     .expect("failed to get surface texture");
 
+                // TODO: `scene` needs to be cloned because the lottie animation
+                // needs to be drawn freshly on every frame. Can this be more
+                // efficient?
+                let mut scene = self.scene.scene().clone();
+
                 for animation in &self.lottie_compositions {
                     // c.f. https://github.com/linebender/velato/blob/2d6cd9516f93d662c6ea4096bbf837b8151dfc76/examples/scenes/src/lottie.rs#L106-L108
                     let frame = ((self.elapsed.elapsed().as_secs_f64() * animation.frame_rate)
@@ -612,7 +617,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                         frame,
                         vello::kurbo::Affine::IDENTITY,
                         1.0,
-                        &mut self.scene.scene(),
+                        &mut scene,
                     );
                 }
 
@@ -625,7 +630,7 @@ impl<'a, T: AppResponseRelay> ApplicationHandler<Request> for VelloApp<'a, T> {
                         .render_to_surface(
                             &device_handle.device,
                             &device_handle.queue,
-                            &self.scene.scene(),
+                            &scene,
                             &surface_texture,
                             &vello::RenderParams {
                                 base_color,
